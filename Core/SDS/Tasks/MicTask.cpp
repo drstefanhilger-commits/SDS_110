@@ -72,8 +72,9 @@ void MicTask::onStart()
 void MicTask::runOnce()
 {
 	switch (dm.getMode()) {
-		case 1: detectHandler(); break;
-		case 2: claibrateHandler(); break;
+		case 1: detectHandler(); break;		//Mode Detect
+		case 2: detectHandler(); break;		// Mode Read
+		case 3: claibrateHandler(); break;
 		default: errorHandler(); break;
 	}
 }

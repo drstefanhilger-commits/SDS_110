@@ -54,6 +54,8 @@
 // Temporary global buffer (to be moved into Model)
 extern SRPBuffers g_srp;
 
+extern SDS_USB_MicSender usbSender;
+
 // ---------------------------------------------------------------------------
 // Constructor: initializes base task and distance estimator.
 // ---------------------------------------------------------------------------
@@ -78,8 +80,8 @@ void SRPTask::onStart()
 void SRPTask::runOnce() {
 	switch (dm.getMode()) {
 		case 1: detectHandler(); break;
-		case 2: claibrateHandler(); break;
-		case 3:	readHandler(); break;
+		case 2:	readHandler(); break;
+		case 3: claibrateHandler(); break;
 		default: errorHandler(); break;
 	}
 
@@ -113,12 +115,11 @@ void SRPTask::detectHandler()
     // az          = srp.filterAzimuth(az);
 
     // 3) Distance estimation using DAS frame
-    dr = distEst.process(
-            das.makeFrame(micBuffer->data,
-                          SDS_AZ_MIN,
-                          SDS_AZ_MAX,
-                          SDS_AZ_STEP,
-                          1000));
+    dr = distEst.process(das.makeFrame(micBuffer->data,
+                         SDS_AZ_MIN,
+                         SDS_AZ_MAX,
+                         SDS_AZ_STEP,
+                         1000));
 
     dm.setDistance(dr.distance_m);
 
@@ -141,9 +142,40 @@ void SRPTask::claibrateHandler() {
 
 }
 
+
+SDS_MsgRead msgXXX;
+
 // Handler for reading sound samples and writing via USB
 void SRPTask::readHandler() {
 
+    // Fertigen Buffer holen
+    MicBuffer* rb = micBufferManager.getReadableBuffer();
+    if (!rb) {
+    	uint8_t rxBuffer[12] = {0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF};
+    	memcpy(dm.getErrorBuffer(), rxBuffer, 12);
+    	dm.setLcdLoopCounter(0);
+    	dm.setSrpLoopCounter(0);
+    	dm.setErrorCount(30);	// ~10 sec
+        return; // kein fertiger Block → nichts zu tun
+
+    }
+
+    // USB senden
+    bool ok = usbSender.send(rb);
+
+    // Buffer freigeben
+    micBufferManager.markFree(rb);
+
+    // Optional: Fehlerbehandlung
+    if (!ok) {
+    	uint8_t rxBuffer[12] = {0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB};
+    	memcpy(dm.getErrorBuffer(), rxBuffer, 12);
+    	dm.setLcdLoopCounter(0);
+    	dm.setSrpLoopCounter(0);
+    	dm.setErrorCount(30);	// ~10 sec
+        // USB überlastet oder blockiert
+        // → keine SRP-Pipeline, nur Logging
+    }
 }
 
 // Error-Handler

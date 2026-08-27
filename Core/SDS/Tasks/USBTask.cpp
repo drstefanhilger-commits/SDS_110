@@ -64,6 +64,8 @@ void USBTask::HandleStateChange(uint8_t* rxBuffer) {
 			dm.setSrpLoopCounter(0);
 			dm.setId(rxBuffer[0]);	//Debug
 		}
+	} else {
+		HandleError(rxBuffer);
 	}
 }
 
@@ -73,6 +75,8 @@ void USBTask::HandleUnixTimeSync(uint8_t* rxBuffer) {
 		uint32_t time = (rxBuffer[4] << 24) |(rxBuffer[5] << 16) | (rxBuffer[6] << 8) | rxBuffer[7];
 		dm.setSyncTimeDifference(time);
 	    dm.setId(rxBuffer[0]);	//Debug
+	} else {
+		HandleError(rxBuffer);
 	}
 }
 
@@ -85,11 +89,17 @@ void USBTask::HandleSetSimuation(uint8_t* rxBuffer) {
 		dm.setLcdLoopCounter(0);
 		dm.setSrpLoopCounter(0);
 	    dm.setId(rxBuffer[0]);	//Debug
+	} else {
+		HandleError(rxBuffer);
 	}
 }
 
 void USBTask::HandleError(uint8_t* rxBuffer) {
-	//dm.setDebugValue(rxBuffer[0])
-	//dm.setId(rxBuffer[0]);
+	dm.setErrorFlag(1);
+	dm.setErrorLen(12);
+	memcpy(dm.getErrorBuffer(), rxBuffer, 12);
+	dm.setLcdLoopCounter(0);
+	dm.setSrpLoopCounter(0);
+	dm.setErrorCount(30);	// ~10 sec
 }
 

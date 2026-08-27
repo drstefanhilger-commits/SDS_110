@@ -17,11 +17,11 @@
  */
 
 #pragma once
+#include <USBDriver.hpp>
 #include "TaskBase.hpp"
 #include "FreeRTOS.h"
 #include "queue.h"
 
-#include "USBDriver.h"
 #include "Model.hpp"
 
 class USBTask : public TaskBase
@@ -50,4 +50,6 @@ private:
     SDS_Data& dm = SDS_Data::instance();
     QueueHandle_t usbRxQueue = nullptr;
     size_t MAX_LENGTH = 64;
+
+
 };

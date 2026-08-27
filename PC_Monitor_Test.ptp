@@ -24,42 +24,42 @@ CHANNELALIAS
 
 SEND
 0
-Sync
+Time Sync
 01 00 00 0C 00 00 00 00 C0 C3 A4 66
 1
 5
 
 SEND
 1
-Mode 1
+Detect
 02 00 00 0C 00 00 00 01 00 00 00 00
 0
 5
 
 SEND
 2
-Mode 2
+Calibrate
 02 00 00 0C 00 00 00 02 00 00 00 00
 0
 5
 
 SEND
 3
-Mode 3
+Read
 02 00 00 0C 00 00 00 03 00 00 00 00
 0
 5
 
 SEND
 4
-Simulation 0
+Real
 03 00 00 0C 00 00 00 00 00 00 00 00
 0
 5
 
 SEND
 5
-Simulation 1
+Simulation
 03 00 00 0C 00 00 00 01 00 00 00 00
 0
 5

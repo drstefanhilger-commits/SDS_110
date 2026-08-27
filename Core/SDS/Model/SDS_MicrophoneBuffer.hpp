@@ -1,53 +1,7 @@
 /*
  * SDS_MicrophoneBuffer.hpp
  *
- * Real‑Time Buffering Description
- * -------------------------------
- * SDS_MicrophoneBuffer implements the deterministic triple‑buffer system
- * used for microphone data acquisition in the SDS (Sensor‑DSP‑System).
- *
- * The buffer model is designed for:
- *   - 8‑channel microphone arrays (ADAU7118)
- *   - fixed block size SDS_BLOCK_SIZE
- *   - real‑time DSP processing (SRP‑PHAT, DAS, FFT)
- *   - zero‑copy handoff between acquisition and DSP tasks
- *
- * Buffering Model:
- * ----------------
- * Three MicBuffer instances are used in a rotating fashion:
- *
- *      buffers[0]   buffers[1]   buffers[2]
- *
- * Each buffer has a state:
- *
- *      BUF_FREE      : available for writing
- *      BUF_WRITING   : acquisition task is filling the buffer
- *      BUF_READY     : buffer contains a complete frame
- *      BUF_READING   : DSP task is processing the buffer
- *
- * This ensures:
- *   - no overwriting of data currently being processed
- *   - no blocking of acquisition due to DSP load
- *   - deterministic timing under RTOS scheduling
- *
- * Thread‑Safety:
- * --------------
- * All buffer state transitions are protected by a CMSIS‑RTOS2 mutex.
- * This prevents race conditions between:
- *
- *   - MicTask (producer)
- *   - SRPTask / DSPTask (consumer)
- *
- * Timing Model:
- * -------------
- * The acquisition task fills one buffer per DSP cycle:
- *
- *      T = SDS_BLOCK_SIZE / sampleRate
- *
- * The DSP task consumes one buffer per runOnce() cycle.
- *
- * Created on: Aug 12, 2026
- * Author: Stefan (310004)
+ * Deterministic Triple‑Buffer System for 8‑Channel Microphone Arrays
  */
 
 #pragma once
@@ -59,53 +13,62 @@
 #include "SDS_Params.hpp"
 
 // ---------------------------------------------------------------------------
-// Buffer states for deterministic triple‑buffering
+// Buffer states
 // ---------------------------------------------------------------------------
 enum BufferState : uint8_t {
-    BUF_FREE    = 0,   // buffer available for writing
-    BUF_WRITING = 1,   // acquisition task is filling the buffer
-    BUF_READY   = 2,   // buffer contains a complete frame
-    BUF_READING = 3    // DSP task is processing the buffer
+    BUF_FREE    = 0,
+    BUF_WRITING = 1,
+    BUF_READY   = 2,
+    BUF_READING = 3
 };
 
 // ---------------------------------------------------------------------------
-// 8‑channel microphone buffer
+// Triple‑buffer (float)
 // ---------------------------------------------------------------------------
 struct MicBuffer {
-    BufferState state;                                 // current buffer state
-    float data[SDS_NUM_MICS][SDS_BLOCK_SIZE];          // microphone samples
+    BufferState state;
+    float data[SDS_NUM_MICS][SDS_BLOCK_SIZE];
+    uint32_t writeIndex;
 };
 
 // ---------------------------------------------------------------------------
-// Triple‑buffer manager
+// Manager
 // ---------------------------------------------------------------------------
 class SDS_MicrophoneBuffer
 {
 public:
-    // Singleton instance — ensures a single buffer manager exists.
     static SDS_MicrophoneBuffer& instance();
 
-    // Acquire a free buffer for writing (MicTask)
     MicBuffer* getFreeBuffer();
-
-    // Acquire a ready buffer for reading (SRPTask / DSPTask)
     MicBuffer* getReadableBuffer();
-
-    // Mark buffer as ready after writing
     void markReadable(MicBuffer* b);
-
-    // Mark buffer as free after DSP processing
     void markFree(MicBuffer* b);
 
+    // ISR‑safe entry point
+    void pushSample(uint8_t ch, float sample);
+
+    // DMA buffer for ADAU7118 (int32_t TDM frames)
+    int32_t* rxBuffer();
+    uint32_t rxBufferSize();
+
 private:
-    // Constructor: initializes buffer states and mutex
     SDS_MicrophoneBuffer();
 
-    // Disable copy operations (singleton)
-    SDS_MicrophoneBuffer(const SDS_MicrophoneBuffer&) = delete;
-    SDS_MicrophoneBuffer& operator=(const SDS_MicrophoneBuffer&) = delete;
+    MicBuffer buffers[3];
+    osMutexId_t mutex;
 
-private:
-    MicBuffer buffers[3];      // triple‑buffer array
-    osMutexId_t mutex;         // RTOS mutex for thread‑safe access
+    MicBuffer* activeWriteBuffer;
+
+    // NEW: DMA buffer for ADAU7118
+    int32_t dmaBuffer[SDS_NUM_MICS * SDS_BLOCK_SIZE];
 };
+
+// ---------------------------------------------------------------------------
+// C‑bridge for ADAU7118 driver
+// ---------------------------------------------------------------------------
+extern "C" int32_t* SDS_GetRxBuffer();
+extern "C" uint32_t SDS_GetRxBufferSize();
+extern "C" int SDS_GetNumMics();
+
+// Called from ADAU7118 driver
+extern "C" void ADAU7118_OnSample(uint8_t ch, int32_t pcm24);

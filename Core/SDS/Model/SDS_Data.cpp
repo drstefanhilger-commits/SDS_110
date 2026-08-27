@@ -68,11 +68,14 @@ SDS_Data::SDS_Data()
       debugValue3(0.0f),
 	  id(0),
 	  mode(1),
-	  simulation(0),
+	  simulation(1),
 	  syncTimeDifference(0),
 	  micLoopCounter(0),
 	  lcdLoopCounter(0),
 	  srpLoopCounter(0),
+	  errorFlag(0),
+	  errorLen(0),
+	  errorCount(0),
       eventQueue(nullptr)
 {
     // Create mutex for thread‑safe access
@@ -258,6 +261,33 @@ void SDS_Data::setSrpLoopCounter(uint32_t val)
 //    pushEvent(SDS_DataEventType::DEBUG_UPDATE, 0.0f);
 }
 
+void SDS_Data::setErrorFlag(uint32_t val)
+{
+    osMutexAcquire(mutex, osWaitForever);
+    errorFlag = val;
+    osMutexRelease(mutex);
+
+//    pushEvent(SDS_DataEventType::DEBUG_UPDATE, 0.0f);
+}
+
+void SDS_Data::setErrorLen(uint32_t val)
+{
+    osMutexAcquire(mutex, osWaitForever);
+    errorLen = val;
+    osMutexRelease(mutex);
+
+//    pushEvent(SDS_DataEventType::DEBUG_UPDATE, 0.0f);
+}
+
+void SDS_Data::setErrorCount(uint32_t val)
+{
+    osMutexAcquire(mutex, osWaitForever);
+    errorCount = val;
+    osMutexRelease(mutex);
+
+//    pushEvent(SDS_DataEventType::DEBUG_UPDATE, 0.0f);
+}
+
 // ---------------------------------------------------------------------------
 // Read API — DisplayManager reads shared state
 // ---------------------------------------------------------------------------
@@ -396,3 +426,36 @@ uint32_t SDS_Data::getSrpLoopCounter() const
     osMutexRelease(mutex);
     return val;
 }
+
+uint32_t SDS_Data::getErrorFlag() const
+{
+    osMutexAcquire(mutex, osWaitForever);
+    uint32_t val = errorFlag;
+    osMutexRelease(mutex);
+    return val;
+}
+
+uint32_t SDS_Data::getErrorLen() const
+{
+    osMutexAcquire(mutex, osWaitForever);
+    uint32_t val = errorLen;
+    osMutexRelease(mutex);
+    return val;
+}
+
+uint8_t* SDS_Data::getErrorBuffer()
+{
+    osMutexAcquire(mutex, osWaitForever);
+    uint8_t* ptr = &_errorBuffer[0];
+    osMutexRelease(mutex);
+    return ptr;
+}
+
+uint32_t SDS_Data::getErrorCount()
+{
+    osMutexAcquire(mutex, osWaitForever);
+    uint32_t val = errorCount;
+    osMutexRelease(mutex);
+    return val;
+}
+

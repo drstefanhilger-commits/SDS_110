@@ -82,6 +82,7 @@ void LCDTask::runOnce()
     if (dm.getMode()==1) {
     	showDetecktion();
     }
+    showError();
     // Swap framebuffer (double buffering)
     pGfx->activateFrameBuffer();
 
@@ -94,7 +95,7 @@ void LCDTask::showRadar() {
     pGfx->text8x12(420, 10, "1.05", Color::White);
 
     // Draw reference geometry
-    pGfx->line(235, 10, 220, 262, Color::Red);     							// vertical reference line
+    pGfx->line(235, 10, 235, 242, Color::Red);     							// vertical reference line
     pGfx->circle(x0, y0, R,   Color::White);       							// outer circle
     pGfx->circle(x0, y0, dm.getDebugValue3()*distFac, Color::Yellow);       // inner circle (trueDist)
 
@@ -122,6 +123,15 @@ void LCDTask::showSystemData() {
     // -----------------------------------------------------------------------
     // Debug values (temporary placeholders)
     // -----------------------------------------------------------------------
+    switch (dm.getMode()) {
+    case 1: 	pGfx->text8x12(10, 170, "Mode: DETECT", Color::White); break;
+    case 2: 	pGfx->text8x12(10, 170, "Mode: READ", Color::White); break;
+    case 3: 	pGfx->text8x12(10, 170, "Mode: CALI", Color::White); break;
+    default: 	pGfx->text8x12(10, 170, "Mode: ERROR", Color::White); break;
+    }
+    snprintf(buf, sizeof(buf), "%s", (dm.getSimulation()== 0 ? "Real" : "Simulated"));
+    pGfx->text8x12(145, 170, buf, Color::White);
+
     snprintf(buf, sizeof(buf), "SRPPhat Time   %.3f", dm.getSRPPhatTime());
     pGfx->text8x12(10, 180, buf, Color::White);
 
@@ -141,17 +151,8 @@ void LCDTask::showSystemData() {
         pGfx->text8x12(10, 220, buf, Color::White);
     }
 
-    snprintf(buf, sizeof(buf), "USB timeSync   %ld  %d", usb_debug_counter, dm.getId());
+    snprintf(buf, sizeof(buf), "USB timeSync   %ld", usb_debug_counter);
     pGfx->text8x12(10, 230, buf, Color::White);
-
-    switch (dm.getMode()) {
-    case 1: 	pGfx->text8x12(10, 170, "Mode: DETECT", Color::White); break;
-    case 2: 	pGfx->text8x12(10, 170, "Mode: CALI", Color::White); break;
-    case 3: 	pGfx->text8x12(10, 170, "Mode: READ", Color::White); break;
-    default: 	pGfx->text8x12(10, 170, "Mode: ERROR", Color::White); break;
-    }
-    snprintf(buf, sizeof(buf), "%s", (dm.getSimulation()== 0 ? "Real" : "Simulated"));
-    pGfx->text8x12(145, 170, buf, Color::White);
 }
 
 // Show Detections();
@@ -184,4 +185,23 @@ void LCDTask::showDetecktion() {
 		snprintf(buf, sizeof(buf), "True Distance  %.3f", dm.getDebugValue3());
 		pGfx->text8x12(10, 50, buf, Color::White);
     }
+}
+
+void LCDTask::showError() {
+	if (dm.getErrorFlag()) {
+		uint32_t count = dm.getErrorCount();
+		if (count > 0) {
+			dm.setErrorCount(count - 1);
+			uint8_t* ebuf = dm.getErrorBuffer();
+		    snprintf(buf, sizeof(buf), "%x %x %x %x   %x %x %x %x   %x %x %x %x ",
+		    							ebuf[0], ebuf[1], ebuf[2], ebuf[3], ebuf[4], ebuf[5],
+										ebuf[6], ebuf[7], ebuf[8], ebuf[9], ebuf[10], ebuf[11]);
+		    pGfx->text8x12(10, 250, buf, Color::White);
+		} else {
+			dm.setErrorFlag(0);
+			dm.setErrorCount(0);
+		}
+	}
+
+
 }

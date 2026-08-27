@@ -78,8 +78,11 @@ private:
     // Show System Data
     void showSystemData();
 
-    // Show Detections();
+    // Show Detections
     void showDetecktion();
+
+    // Show Errors;
+    void showError();
 
 private:
     // Global data model containing DSP results.

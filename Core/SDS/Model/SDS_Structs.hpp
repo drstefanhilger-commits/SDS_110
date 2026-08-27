@@ -13,17 +13,6 @@
  *   - LCDTask (visualization)
  *   - SystemManager (state aggregation)
  *
- * The structs are designed for deterministic real‑time behavior and contain:
- *
- *   - SRP‑PHAT frames
- *   - distance estimation results
- *   - tracking states
- *   - system states
- *   - event messages for RTOS queues
- *
- * All timestamps are expressed in milliseconds and are intended to be
- * generated using DWTTimer or osKernelGetTickCount().
- *
  * Created on: Jul 28, 2026
  * Author: Stefan (310004)
  */
@@ -31,118 +20,163 @@
 #pragma once
 #include <cstdint>
 #include <vector>
+#include "SDS_PARAMS.hpp"
 
 // ======================================================
 //  SDS DATA MODEL – Shared Event Types
 // ======================================================
-//
-// These event types are used in SDS_DataEvent and RTOS message queues.
-// They allow tasks to signal updates without polling.
-//
 enum class SDS_DataEventType : uint8_t {
-    SRP_UPDATE,      // SRP‑PHAT result updated
-    DEBUG_UPDATE,    // debug values updated
-    MICBLOCK_UPDATE  // new microphone block available
+    SRP_UPDATE,
+    DEBUG_UPDATE,
+    MICBLOCK_UPDATE
 };
 
 // ======================================================
 //  SDS DATA MODEL – Mode Event Types
 // ======================================================
-//
-// These event types are used in PC-Monitor message.
-// They allow tasks to change the mode.
-//
 enum class SDS_ModeEventType : uint32_t {
-    DETECT    = 1,      	// Standard Detecting
-    CALIBRATE = 2,    	    // Calibrating
-    READ      = 3, 			// Reading and Writing via USB
-	ERROR	  = 99
+    DETECT    = 1,
+    CALIBRATE = 2,
+    READ      = 3,
+    ERROR     = 99
 };
 
 // ======================================================
 //  SDS DATA MODEL – Shared Structures
 // ======================================================
 
-// -------------------- 3D Vector (microphone positions) --------------------
-struct Vec3
-{
-    float x;
-    float y;
-    float z;
-};
+struct Vec3 { float x; float y; float z; };
 
-// -------------------- SDS Event (high‑level DSP result) --------------------
 struct SDSEvent {
-    float    azimuth_deg;   // estimated azimuth (degrees)
-    float    distance_m;    // estimated distance (meters)
-    float    confidence;    // confidence 0..1
-    uint32_t timestamp_ms;  // event timestamp
+    float    azimuth_deg;
+    float    distance_m;
+    float    confidence;
+    uint32_t timestamp_ms;
 };
 
-// -------------------- SRP FRAME (full SRP‑PHAT result) --------------------
 struct SRPFrame {
-    const float* srp_grid;     // pointer to SRP‑PHAT grid (size ntheta)
-    int          ntheta;       // number of azimuth bins
-    float        dtheta_deg;   // angular resolution (degrees)
-    float        azimuth_deg;  // peak azimuth (maximum SRP energy)
-    uint32_t     timestamp_ms; // timestamp of SRP computation
-    bool         valid;        // frame validity
-    float        peak_value;   // maximum SRP amplitude
+    const float* srp_grid;
+    int          ntheta;
+    float        dtheta_deg;
+    float        azimuth_deg;
+    uint32_t     timestamp_ms;
+    bool         valid;
+    float        peak_value;
 };
 
-// -------------------- Distance Estimation Result --------------------
 struct DistanceResult {
-    float    distance_m;       // estimated distance
-    float    confidence;       // confidence 0..1
-    float    azimuth_deg;      // azimuth used for tracking
-    uint32_t timestamp_ms;     // timestamp
-    bool     valid;            // result validity
+    float    distance_m;
+    float    confidence;
+    float    azimuth_deg;
+    uint32_t timestamp_ms;
+    bool     valid;
 };
 
-// -------------------- Tracking State (filtered DSP output) --------------------
 struct TrackState {
-    float    azimuth_deg;      // filtered azimuth
-    float    distance_m;       // filtered distance
-    float    confidence;       // filtered confidence
-    uint32_t timestamp_ms;     // timestamp
-    bool     valid;            // state validity
+    float    azimuth_deg;
+    float    distance_m;
+    float    confidence;
+    uint32_t timestamp_ms;
+    bool     valid;
 };
 
-// -------------------- System State (aggregated UI state) --------------------
 struct SystemState {
-    float    angle_deg;        // current angle
-    float    distance_m;       // current distance
-    float    confidence;       // confidence
-    bool     detected;         // detection flag
-    uint8_t  activeMask;       // active microphone mask
-    uint8_t  activeCount;      // number of active microphones
+    float angle_deg;
+    float distance_m;
+    float confidence;
+    bool  detected;
+    uint8_t activeMask;
+    uint8_t activeCount;
 };
 
-// -------------------- Detection State --------------------
 struct DetectionState {
-    bool  detected;            // detection flag
-    float confidence;          // confidence 0..1
+    bool  detected;
+    float confidence;
 };
 
-// -------------------- SDS Data Event (RTOS queue message) --------------------
 struct SDS_DataEvent {
-    SDS_DataEventType type;    // event type
-    float              processTime; // execution time in ms
+    SDS_DataEventType type;
+    float              processTime;
 };
 
-// -------------------- SDS message --------------------
 struct SDS_UnixTimeSync {
-	uint8_t id			= 0x01;
-	uint8_t size[3]		= {0x00, 0x00, 0x0C};
-	uint8_t time[4]		= {0x00, 0x00, 0x00, 0x00};
-	uint8_t crc[4]      = {0x00, 0x00, 0x00, 0x00};
+    uint8_t id      = 0x01;
+    uint8_t size[3] = {0x00, 0x00, 0x0C};
+    uint8_t time[4] = {0x00, 0x00, 0x00, 0x00};
+    uint8_t crc[4]  = {0x00, 0x00, 0x00, 0x00};
 };
 
-// -------------------- SDS message --------------------
 struct SDS_ModeChange {
-	uint8_t id 			= 0x02;
-	uint8_t size[3]		= {0x00, 0x00, 0x0C};
-	uint8_t mode[4]		= {0x00, 0x00, 0x00, 0x01};
-	uint8_t crc[4]		= {0x00, 0x00, 0x00, 0x00};
+    uint8_t id      = 0x02;
+    uint8_t size[3] = {0x00, 0x00, 0x0C};
+    uint8_t mode[4] = {0x00, 0x00, 0x00, 0x01};
+    uint8_t crc[4]  = {0x00, 0x00, 0x00, 0x00};
 };
 
+// ======================================================
+//  SDS DATA MODEL – USB READ(3) Message Structures
+// ======================================================
+
+// Message type for USB frames
+enum class SDS_MsgType : uint8_t {
+    READ_MICS = 3
+};
+
+// Binary header (16 bytes)
+struct SDS_MsgHeader {
+    uint8_t  sof;        // 0xA5
+    uint8_t  msgType;    // SDS_MsgType
+    uint16_t version;    // protocol version
+    uint16_t frameIndex; // running counter
+    uint16_t numMics;    // always 8
+    uint16_t frameLen;   // SDS_FRAME_LEN
+    uint32_t payloadLen; // numMics * frameLen * sizeof(float)
+};
+
+
+struct SDS_MsgDetect {
+    uint32_t  magic 	= 0xDEADBEEF;
+    uint8_t	  id		= 1;					// DETECT_ID
+    uint8_t   len[3]    = {0x00, 0x00, 0x20}; 	// 32
+    uint32_t  timestamp = 0; 					// TimeStamp
+    uint32_t mic;
+    float    azi;
+    float    distance;
+    float    conf;
+    uint32_t  crc32;
+};
+
+
+struct SDS_MsgRead {
+    uint32_t  magic 	= 0xDEADBEEF;
+    uint8_t	  id		= 2;					// READ_ID
+    uint8_t   len[3]    = {0x00, 0x00, 0x90}; 	// 8220
+    uint32_t  timestamp = 0; 					// TimeStamp
+    float 	  payload[32];
+    uint32_t  crc32;
+};
+
+struct SDS_MsgRead1 {
+    uint32_t  magic 	= 0xDEADBEEF;
+    uint8_t	  id		= 2;					// READ_ID
+    uint8_t   len[3]    = {0x00, 0x04, 0x18}; 	// 4 + 1 + 3 + 4 + 4 + 4 + 1024 + 4 + 4 = 1048
+    uint32_t  timestamp = 0; 					// TimeStamp
+    uint32_t  frameNumber = 0;
+    uint32_t  micNumber = 0;					// MicNumber
+    float 	  payload[256];
+    uint32_t  crc32;
+};
+
+
+
+// Payload: 8× microphone block
+struct SDS_MicPayload {
+    float micData[SDS_NUM_MICS][SDS_FRAME_LEN];
+};
+
+// Full USB message
+struct SDS_MicFrameMsg {
+    SDS_MsgHeader header;
+    SDS_MicPayload payload;
+    uint32_t crc32;
+};

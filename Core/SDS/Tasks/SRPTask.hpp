@@ -44,6 +44,7 @@
  */
 
 #pragma once
+#include <USBDriver.hpp>
 #include <vector>
 #include <cstdint>
 #include "TaskBase.hpp"
@@ -51,7 +52,7 @@
 #include "Model.hpp"
 #include "Algorithm.hpp"
 
-#include "USBDriver.h"
+#include "SDSUSBMicSender.hpp"
 #include "DWTTimer.hpp"
 
 class SRPTask : public TaskBase {
@@ -105,6 +106,9 @@ private:
 
     // Pointer to the current microphone buffer.
     MicBuffer* pMic;
+
+    // USB sender for READ(3) mode
+    SDS_USB_MicSender usbSender;
 
     // High‑resolution cycle timer (DWT).
     DWTTimer& dwt = DWTTimer::instance();

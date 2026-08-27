@@ -96,6 +96,9 @@ public:
 	void setMicLoopCounter(uint32_t val);
 	void setLcdLoopCounter(uint32_t val);
 	void setSrpLoopCounter(uint32_t val);
+	void setErrorFlag(uint32_t val);
+	void setErrorLen(uint32_t len);
+	void setErrorCount(uint32_t val);
 
     // ---------------------------------------------------------------------
     // Read API (called by DisplayManager / LCDTask)
@@ -118,6 +121,10 @@ public:
 	uint32_t getMicLoopCounter() const;
 	uint32_t getLcdLoopCounter() const;
 	uint32_t getSrpLoopCounter() const;
+	uint32_t getErrorFlag() const;
+	uint32_t getErrorLen() const;
+	uint8_t* getErrorBuffer();
+	uint32_t getErrorCount();
 
     // ---------------------------------------------------------------------
     // Event Queue API
@@ -154,6 +161,10 @@ private:
 	uint32_t micLoopCounter;
 	uint32_t lcdLoopCounter;
 	uint32_t srpLoopCounter;
+	uint32_t errorFlag;
+	uint32_t errorLen;
+	uint8_t _errorBuffer[64];
+	uint32_t errorCount;
 
     // RTOS event queue for asynchronous notifications.
     osMessageQueueId_t eventQueue;
