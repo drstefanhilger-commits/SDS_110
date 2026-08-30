@@ -110,7 +110,7 @@ void MicTask::simulateMic() {
     }
 
     // 2) Acquire a free microphone buffer
-    MicBuffer* pMicBuffer = micBufferManager.getFreeBuffer();
+    UnifiedMicBuffer* pMicBuffer = micBufferManager.getFreeBuffer();
 
     // Generate synthetic far‑field test frame
     UnitTestSignals::makeTestFrame360_farfield(

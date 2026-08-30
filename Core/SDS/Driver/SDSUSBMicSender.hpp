@@ -12,7 +12,7 @@ class SDS_USB_MicSender
 public:
     SDS_USB_MicSender() : frameCounter(0) {}
 
-    bool send(const MicBuffer* rb)
+    bool send(const UnifiedMicBuffer* rb)
     {
     	struct SDS_MsgReadXXX {
     	    uint32_t  magic 	= 0xDEADBEEF;

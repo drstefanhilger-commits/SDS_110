@@ -13,5 +13,7 @@
 #include "Model.hpp"
 
 bool USB_SendDetection(uint32_t timestamp, uint32_t micId, float azimuth, float distance, float confidence);
+bool USB_SendLogging(uint32_t timestamp, uint8_t* dst, int maxLen);
+
 
 //void onUsbReceive2(uint8_t* buf, uint32_t len);

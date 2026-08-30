@@ -95,7 +95,7 @@ void SRPTask::detectHandler()
     dwt.getStartTime();
 
     // 1) Acquire a readable microphone buffer (triple‑buffered DMA)
-    MicBuffer* micBuffer = micBufferManager.getReadableBuffer();
+    UnifiedMicBuffer* micBuffer = micBufferManager.getReadableBuffer();
 
     // 2) Perform SRP‑PHAT azimuth scan
     srp.beginAzimuthScan(micBuffer->data,
@@ -149,7 +149,7 @@ SDS_MsgRead msgXXX;
 void SRPTask::readHandler() {
 
     // Fertigen Buffer holen
-    MicBuffer* rb = micBufferManager.getReadableBuffer();
+	UnifiedMicBuffer* rb = micBufferManager.getReadableBuffer();
     if (!rb) {
     	uint8_t rxBuffer[12] = {0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF};
     	memcpy(dm.getErrorBuffer(), rxBuffer, 12);
