@@ -76,6 +76,7 @@ SDS_Data::SDS_Data()
 	  errorFlag(0),
 	  errorLen(0),
 	  errorCount(0),
+	  usbErrorCount(0),
       eventQueue(nullptr)
 {
     // Create mutex for thread‑safe access
@@ -288,6 +289,15 @@ void SDS_Data::setErrorCount(uint32_t val)
 //    pushEvent(SDS_DataEventType::DEBUG_UPDATE, 0.0f);
 }
 
+void SDS_Data::setUsbErrorCount(uint32_t val)
+{
+    osMutexAcquire(mutex, osWaitForever);
+    usbErrorCount = val;
+    osMutexRelease(mutex);
+
+//    pushEvent(SDS_DataEventType::DEBUG_UPDATE, 0.0f);
+}
+
 // ---------------------------------------------------------------------------
 // Read API — DisplayManager reads shared state
 // ---------------------------------------------------------------------------
@@ -455,6 +465,14 @@ uint32_t SDS_Data::getErrorCount()
 {
     osMutexAcquire(mutex, osWaitForever);
     uint32_t val = errorCount;
+    osMutexRelease(mutex);
+    return val;
+}
+
+uint32_t SDS_Data::getUsbErrorCount()
+{
+    osMutexAcquire(mutex, osWaitForever);
+    uint32_t val = usbErrorCount;
     osMutexRelease(mutex);
     return val;
 }

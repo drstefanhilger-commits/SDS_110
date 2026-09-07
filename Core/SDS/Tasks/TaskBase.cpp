@@ -91,3 +91,8 @@ void TaskBase::threadEntry(void* argument)
     // Terminate the thread (CMSIS‑RTOS2).
     osThreadExit();
 }
+
+void TaskBase::delay(uint32_t ms) {
+	osDelay(ms);
+}
+

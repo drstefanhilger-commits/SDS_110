@@ -45,6 +45,7 @@
 #include "SRPTask.hpp"
 #include "MicTask.hpp"
 #include "USBTask.hpp"
+#include "LoggerTask.hpp"
 
 #include "UnitTest.hpp"
 
@@ -95,6 +96,11 @@ extern "C" {
         USBTask::instance().start();
     }
 
+
+    void SDS_StartLoggerTask(void)
+    {
+    	LoggerTask::instance().start();
+    }
 
     // -----------------------------------------------------------------------
     // Execute SRP‑PHAT unit tests

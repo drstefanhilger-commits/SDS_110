@@ -12,3 +12,5 @@
 #include "SDS_Structs.hpp"
 #include "SDS_MicrophoneBuffer.hpp"
 #include "SDS_SRPBuffers.hpp"
+
+#include "Logger.hpp"

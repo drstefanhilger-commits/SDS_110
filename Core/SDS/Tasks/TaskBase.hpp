@@ -70,6 +70,8 @@ protected:
     // Optional hook executed when the thread exits (rarely reached).
     virtual void onExit() {}
 
+    void delay(uint32_t ms);
+
 private:
     // Static trampoline function used by CMSIS‑RTOS2.
     // Converts the void* argument back into a TaskBase instance and

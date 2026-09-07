@@ -99,6 +99,7 @@ public:
 	void setErrorFlag(uint32_t val);
 	void setErrorLen(uint32_t len);
 	void setErrorCount(uint32_t val);
+	void setUsbErrorCount(uint32_t val);
 
     // ---------------------------------------------------------------------
     // Read API (called by DisplayManager / LCDTask)
@@ -125,6 +126,7 @@ public:
 	uint32_t getErrorLen() const;
 	uint8_t* getErrorBuffer();
 	uint32_t getErrorCount();
+	uint32_t getUsbErrorCount();
 
     // ---------------------------------------------------------------------
     // Event Queue API
@@ -165,6 +167,7 @@ private:
 	uint32_t errorLen;
 	uint8_t _errorBuffer[64];
 	uint32_t errorCount;
+	uint32_t usbErrorCount;
 
     // RTOS event queue for asynchronous notifications.
     osMessageQueueId_t eventQueue;

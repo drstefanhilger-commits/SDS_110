@@ -133,8 +133,8 @@ void SRPTask::detectHandler()
     dwt.getStopTime();
     dm.setSRPPhatTime(dwt.getTimeDifferenceMs());
 
-    // Optional event dispatch:
-    // dm.pushEvent(DataModelEventType::SRP_UPDATE, dt_ms);
+    // Optional Logger
+    // Logger::instance().write("angle=%.2f\n", dm.getAzimuth());
 }
 
 // Handler for calibrating
@@ -143,7 +143,7 @@ void SRPTask::claibrateHandler() {
 }
 
 
-SDS_MsgRead msgXXX;
+//SDS_MsgRead msgXXX;
 
 // Handler for reading sound samples and writing via USB
 void SRPTask::readHandler() {
@@ -157,17 +157,27 @@ void SRPTask::readHandler() {
     	dm.setSrpLoopCounter(0);
     	dm.setErrorCount(30);	// ~10 sec
         return; // kein fertiger Block → nichts zu tun
-
     }
 
-    // USB senden
-    bool ok = usbSender.send(rb);
+	bool ok;
+	bool okSum = true;
+
+	for (uint32_t micNr = 0; micNr<8; micNr++) {
+		for (uint32_t frameNr = 0; frameNr<2; frameNr++) {
+//			ok = USB_SendRead(getTimestamp(), micNr, frameNr, rb);
+			ok = USB_SendRead_Test();
+			okSum = okSum && ok;
+			if (!ok) {dm.setUsbErrorCount(dm.getUsbErrorCount()+1);}
+			delay(400);
+			if (dm.getMode() != 3) {continue;}
+		}
+	}
 
     // Buffer freigeben
     micBufferManager.markFree(rb);
 
     // Optional: Fehlerbehandlung
-    if (!ok) {
+    if (!okSum) {
     	uint8_t rxBuffer[12] = {0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB};
     	memcpy(dm.getErrorBuffer(), rxBuffer, 12);
     	dm.setLcdLoopCounter(0);
@@ -176,6 +186,8 @@ void SRPTask::readHandler() {
         // USB überlastet oder blockiert
         // → keine SRP-Pipeline, nur Logging
     }
+
+//    delay(200); //Notwend, da Ueberlauf
 }
 
 // Error-Handler

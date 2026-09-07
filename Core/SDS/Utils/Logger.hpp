@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <atomic>
 #include "cmsis_os2.h"
+#include "SDS_Data.hpp"
 
 class Logger
 {

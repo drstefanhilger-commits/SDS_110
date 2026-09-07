@@ -34,6 +34,9 @@
  * Author: Stefan (310004)
  */
 
+
+//ToDo Send SDS Status
+
 #pragma once
 
 #include "SDRAMDriver.h"
@@ -58,6 +61,10 @@ void SDS_StartMicTask(void);
 
 // Start USB task
 void SDS_StartUSBTask(void);
+
+
+// Start USB task
+void SDS_StartLoggerTask(void);
 
 
 // Execute SRP‑PHAT unit tests

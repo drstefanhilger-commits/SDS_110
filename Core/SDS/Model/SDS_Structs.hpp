@@ -99,19 +99,36 @@ struct SDS_DataEvent {
     float              processTime;
 };
 
+#pragma pack(push, 1)
 struct SDS_UnixTimeSync {
-    uint8_t id      = 0x01;
-    uint8_t size[3] = {0x00, 0x00, 0x0C};
-    uint8_t time[4] = {0x00, 0x00, 0x00, 0x00};
-    uint8_t crc[4]  = {0x00, 0x00, 0x00, 0x00};
+    uint8_t magic[4]	= {0xDE, 0xAD, 0xBE, 0xEF};
+    uint8_t id      	=  0x01;
+    uint8_t size[3] 	= {0x00, 0x00, 0x0C};
+    uint8_t time[4] 	= {0x00, 0x00, 0x00, 0x00};		// Sync Time
+    uint8_t crc[4]  	= {0x00, 0x00, 0x00, 0x00};		// ToDo activate crc
 };
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 struct SDS_ModeChange {
-    uint8_t id      = 0x02;
-    uint8_t size[3] = {0x00, 0x00, 0x0C};
-    uint8_t mode[4] = {0x00, 0x00, 0x00, 0x01};
-    uint8_t crc[4]  = {0x00, 0x00, 0x00, 0x00};
+    uint8_t magic[4]	= {0xDE, 0xAD, 0xBE, 0xEF};
+    uint8_t id      	=  0x02;
+    uint8_t size[3] 	= {0x00, 0x00, 0x0C};
+    uint8_t mode[4] 	= {0x00, 0x00, 0x00, 0x01};		// {1 = Detect, 2 Read, 3 Calibrate}
+    uint8_t crc[4]  	= {0x00, 0x00, 0x00, 0x00};		// ToDo activate crc
 };
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct SDS_ModeSimulation {
+    uint8_t magic[4]	= {0xDE, 0xAD, 0xBE, 0xEF};
+    uint8_t id      	=  0x03;
+    uint8_t size[3] 	= {0x00, 0x00, 0x0C};
+    uint8_t sim[4]  	= {0x00, 0x00, 0x00, 0x01};		// { 0 = Real, 1 = Simulated}
+    uint8_t crc[4]  	= {0x00, 0x00, 0x00, 0x00};		// ToDo activate crc
+};
+#pragma pack(pop)
+
 
 // ======================================================
 //  SDS DATA MODEL – USB READ(3) Message Structures
@@ -122,61 +139,71 @@ enum class SDS_MsgType : uint8_t {
     READ_MICS = 3
 };
 
-// Binary header (16 bytes)
-struct SDS_MsgHeader {
-    uint8_t  sof;        // 0xA5
-    uint8_t  msgType;    // SDS_MsgType
-    uint16_t version;    // protocol version
-    uint16_t frameIndex; // running counter
-    uint16_t numMics;    // always 8
-    uint16_t frameLen;   // SDS_FRAME_LEN
-    uint32_t payloadLen; // numMics * frameLen * sizeof(float)
-};
+// ======================================================
+//  SDS DATA MODEL – USB DETECT / READ Messages (magic + len_id)
+// ======================================================
 
-
+#pragma pack(push, 1)
 struct SDS_MsgDetect {
-    uint32_t  magic 	= 0xDEADBEEF;
-    uint8_t	  id		= 1;					// DETECT_ID
-    uint8_t   len[3]    = {0x00, 0x00, 0x20}; 	// 32
-    uint32_t  timestamp = 0; 					// TimeStamp
+    uint32_t magic     = 0xDEADBEEF;
+    uint32_t len_id    = ((sizeof(SDS_MsgDetect) & 0x00FFFFFF) |
+                          ((uint32_t)0x01 << 24));
+    uint32_t timestamp = 0;   // TimeStamp
+
     uint32_t mic;
     float    azi;
     float    distance;
     float    conf;
-    uint32_t  crc32;
+    uint32_t crc32;
 };
+#pragma pack(pop)
 
+static_assert(sizeof(SDS_MsgDetect) == 32,"SDS_MsgDetect must be 32 bytes (wire format)");
 
+#define SDS_MSG_BUFFER_SIZE 128
+#pragma pack(push, 1)
 struct SDS_MsgRead {
-    uint32_t  magic 	= 0xDEADBEEF;
-    uint8_t	  id		= 2;					// READ_ID
-    uint8_t   len[3]    = {0x00, 0x00, 0x90}; 	// 8220
-    uint32_t  timestamp = 0; 					// TimeStamp
-    float 	  payload[32];
-    uint32_t  crc32;
+    uint32_t magic     = 0xDEADBEEF;
+    uint32_t len_id    = ((sizeof(SDS_MsgRead) & 0x00FFFFFF) |
+                          ((uint32_t)0x02 << 24));
+    uint32_t timestamp = 0;   // TimeStamp
+
+    uint16_t micNr     = 1;
+    uint16_t frameNr   = 0;
+    uint32_t data[SDS_MSG_BUFFER_SIZE];
+    uint32_t crc32;
 };
+#pragma pack(pop)
 
-struct SDS_MsgRead1 {
-    uint32_t  magic 	= 0xDEADBEEF;
-    uint8_t	  id		= 2;					// READ_ID
-    uint8_t   len[3]    = {0x00, 0x04, 0x18}; 	// 4 + 1 + 3 + 4 + 4 + 4 + 1024 + 4 + 4 = 1048
-    uint32_t  timestamp = 0; 					// TimeStamp
-    uint32_t  frameNumber = 0;
-    uint32_t  micNumber = 0;					// MicNumber
-    float 	  payload[256];
-    uint32_t  crc32;
-};
+static_assert(sizeof(SDS_MsgRead) == 532,"SDS_MsgRead must be 532 bytes (wire format)");
 
-
+// ======================================================
+//  SDS DATA MODEL – USB Mic Frame Message (legacy float payload)
+// ======================================================
 
 // Payload: 8× microphone block
 struct SDS_MicPayload {
     float micData[SDS_NUM_MICS][SDS_FRAME_LEN];
 };
 
-// Full USB message
-struct SDS_MicFrameMsg {
-    SDS_MsgHeader header;
-    SDS_MicPayload payload;
-    uint32_t crc32;
+// ======================================================
+//  SDS DATA MODEL – Generic Message (legacy)
+// ======================================================
+
+union MessageData {
+    uint8_t  b[128];
+    uint16_t h[64];
+    uint32_t w[32];
 };
+
+#pragma pack(push, 1)
+struct Message {
+    uint32_t magic     = 0xDEADBEEF;
+    uint32_t len_id    = ((sizeof(SDS_MsgRead) & 0x00FFFFFF) |
+                          ((uint32_t)0x03 << 24));
+    uint32_t timestamp = 0;   // TimeStamp
+
+    MessageData data;
+    uint32_t crc32  = 0;
+};
+#pragma pack(pop)

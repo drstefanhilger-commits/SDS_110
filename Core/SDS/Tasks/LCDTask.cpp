@@ -92,7 +92,7 @@ void LCDTask::runOnce()
 // Show Radar
 void LCDTask::showRadar() {
     // Version
-    pGfx->text8x12(420, 10, "1.06", Color::White);
+    pGfx->text8x12(420, 10, "1.08", Color::Green);
 
     // Draw reference geometry
     pGfx->line(235, 10, 235, 242, Color::Red);     							// vertical reference line

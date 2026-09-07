@@ -46,6 +46,8 @@ private:
 	void HandleError(uint8_t* rxBuffer);
 	void HandleSetSimuation(uint8_t* rxBuffer);
 
+	bool hasMagic(uint8_t* rxBuffer);
+
 private:
     SDS_Data& dm = SDS_Data::instance();
     QueueHandle_t usbRxQueue = nullptr;

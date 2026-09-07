@@ -6,7 +6,6 @@
  */
 
 #include "USBTask.hpp"
-#include "Model.hpp"
 #include <cstring>
 
 extern "C" void USBTask_OnReceive(uint8_t* buf, uint32_t len)
@@ -42,21 +41,26 @@ void USBTask::runOnce()
 
     if (xQueueReceive(usbRxQueue, rxBuffer, 0) == pdTRUE)
     {
-    	uint8_t MsgType = rxBuffer[0];
-		switch(MsgType)
-		{
-			case 1:  HandleUnixTimeSync(rxBuffer); break;
-			case 2:  HandleStateChange(rxBuffer); break;
-			case 3:  HandleSetSimuation(rxBuffer); break;
-			default: HandleError(rxBuffer); break;
-		}
+    	if (hasMagic(rxBuffer)) {
+			uint8_t MsgType = rxBuffer[4];
+			switch(MsgType)
+			{
+				case 1:  HandleUnixTimeSync(rxBuffer); break;
+				case 2:  HandleStateChange(rxBuffer); break;
+				case 3:  HandleSetSimuation(rxBuffer); break;
+				default: HandleError(rxBuffer); break;
+			}
+    	} else {
+    		HandleError(rxBuffer);
+    	}
     }
 }
 
 void USBTask::HandleStateChange(uint8_t* rxBuffer) {
-	uint32_t len = (rxBuffer[1] << 16) | (rxBuffer[2] << 8) | rxBuffer[3];
-	if (len == 12) {
-		uint32_t mode = (rxBuffer[4] << 24) |(rxBuffer[5] << 16) | (rxBuffer[6] << 8) | rxBuffer[7];
+
+	uint32_t len = (rxBuffer[5] << 16) | (rxBuffer[6] << 8) | rxBuffer[7];
+	if (len == 16) {
+		uint32_t mode = (rxBuffer[8] << 24) |(rxBuffer[9] << 16) | (rxBuffer[10] << 8) | rxBuffer[11];
 		if (dm.getMode() != mode) {
 			dm.setMode(mode);
 			dm.setMicLoopCounter(0);
@@ -70,20 +74,20 @@ void USBTask::HandleStateChange(uint8_t* rxBuffer) {
 }
 
 void USBTask::HandleUnixTimeSync(uint8_t* rxBuffer) {
-	uint32_t len = (rxBuffer[1] << 16) | (rxBuffer[2] << 8) | rxBuffer[3];
-	if (len == 12) {
-		uint32_t time = (rxBuffer[4] << 24) |(rxBuffer[5] << 16) | (rxBuffer[6] << 8) | rxBuffer[7];
+	uint32_t len = (rxBuffer[5] << 16) | (rxBuffer[6] << 8) | rxBuffer[7];
+	if (len == 16) {
+		uint32_t time = (rxBuffer[8] << 24) |(rxBuffer[9] << 16) | (rxBuffer[10] << 8) | rxBuffer[11];
 		dm.setSyncTimeDifference(time);
-	    dm.setId(rxBuffer[0]);	//Debug
+	    dm.setId(rxBuffer[4]);	//Debug
 	} else {
 		HandleError(rxBuffer);
 	}
 }
 
 void USBTask::HandleSetSimuation(uint8_t* rxBuffer) {
-	uint32_t len = (rxBuffer[1] << 16) | (rxBuffer[2] << 8) | rxBuffer[3];
-	if (len == 12) {
-		uint32_t doSimulation = (rxBuffer[4] << 24) |(rxBuffer[5] << 16) | (rxBuffer[6] << 8) | rxBuffer[7];
+	uint32_t len = (rxBuffer[5] << 16) | (rxBuffer[6] << 8) | rxBuffer[7];
+	if (len == 16) {
+		uint32_t doSimulation = (rxBuffer[8] << 24) |(rxBuffer[9] << 16) | (rxBuffer[10] << 8) | rxBuffer[11];
 		dm.setSimulation(doSimulation);
 		dm.setMicLoopCounter(0);
 		dm.setLcdLoopCounter(0);
@@ -96,10 +100,14 @@ void USBTask::HandleSetSimuation(uint8_t* rxBuffer) {
 
 void USBTask::HandleError(uint8_t* rxBuffer) {
 	dm.setErrorFlag(1);
-	dm.setErrorLen(12);
-	memcpy(dm.getErrorBuffer(), rxBuffer, 12);
+	dm.setErrorLen(16);
+	memcpy(dm.getErrorBuffer(), rxBuffer, 16);
 	dm.setLcdLoopCounter(0);
 	dm.setSrpLoopCounter(0);
 	dm.setErrorCount(30);	// ~10 sec
+}
+
+bool USBTask::hasMagic(uint8_t* rxBuffer) {
+	return (rxBuffer[0]==0xDE && rxBuffer[1]==0xAD && rxBuffer[2]==0xBE && rxBuffer[3]==0xEF);
 }
 

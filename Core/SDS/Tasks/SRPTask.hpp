@@ -104,12 +104,11 @@ private:
     // Distance estimation result container.
     DistanceResult dr;
 
-//    // Pointer to the current microphone buffer.
-//    UnifiedMicBuffer* pMic;
-
     // USB sender for READ(3) mode
     SDS_USB_MicSender usbSender;
 
     // High‑resolution cycle timer (DWT).
     DWTTimer& dwt = DWTTimer::instance();
+
+    uint32_t loop = 0;
 };
