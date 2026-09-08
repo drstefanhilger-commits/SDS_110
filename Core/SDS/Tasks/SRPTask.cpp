@@ -71,7 +71,8 @@ SRPTask::SRPTask()
 // ---------------------------------------------------------------------------
 void SRPTask::onStart()
 {
-    // Initialization of DSP modules or buffers could be placed here.
+    // Initialization of AI
+	SDS_AIModel_Init(&ai);
 }
 
 // ---------------------------------------------------------------------------

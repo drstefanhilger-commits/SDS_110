@@ -54,6 +54,9 @@
 #include "UnitTest.hpp"
 #include "DWTTimer.hpp"
 
+
+extern "C" volatile uint32_t usb_debug_counter;
+
 class LCDTask : public TaskBase {
 public:
     // Singleton instance — ensures only one LCD renderer runs.

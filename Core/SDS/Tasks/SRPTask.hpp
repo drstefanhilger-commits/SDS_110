@@ -52,6 +52,8 @@
 #include "Model.hpp"
 #include "Algorithm.hpp"
 
+#include "SDS_AIModel.h"
+
 #include "SDSUSBMicSender.hpp"
 #include "DWTTimer.hpp"
 
@@ -87,6 +89,9 @@ private:
     void errorHandler();
 
 private:
+    // ML Instance
+    SDS_AIModel ai;
+
     // SRP spatial grid (energy values for each candidate position).
     std::vector<float> srpGrid_;
 

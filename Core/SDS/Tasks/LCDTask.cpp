@@ -61,7 +61,8 @@ void LCDTask::onStart()
     // LCD initialization or splash screen could be placed here.
 }
 
-extern "C" volatile uint32_t usb_debug_counter;
+volatile uint32_t usb_debug_counter = 0;
+//extern "C" volatile uint32_t usb_debug_counter;
 //extern "C" volatile uint32_t usb_sds_counter;
 //extern "C" volatile uint32_t usb_sds_counter2;
 
@@ -92,7 +93,11 @@ void LCDTask::runOnce()
 // Show Radar
 void LCDTask::showRadar() {
     // Version
+<<<<<<< HEAD
     pGfx->text8x12(420, 10, "1.08", Color::Green);
+=======
+    pGfx->text8x12(420, 10, "1.09", Color::Green);
+>>>>>>> 638b292 (08-09-1)
 
     // Draw reference geometry
     pGfx->line(235, 10, 235, 242, Color::Red);     							// vertical reference line

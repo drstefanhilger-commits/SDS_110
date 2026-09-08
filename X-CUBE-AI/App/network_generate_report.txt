@@ -1,0 +1,191 @@
+ST Edge AI Core v2.2.0-20266 2adc00962
+Created date          : 2026-09-08 10:17:01
+Parameters            : generate --target stm32f7 --name network -m C:/Users/310004/Documents/Projects/ML/model_int8.tflite --compression none --verbosity 1 --workspace C:/Users/310004/AppData/Local/Temp/mxAI_workspace1767160212207005874487240913935423 --output C:/Users/310004/.stm32cubemx/network_output
+
+Exec/report summary (generate)
+-----------------------------------------------------------------------------------------------------------------------
+model file         :   C:\Users\310004\Documents\Projects\ML\model_int8.tflite                                         
+type               :   tflite                                                                                          
+c_name             :   network                                                                                         
+compression        :   none                                                                                            
+options            :   allocate-inputs, allocate-outputs                                                               
+optimization       :   balanced                                                                                        
+target/series      :   stm32f7                                                                                         
+workspace dir      :   C:\Users\310004\AppData\Local\Temp\mxAI_workspace1767160212207005874487240913935423             
+output dir         :   C:\Users\310004\.stm32cubemx\network_output                                                     
+model_fmt          :   ss/sa per tensor                                                                                
+model_name         :   model_int8                                                                                      
+model_hash         :   0x85e11d9e015e75b39d77ff75aef19a7f                                                              
+params #           :   4,836 items (5.02 KiB)                                                                          
+-----------------------------------------------------------------------------------------------------------------------
+input 1/1          :   'serving_default_input_10', int8(1x40), 40 Bytes, QLinear(0.003919732,-128,int8), activations   
+output 1/1         :   'nl_3', int8(1x4), 4 Bytes, QLinear(0.003906250,-128,int8), activations                         
+macc               :   4,896                                                                                           
+weights (ro)       :   5,136 B (5.02 KiB) (1 segment) / -14,208(-73.4%) vs float model                                 
+activations (rw)   :   252 B (252 B) (1 segment) *                                                                     
+ram (total)        :   252 B (252 B) = 252 + 0 + 0                                                                     
+-----------------------------------------------------------------------------------------------------------------------
+(*) 'input'/'output' buffers are allocated in the activations buffer
+
+Model name - model_int8
+------ ------------------------------------------------ ------------- ------------- ------- -------------------------------- --- ----------------- ----------------- --------------------- 
+m_id   layer (type,original)                            oshape        param/size       macc                     connected to   | c_size            c_macc            c_type                
+------ ------------------------------------------------ ------------- ------------- ------- -------------------------------- --- ----------------- ----------------- --------------------- 
+0      serving_default_input_10 (Input, )               [b:1,c:40]                                                             | +2,816(+100.0%)   +2,624(+100.0%)   Dense_[0]             
+       sequential_dense_MatMul (Placeholder, )          [b:64,c:40]   2,560/2,560                                              | -2,560(-100.0%)                     
+       sequential_dense_B..VariableOp (Placeholder, )   [b:64]        64/256                                                   | -256(-100.0%)                       
+       gemm_0 (Gemm, FULLY_CONNECTED)                   [b:1,c:64]                    2,624         serving_default_input_10   |                   -2,624(-100.0%)   
+                                                                                                     sequential_dense_MatMul   | 
+                                                                                              sequential_dense_B..VariableOp   | 
+       nl_0_nl (Nonlinearity, FULLY_CONNECTED)          [b:1,c:64]                       64                           gemm_0   |                   -64(-100.0%)      
+------ ------------------------------------------------ ------------- ------------- ------- -------------------------------- --- ----------------- ----------------- --------------------- 
+1      sequential_dense_1_MatMul (Placeholder, )        [b:32,c:64]   2,048/2,048                                              | +128(+6.2%)       +2,080(+100.0%)   Dense_[1]             
+       sequential_dense_1..VariableOp (Placeholder, )   [b:32]        32/128                                                   | -128(-100.0%)                       
+       gemm_1 (Gemm, FULLY_CONNECTED)                   [b:1,c:32]                    2,080                          nl_0_nl   |                   -2,080(-100.0%)   
+                                                                                                   sequential_dense_1_MatMul   | 
+                                                                                              sequential_dense_1..VariableOp   | 
+       nl_1_nl (Nonlinearity, FULLY_CONNECTED)          [b:1,c:32]                       32                           gemm_1   |                   -32(-100.0%)      
+------ ------------------------------------------------ ------------- ------------- ------- -------------------------------- --- ----------------- ----------------- --------------------- 
+2      sequential_dense_2_MatMul (Placeholder, )        [b:4,c:32]    128/128                                                  | +16(+12.5%)       +132(+100.0%)     Dense_[2]             
+       sequential_dense_2..VariableOp (Placeholder, )   [b:4]         4/16                                                     | -16(-100.0%)                        
+       gemm_2 (Gemm, FULLY_CONNECTED)                   [b:1,c:4]                       132                          nl_1_nl   |                   -132(-100.0%)     
+                                                                                                   sequential_dense_2_MatMul   | 
+                                                                                              sequential_dense_2..VariableOp   | 
+------ ------------------------------------------------ ------------- ------------- ------- -------------------------------- --- ----------------- ----------------- --------------------- 
+3      nl_3 (Nonlinearity, SOFTMAX)                     [b:1,c:4]                        60                           gemm_2   |                                     Nonlinearity_[o][3]   
+------ ------------------------------------------------ ------------- ------------- ------- -------------------------------- --- ----------------- ----------------- --------------------- 
+model/c-model: macc=4,992/4,896 -96(-1.9%) weights=5,136/5,136  activations=--/252 io=--/0
+
+
+
+Generated C-graph summary
+------------------------------------------------------------------------------------------------------------------------
+model name            : model_int8
+c-name                : network
+c-node #              : 4
+c-array #             : 15
+activations size      : 252 (1 segment)
+weights size          : 5136 (1 segment)
+macc                  : 4896
+inputs                : ['serving_default_input_10_output']
+outputs               : ['nl_3_output']
+
+C-Arrays (15)
+------ --------------------------------- ----------- ------------------------- ----------- --------- 
+c_id   name (*_array)                    item/size   domain/mem-pool           c-type      comment   
+------ --------------------------------- ----------- ------------------------- ----------- --------- 
+0      gemm_0_bias                       64/256      weights/weights           const s32             
+1      gemm_0_output                     64/64       activations/**default**   s8                    
+2      gemm_0_scratch0                   40/80       activations/**default**   s16                   
+3      gemm_0_weights                    2560/2560   weights/weights           const s8              
+4      gemm_1_bias                       32/128      weights/weights           const s32             
+5      gemm_1_output                     32/32       activations/**default**   s8                    
+6      gemm_1_scratch0                   64/128      activations/**default**   s16                   
+7      gemm_1_weights                    2048/2048   weights/weights           const s8              
+8      gemm_2_bias                       4/16        weights/weights           const s32             
+9      gemm_2_output                     4/4         activations/**default**   s8                    
+10     gemm_2_scratch0                   32/64       activations/**default**   s16                   
+11     gemm_2_weights                    128/128     weights/weights           const s8              
+12     nl_3_output                       4/4         activations/**default**   s8          /output   
+13     nl_3_scratch0                     62/248      activations/**default**   s32                   
+14     serving_default_input_10_output   40/40       activations/**default**   s8          /input    
+------ --------------------------------- ----------- ------------------------- ----------- --------- 
+
+C-Layers (4)
+------ ---------------- ---- --------------- ------ ------ ------------------------------------ ------------------ 
+c_id   name (*_layer)   id   layer_type      macc   rom    tensors                              shape (array id)   
+------ ---------------- ---- --------------- ------ ------ ------------------------------------ ------------------ 
+0      gemm_0           0    Dense           2624   2816   I: serving_default_input_10_output   int8(1x40) (14)    
+                                                           S: gemm_0_scratch0                                      
+                                                           W: gemm_0_weights                    int8(64x40) (3)    
+                                                           W: gemm_0_bias                       int32(64) (0)      
+                                                           O: gemm_0_output                     int8(1x64) (1)     
+------ ---------------- ---- --------------- ------ ------ ------------------------------------ ------------------ 
+1      gemm_1           1    Dense           2080   2176   I: gemm_0_output                     int8(1x64) (1)     
+                                                           S: gemm_1_scratch0                                      
+                                                           W: gemm_1_weights                    int8(32x64) (7)    
+                                                           W: gemm_1_bias                       int32(32) (4)      
+                                                           O: gemm_1_output                     int8(1x32) (5)     
+------ ---------------- ---- --------------- ------ ------ ------------------------------------ ------------------ 
+2      gemm_2           2    Dense           132    144    I: gemm_1_output                     int8(1x32) (5)     
+                                                           S: gemm_2_scratch0                                      
+                                                           W: gemm_2_weights                    int8(4x32) (11)    
+                                                           W: gemm_2_bias                       int32(4) (8)       
+                                                           O: gemm_2_output                     int8(1x4) (9)      
+------ ---------------- ---- --------------- ------ ------ ------------------------------------ ------------------ 
+3      nl_3             3    Nonlinearity    60     0      I: gemm_2_output                     int8(1x4) (9)      
+                                                           S: nl_3_scratch0                                        
+                                                           O: nl_3_output                       int8(1x4) (12)     
+------ ---------------- ---- --------------- ------ ------ ------------------------------------ ------------------ 
+
+
+
+Number of operations per c-layer
+------- ------ --------------------- ------- ------------ 
+c_id    m_id   name (type)               #op         type 
+------- ------ --------------------- ------- ------------ 
+0       0      gemm_0 (Dense)          2,624   smul_s8_s8 
+1       1      gemm_1 (Dense)          2,080   smul_s8_s8 
+2       2      gemm_2 (Dense)            132   smul_s8_s8 
+3       3      nl_3 (Nonlinearity)        60     op_s8_s8 
+------- ------ --------------------- ------- ------------ 
+total                                  4,896 
+
+Number of operation types
+---------------- ------- ----------- 
+operation type         #           % 
+---------------- ------- ----------- 
+smul_s8_s8         4,836       98.8% 
+op_s8_s8              60        1.2% 
+
+Complexity report (model)
+------ --------------------------- ------------------------- ------------------------- ------ 
+m_id   name                        c_macc                    c_rom                     c_id   
+------ --------------------------- ------------------------- ------------------------- ------ 
+0      serving_default_input_10    ||||||||||||||||  53.6%   ||||||||||||||||  54.8%   [0]    
+1      sequential_dense_1_MatMul   ||||||||||||      42.5%   ||||||||||||      42.4%   [1]    
+2      sequential_dense_2_MatMul   |                  2.7%   |                  2.8%   [2]    
+3      nl_3                        |                  1.2%   |                  0.0%   [3]    
+------ --------------------------- ------------------------- ------------------------- ------ 
+macc=4,896 weights=5,136 act=252 ram_io=0
+ 
+ Requested memory size by section - "stm32f7" target
+ ------------------------------ -------- -------- ------- ----- 
+ module                             text   rodata    data   bss 
+ ------------------------------ -------- -------- ------- ----- 
+ NetworkRuntime1020_CM7_GCC.a     12,544        0       0     0 
+ network.o                           572      228   1,744   116 
+ network_data.o                       48       16      88     0 
+ lib (toolchain)*                  1,652        0       0     0 
+ ------------------------------ -------- -------- ------- ----- 
+ RT total**                       14,816      244   1,832   116 
+ ------------------------------ -------- -------- ------- ----- 
+ weights                               0    5,136       0     0 
+ activations                           0        0       0   252 
+ io                                    0        0       0     0 
+ ------------------------------ -------- -------- ------- ----- 
+ TOTAL                            14,816    5,380   1,832   368 
+ ------------------------------ -------- -------- ------- ----- 
+ *  toolchain objects (libm/libgcc*)
+ ** RT AI runtime objects (kernels+infrastructure)
+  
+  Summary - "stm32f7" target
+  ---------------------------------------------------
+               FLASH (ro)      %*   RAM (rw)       % 
+  ---------------------------------------------------
+  RT total         16,892   76.7%      1,948   88.5% 
+  ---------------------------------------------------
+  TOTAL            22,028              2,200         
+  ---------------------------------------------------
+  *  rt/total
+
+
+Generated files (7)
+------------------------------------------------------------------- 
+C:\Users\310004\.stm32cubemx\network_output\network_data_params.h   
+C:\Users\310004\.stm32cubemx\network_output\network_data_params.c   
+C:\Users\310004\.stm32cubemx\network_output\network_data.h          
+C:\Users\310004\.stm32cubemx\network_output\network_data.c          
+C:\Users\310004\.stm32cubemx\network_output\network_config.h        
+C:\Users\310004\.stm32cubemx\network_output\network.h               
+C:\Users\310004\.stm32cubemx\network_output\network.c               
