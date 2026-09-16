@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "SDS_Wrapper.hpp"
+#include "SDS_110_Wrapper.hpp"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -220,7 +220,7 @@ int main(void)
   MX_USART6_UART_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
-  SDS_Init();
+//  SDS_Init();
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -248,10 +248,10 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  SDS_StartDisplayManagerTask();
-  SDS_StartMicTask();
-  SDS_StartSRPPhatTask();
-  SDS_StartUSBTask();
+//  SDS_StartDisplayManagerTask();
+//  SDS_StartMicTask();
+//  SDS_StartSRPPhatTask();
+//  SDS_StartUSBTask();
 //  SDS_StartLoggerTask();
   /* USER CODE END RTOS_THREADS */
 
@@ -1487,7 +1487,7 @@ static void MX_FMC_Init(void)
   }
 
   /* USER CODE BEGIN FMC_Init 2 */
-  SDRAM_InitSequence(&hsdram1);
+//  SDRAM_InitSequence(&hsdram1);
   /* USER CODE END FMC_Init 2 */
 }
 

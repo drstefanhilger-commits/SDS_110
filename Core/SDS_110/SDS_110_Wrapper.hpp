@@ -1,15 +1,46 @@
 /*
  * SDS_110_Wrapper.hpp
+ *
  * C-Schnittstelle für main.c (Ersatz für SDS_Wrapper.hpp).
+ * Zieht wie bisher die Header-only-Treiber ein, die main.c direkt aufruft:
+ *   SDRAMDriver.h  -> SDRAM-Init
+ *   PrintfDriver.h -> ITM/SWO für printf
+ *   MPUDriver.h    -> static MPU_Config() (SRAM/SDRAM uncached)
+ * Diese liegen bis zur Migration weiter in Core/SDS/Driver (Include-Pfad
+ * beibehalten) und ziehen später nach Infrastructure/Driver um.
+ *
+ * Übergangsweise werden die alten Funktionsnamen (SDS_Init, SDS_Start*)
+ * auf die neuen (SDS110_*) gemappt, damit main.c nicht angefasst werden muss.
  */
 #pragma once
+
+// Nur für main.c (C): Header-only-Treiber mit nicht-inline Definitionen.
+// Aus C++-Dateien NICHT einziehen, sonst doppelte Definition beim Linken.
+#ifndef __cplusplus
+#include "SDRAMDriver.h"
+#include "PrintfDriver.h"
+#include "MPUDriver.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-void SDS110_Init(void);
-void SDS110_StartProcessingTask(void);   // Processing_Module_120
+
+// --- Neue API -----------------------------------------------------------
+void SDS110_Init(void);                  // Sensor Unit 112 + Processing Module 120
+void SDS110_StartProcessingTask(void);   // Task um Processing_Module_120
 void SDS110_StartDisplayTask(void);
+void SDS110_StartUSBTask(void);
 void SDS110_StartLoggerTask(void);
+
+// --- Kompatibilität zu main.c (alte Namen) --------------------------------
+#define SDS_Init                     SDS110_Init
+#define SDS_StartSRPPhatTask         SDS110_StartProcessingTask
+#define SDS_StartDisplayManagerTask  SDS110_StartDisplayTask
+#define SDS_StartUSBTask             SDS110_StartUSBTask
+#define SDS_StartLoggerTask          SDS110_StartLoggerTask
+#define SDS_StartMicTask()           ((void)0)   // Akquisition läuft in 116 per DMA, kein eigener Task
+
 #ifdef __cplusplus
 }
 #endif
