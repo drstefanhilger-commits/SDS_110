@@ -1,14 +1,5 @@
-/*
- * SDS_AIModel.c
- *
- *  Created on: Sep 8, 2026
- *      Author: 310004
- */
-
-
 #include "SDS_AIModel.h"
 
-/* Statischer Activation-Pool */
 AI_ALIGNED(4)
 static uint8_t s_activations[AI_SDS_MODEL_DATA_ACTIVATIONS_SIZE];
 
@@ -21,9 +12,17 @@ bool SDS_AIModel_Init(SDS_AIModel *m)
     if (err.type != AI_ERROR_NONE)
         return false;
 
+    /* Netzwerk-Parameter (Weights + Activations) */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-braces"
+    const ai_network_params params = {
+        AI_SDS_MODEL_DATA_WEIGHTS(ai_sds_model_data_weights_get()),
+        AI_SDS_MODEL_DATA_ACTIVATIONS(s_activations)
+    };
+#pragma GCC diagnostic pop
+
     /* Netzwerk initialisieren */
-    const ai_handle act_addr = s_activations;
-    if (!ai_sds_model_init(m->network, act_addr))
+    if (!ai_sds_model_init(m->network, &params))
         return false;
 
     /* Input/Output Buffer holen */
@@ -33,11 +32,31 @@ bool SDS_AIModel_Init(SDS_AIModel *m)
     return true;
 }
 
-bool SDS_AIModel_Run(SDS_AIModel *m, void *input_data, void *output_data)
-{
-    m->input[0].data  = input_data;
-    m->output[0].data = output_data;
+//bool SDS_AIModel_Run(SDS_AIModel *m, void *input_data, void *output_data)
+//{
+//    m->input[0].data  = input_data;
+//    m->output[0].data = output_data;
+//
+//    ai_i32 res = ai_sds_model_run(m->network, m->input, m->output);
+//    return (res == 0);
+//}
 
-    ai_i32 result = ai_sds_model_run(m->network, m->input, m->output);
-    return (result == 0);
+bool SDS_AIModel_Run(SDS_AIModel* m, const float* in, float* out)
+{
+    if (!m || !m->network || !in || !out)
+        return false;
+
+    // 1. Input-Daten in den AI-Input-Buffer kopieren
+    memcpy(m->input[0].data, in, AI_SDS_MODEL_IN_1_SIZE * sizeof(float));
+
+    // 2. Inferenz ausführen
+    ai_i32 nbatch = ai_sds_model_run(m->network, m->input, m->output);
+
+    if (nbatch != 1)
+        return false;
+
+    // 3. Output-Daten kopieren
+    memcpy(out, m->output[0].data, AI_SDS_MODEL_OUT_1_SIZE * sizeof(float));
+
+    return true;
 }

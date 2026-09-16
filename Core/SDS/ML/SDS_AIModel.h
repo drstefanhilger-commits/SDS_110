@@ -1,14 +1,10 @@
-/*
- * SDS_AIModel.h
- *
- *  Created on: Sep 8, 2026
- *      Author: 310004
- */
-
 #pragma once
+
 #include "ai_platform.h"
 #include "sds_model.h"
 #include "sds_model_data.h"
+#include <string.h>
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,16 +12,24 @@ extern "C" {
 
 typedef struct
 {
-    ai_handle network;
+    ai_handle  network;
     ai_buffer *input;
     ai_buffer *output;
 } SDS_AIModel;
 
-/* Initialisierung */
+/**
+ * @brief Initialisiert das X-CUBE-AI Modell.
+ */
 bool SDS_AIModel_Init(SDS_AIModel *m);
 
-/* Inferenz */
-bool SDS_AIModel_Run(SDS_AIModel *m, void *input_data, void *output_data);
+/**
+ * @brief Führt eine Inferenz aus.
+ *
+ * @param m           Modellinstanz
+ * @param input_data  Zeiger auf Input-Buffer (float oder int8)
+ * @param output_data Zeiger auf Output-Buffer (float oder int8)
+ */
+bool SDS_AIModel_Run(SDS_AIModel *m, const float *in, float *out);
 
 #ifdef __cplusplus
 }

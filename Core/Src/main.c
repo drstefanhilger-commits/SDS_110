@@ -252,11 +252,7 @@ int main(void)
   SDS_StartMicTask();
   SDS_StartSRPPhatTask();
   SDS_StartUSBTask();
-<<<<<<< HEAD
-  SDS_StartLoggerTask();
-=======
 //  SDS_StartLoggerTask();
->>>>>>> 638b292 (08-09-1)
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */

@@ -78,26 +78,36 @@ void LCDTask::runOnce()
 {
     // Clear screen
     pGfx->clear(Color::Black);
-    showRadar();
-    showSystemData();
-    if (dm.getMode()==1) {
+    switch (dm.getMode()) {
+    case 1:
+        showRadar();
+        showSystemData();
     	showDetecktion();
+    	break;
+    case 2:
+        showSystemData();
+    	break;
+    case 3:
+        showSystemData();
+        showAI();
+    	break;
+    default:
+    	break;
     }
+
     showError();
     // Swap framebuffer (double buffering)
     pGfx->activateFrameBuffer();
 
-    dm.setLcdLoopCounter(dm.getLcdLoopCounter() + 1);
+    dm.setLcdLoopTime(execTimeCycles_);
+    dm.setLcdTaskFreeStack(freeStackBytes_);
+    dm.setLcdLoopCounter(loopNr_);
 }
 
 // Show Radar
 void LCDTask::showRadar() {
     // Version
-<<<<<<< HEAD
-    pGfx->text8x12(420, 10, "1.08", Color::Green);
-=======
     pGfx->text8x12(420, 10, "1.09", Color::Green);
->>>>>>> 638b292 (08-09-1)
 
     // Draw reference geometry
     pGfx->line(235, 10, 235, 242, Color::Red);     							// vertical reference line
@@ -137,8 +147,15 @@ void LCDTask::showSystemData() {
     snprintf(buf, sizeof(buf), "%s", (dm.getSimulation()== 0 ? "Real" : "Simulated"));
     pGfx->text8x12(145, 170, buf, Color::White);
 
-    snprintf(buf, sizeof(buf), "SRPPhat Time   %.3f", dm.getSRPPhatTime());
-    pGfx->text8x12(10, 180, buf, Color::White);
+    snprintf(buf, sizeof(buf), "SRP [%7.3f %4lu %6lu]", dm.getSrpLoopTime()/216000.0f, dm.getSrpLoopCounter(), dm.getSrpTaskFreeStack());
+    pGfx->text8x12(10, 120, buf, Color::White);
+
+    snprintf(buf, sizeof(buf), "LCD [%7.3f %4lu %6lu]", dm.getLcdLoopTime()/216000.0f, dm.getLcdLoopCounter(), dm.getLcdTaskFreeStack());
+    pGfx->text8x12(10, 130, buf, Color::White);
+
+    snprintf(buf, sizeof(buf), "Mic [%7.3f %4lu %6lu]", dm.getMicLoopTime()/216000.0f, dm.getMicLoopCounter(), dm.getMicTaskFreeStack());
+    pGfx->text8x12(10, 140, buf, Color::White);
+
 
     snprintf(buf, sizeof(buf), "Loop Srp       %ld", dm.getSrpLoopCounter());
     pGfx->text8x12(10, 190, buf, Color::White);
@@ -192,7 +209,41 @@ void LCDTask::showDetecktion() {
     }
 }
 
+void LCDTask::showAI() {
+    snprintf(buf, sizeof(buf), "Drone          %.3f", dm.getAiDrone());
+    pGfx->text8x12(10, 10, buf, Color::White);
+
+    snprintf(buf, sizeof(buf), "Wind           %.3f", dm.getAiWind());
+    pGfx->text8x12(10, 20, buf, Color::White);
+
+    snprintf(buf, sizeof(buf), "Human          %.3f", dm.getAiHuman());
+    pGfx->text8x12(10, 30, buf, Color::White);
+
+    snprintf(buf, sizeof(buf), "Background     %.3f", dm.getAiBackground());
+    pGfx->text8x12(10, 40, buf, Color::White);
+
+    if (dm.getAiInitError()) {
+    	snprintf(buf, sizeof(buf), "AI Init Error");
+    } else {
+    	snprintf(buf, sizeof(buf), "No AI Init Error");
+    }
+    pGfx->text8x12(10, 50, buf, (dm.getAiInitError() ? Color::Red : Color::Green));
+
+    if (dm.getAiRunError()) {
+    	snprintf(buf, sizeof(buf), "AI Run Error");
+    } else {
+    	snprintf(buf, sizeof(buf), "No AI Run Error");
+    }
+    pGfx->text8x12(10, 60, buf, (dm.getAiRunError() ? Color::Red : Color::Green));
+}
+
 void LCDTask::showError() {
+
+	SDS_ErrorMessage msg;
+	if (dm.popErrorMessage(msg)) {
+		pGfx->text8x12(10, 80, msg.text, Color::White);
+	}
+
 	if (dm.getErrorFlag()) {
 		uint32_t count = dm.getErrorCount();
 		if (count > 0) {

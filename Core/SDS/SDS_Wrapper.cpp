@@ -47,8 +47,6 @@
 #include "USBTask.hpp"
 #include "LoggerTask.hpp"
 
-#include "UnitTest.hpp"
-
 extern "C" {
 
     // -----------------------------------------------------------------------
@@ -107,8 +105,6 @@ extern "C" {
     // -----------------------------------------------------------------------
     void SDS_RunSRPUnittest(void)
     {
-        // Unit tests can be triggered here:
-        // UnitTest::runSRPTests();
     }
 
 }

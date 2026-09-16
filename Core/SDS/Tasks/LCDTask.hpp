@@ -51,9 +51,7 @@
 #include "Model.hpp"
 #include "Algorithm.hpp"
 
-#include "UnitTest.hpp"
-#include "DWTTimer.hpp"
-
+#include "LCDDriver.hpp"
 
 extern "C" volatile uint32_t usb_debug_counter;
 
@@ -69,21 +67,17 @@ protected:
     // Initialization hook — prepares LCD driver and buffers.
     void onStart() override;
 
-
-
 private:
     // Constructor: initializes base task and visualization parameters.
     LCDTask();
-
-    // Show Radar
-    void showRadar();
-
-    // Show System Data
-    void showSystemData();
-
     // Show Detections
     void showDetecktion();
-
+    // Show AI
+    void showAI();
+    // Show Radar
+    void showRadar();
+    // Show System Data
+    void showSystemData();
     // Show Errors;
     void showError();
 
@@ -96,9 +90,6 @@ private:
 
     // Graphics driver for LCD rendering.
     LCDDriver* pGfx = &LCDDriver::instance();
-
-    // Unit test overlay renderer.
-    UnitTest unitTest;
 
     // Frame counter.
     int frame_nr = 0;

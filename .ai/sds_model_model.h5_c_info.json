@@ -360,44 +360,44 @@
   ],
   "environment": {
     "generated_model": {
-      "generated_time": "2026-09-08T13:30:59+0300",
+      "generated_time": "2026-09-09T14:02:43+0300",
       "model_files": [
         {
           "name": "sds_model_data_params.h",
-          "signature": "0xd7f8607c1e9af46f8a76df504e9b8e1d"
+          "signature": "0x3ef484bf22becddeafd0cd0cae1f72c7"
         },
         {
           "name": "sds_model_data_params.c",
-          "signature": "0xa32c4ce11682a882640b3b1e5f5ca9e7"
+          "signature": "0x4f6cbf27732a22efa9183e79345abeac"
         },
         {
           "name": "sds_model_data.h",
-          "signature": "0x2519a66fa2634822ca01c26ae5eef4d9"
+          "signature": "0x939e5315025f6aab2b8e26097746409c"
         },
         {
           "name": "sds_model_data.c",
-          "signature": "0x9da86b86ca9db363bc703dcd45fedfa4"
+          "signature": "0x1f97deaf6af8dd806c455343d2052b65"
         },
         {
           "name": "sds_model_config.h",
-          "signature": "0xf53ff21e368daa09a6546fe663b8ed19"
+          "signature": "0xf86f7f39fdf710578633f4b0b0ce1607"
         },
         {
           "name": "sds_model.h",
-          "signature": "0x4fd9416242edbc7ee41e9c76a190fd01"
+          "signature": "0xfad0802cb8572570c2a57759b4131598"
         },
         {
           "name": "sds_model.c",
-          "signature": "0x1e262ecf89507e2b5cf25d0546d242e5"
+          "signature": "0x53896e949d9addf9fcf890b321b0b7c0"
         }
       ],
       "name": "sds_model"
     },
-    "network_signature": "0x08fe75cb1fb552db",
+    "network_signature": "0x0df6e2e46b08973a",
     "test_name": "",
     "tools": [
       {
-        "arguments": "generate --target stm32f7 --name sds_model -m C:/Users/310004/Documents/Projects/ML/model.h5 --compression none --verbosity 1 --workspace C:/Users/310004/AppData/Local/Temp/mxAI_workspace18835435987620016026596268130341017 --output C:/Users/310004/.stm32cubemx/network_output",
+        "arguments": "analyze --target stm32f7 --name sds_model -m C:/Users/310004/Documents/Projects/ML/model.h5 --compression none --verbosity 1 --workspace C:/Users/310004/AppData/Local/Temp/mxAI_workspace2766543542533001214683363366487999 --output C:/Users/310004/.stm32cubemx/sds_model_output",
         "environment": [
           "STATS_TYPE=X-CUBE-AI"
         ],

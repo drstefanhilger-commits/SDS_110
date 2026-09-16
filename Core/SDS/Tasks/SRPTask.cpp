@@ -53,152 +53,142 @@
 
 // Temporary global buffer (to be moved into Model)
 extern SRPBuffers g_srp;
-
 extern SDS_USB_MicSender usbSender;
 
-// ---------------------------------------------------------------------------
-// Constructor: initializes base task and distance estimator.
-// ---------------------------------------------------------------------------
 SRPTask::SRPTask()
     : TaskBase(8192, 50, osPriorityNormal),
       distEst(SDS_DIST_GAIN / 91.025f * 0.85f, 1e-3f)
 {
-    // No dynamic allocation here — DSP modules are constructed in-place.
 }
 
-// ---------------------------------------------------------------------------
-// Initialization hook — executed once before periodic processing.
-// ---------------------------------------------------------------------------
 void SRPTask::onStart()
 {
-    // Initialization of AI
-	SDS_AIModel_Init(&ai);
+    // SRP/DSP-Init bleibt wie bisher (falls vorhanden)
+
+    // AI-Initialisierung
+    if (!SDS_AIModel_Init(&ai)) {
+        // optional: Fehlerflag in dm setzen
+        dm.setAiInitError(true);
+    } else {
+        dm.setAiInitError(false);
+    }
 }
 
-// ---------------------------------------------------------------------------
-// Periodic DSP update — performs SRP‑PHAT and distance estimation.
-// ---------------------------------------------------------------------------
 void SRPTask::runOnce() {
-	switch (dm.getMode()) {
-		case 1: detectHandler(); break;
-		case 2:	readHandler(); break;
-		case 3: claibrateHandler(); break;
-		default: errorHandler(); break;
-	}
+    switch (dm.getMode()) {
+        case 1: detectHandler();   break;
+        case 2: readHandler();     break;
+        case 3: aiHandler();	   break;
+        default: errorHandler();   break;
+    }
 
-	dm.setSrpLoopCounter(dm.getSrpLoopCounter() + 1);
+    dm.setSrpLoopTime(execTimeCycles_);
+    dm.setSrpTaskFreeStack(freeStackBytes_);
+    dm.setSrpLoopCounter(loopNr_);
 }
 
-// Handler for detecting
 void SRPTask::detectHandler()
 {
-    // 0) Start high‑resolution timing (DWT cycle counter)
-    dwt.getStartTime();
-
-    // 1) Acquire a readable microphone buffer (triple‑buffered DMA)
     UnifiedMicBuffer* micBuffer = micBufferManager.getReadableBuffer();
+    if (!micBuffer) {
+        return;
+    }
 
-    // 2) Perform SRP‑PHAT azimuth scan
     srp.beginAzimuthScan(micBuffer->data,
                          SDS_AZ_MIN,
                          SDS_AZ_MAX,
                          SDS_AZ_STEP);
 
-    // Step through the entire azimuth grid
     while (!srp.stepAzimuthScan()) {}
 
-    // Publish azimuth result
     dm.setAzimuth(srp.getResult());
 
-    // Optional calibration/filtering:
-    // float rawAz = srp.getResult();
-    // float az    = srp.calibrateAzimuth(rawAz);
-    // az          = srp.filterAzimuth(az);
-
-    // 3) Distance estimation using DAS frame
     dr = distEst.process(das.makeFrame(micBuffer->data,
-                         SDS_AZ_MIN,
-                         SDS_AZ_MAX,
-                         SDS_AZ_STEP,
-                         1000));
+                                       SDS_AZ_MIN,
+                                       SDS_AZ_MAX,
+                                       SDS_AZ_STEP,
+                                       1000));
 
     dm.setDistance(dr.distance_m);
 
-    // 4) Release microphone buffer for reuse
     micBufferManager.markFree(micBuffer);
 
-    // 5) Send USB Message
     USB_SendDetection(getTimestamp(), 0, srp.getResult(), dr.distance_m, dr.confidence);
-
-    // 6) Stop timing and publish DSP execution time
-    dwt.getStopTime();
-    dm.setSRPPhatTime(dwt.getTimeDifferenceMs());
-
-    // Optional Logger
-    // Logger::instance().write("angle=%.2f\n", dm.getAzimuth());
 }
 
-// Handler for calibrating
-void SRPTask::claibrateHandler() {
+void SRPTask::aiHandler()
+{
+    // 1. Mel-Features aus SDS_Data erzeugen (40 Werte)
+    dm.computeMelFeatures(featureBuffer);   // diese Funktion musst du in SDS_Data passend zu FFT+MelSpectrogram implementieren
+    // 2. AI-Inferenz
+    if (SDS_AIModel_Run(&ai, featureBuffer, outputBuffer)) {
 
-}
+        const float drone      = outputBuffer[0];
+        const float human      = outputBuffer[1];
+        const float wind       = outputBuffer[2];
+        const float background = outputBuffer[3];
 
+        // 3. Ergebnisse ins Datenmodell schreiben
+        dm.setAiDrone(drone);
+        dm.setAiHuman(human);
+        dm.setAiWind(wind);
+        dm.setAiBackground(background);
 
-//SDS_MsgRead msgXXX;
+        // 4. Optional: Detektionslogik
+        if (drone > 0.7f && drone > human && drone > wind) {
+            dm.setDroneDetected(true);
+        } else {
+            dm.setDroneDetected(false);
+        }
 
-// Handler for reading sound samples and writing via USB
-void SRPTask::readHandler() {
+    } else {
 
-    // Fertigen Buffer holen
-	UnifiedMicBuffer* rb = micBufferManager.getReadableBuffer();
-    if (!rb) {
-    	uint8_t rxBuffer[12] = {0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF, 0xEE, 0xFF};
-    	memcpy(dm.getErrorBuffer(), rxBuffer, 12);
-    	dm.setLcdLoopCounter(0);
-    	dm.setSrpLoopCounter(0);
-    	dm.setErrorCount(30);	// ~10 sec
-        return; // kein fertiger Block → nichts zu tun
+    	dm.pushErrorMessage("Fehler in SDS_AIModel_Run");
+        dm.setAiRunError(true);
     }
-
-	bool ok;
-	bool okSum = true;
-
-	for (uint32_t micNr = 0; micNr<8; micNr++) {
-		for (uint32_t frameNr = 0; frameNr<2; frameNr++) {
-//			ok = USB_SendRead(getTimestamp(), micNr, frameNr, rb);
-			ok = USB_SendRead_Test();
-			okSum = okSum && ok;
-			if (!ok) {dm.setUsbErrorCount(dm.getUsbErrorCount()+1);}
-			delay(400);
-			if (dm.getMode() != 3) {continue;}
-		}
-	}
-
-    // Buffer freigeben
-    micBufferManager.markFree(rb);
-
-    // Optional: Fehlerbehandlung
-    if (!okSum) {
-    	uint8_t rxBuffer[12] = {0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB, 0xAA, 0xBB};
-    	memcpy(dm.getErrorBuffer(), rxBuffer, 12);
-    	dm.setLcdLoopCounter(0);
-    	dm.setSrpLoopCounter(0);
-    	dm.setErrorCount(30);	// ~10 sec
-        // USB überlastet oder blockiert
-        // → keine SRP-Pipeline, nur Logging
-    }
-
-//    delay(200); //Notwend, da Ueberlauf
 }
 
-// Error-Handler
-void SRPTask::errorHandler() {
-
+void SRPTask::readHandler()
+{
+//    UnifiedMicBuffer* rb = micBufferManager.getReadableBuffer();
+//    if (!rb) {
+//        uint8_t rxBuffer[12] = {0xEE,0xFF,0xEE,0xFF,0xEE,0xFF,0xEE,0xFF,0xEE,0xFF,0xEE,0xFF};
+//        memcpy(dm.getErrorBuffer(), rxBuffer, 12);
+//        dm.setLcdLoopCounter(0);
+//        dm.setSrpLoopCounter(0);
+//        dm.setErrorCount(30);
+//        return;
+//    }
+//
+//    bool ok;
+//    bool okSum = true;
+//
+//    for (uint32_t micNr = 0; micNr < 8; micNr++) {
+//        for (uint32_t frameNr = 0; frameNr < 2; frameNr++) {
+//            ok = USB_SendRead_Test();
+//            okSum = okSum && ok;
+//            if (!ok) { dm.setUsbErrorCount(dm.getUsbErrorCount() + 1); }
+//            delay(400);
+//            if (dm.getMode() != 3) { continue; }
+//        }
+//    }
+//
+//    micBufferManager.markFree(rb);
+//
+//    if (!okSum) {
+//        uint8_t rxBuffer[12] = {0xAA,0xBB,0xAA,0xBB,0xAA,0xBB,0xAA,0xBB,0xAA,0xBB,0xAA,0xBB};
+//        memcpy(dm.getErrorBuffer(), rxBuffer, 12);
+//        dm.setLcdLoopCounter(0);
+//        dm.setSrpLoopCounter(0);
+//        dm.setErrorCount(30);
+//    }
 }
 
-// ---------------------------------------------------------------------------
-// Returns a millisecond timestamp using HAL tick counter.
-// ---------------------------------------------------------------------------
+void SRPTask::errorHandler()
+{
+    // optional: zentrale Fehlerbehandlung
+}
+
 uint32_t SRPTask::getTimestamp()
 {
     return HAL_GetTick();

@@ -52,68 +52,54 @@
 #include "Model.hpp"
 #include "Algorithm.hpp"
 
+extern "C" {
 #include "SDS_AIModel.h"
+}
 
 #include "SDSUSBMicSender.hpp"
-#include "DWTTimer.hpp"
+//#include <DWTTimer1.hppp>
 
 class SRPTask : public TaskBase {
 public:
-    // Singleton instance — ensures only one SRP pipeline runs.
     static SRPTask& instance() { static SRPTask inst; return inst; }
 
 protected:
-    // Periodic DSP update — performs SRP‑PHAT and distance estimation.
     void runOnce() override;
-
-    // Initialization hook — prepares buffers, timers, and DSP structures.
     void onStart() override;
 
+    DWTTimer& dwt = DWTTimer::instance();
+
 private:
-    // Constructor: initializes SRP grid, DSP modules, and buffer references.
     SRPTask();
 
-    // Returns a high‑resolution timestamp using DWT cycle counter.
     uint32_t getTimestamp();
-
-    // Handler for detecting
     void detectHandler();
-
-    // Handler for calibrating
-    void claibrateHandler();
-
-    // Handler for reading sound samples and writing via USB
+    void aiHandler();
     void readHandler();
-
-    // Error-Handler
     void errorHandler();
 
 private:
     // ML Instance
     SDS_AIModel ai;
 
-    // SRP spatial grid (energy values for each candidate position).
+    // 40 Mel-Bänder → 4 Klassen
+    static constexpr int FEATURE_DIM = 40;
+    static constexpr int NUM_CLASSES = 4;
+
+    float featureBuffer[FEATURE_DIM];
+    float outputBuffer[NUM_CLASSES];
+
     std::vector<float> srpGrid_;
 
-    // DSP modules for SRP‑PHAT and distance estimation.
     SRPPhat srp;
     SRP_DAS_Distance das;
     DistanceEstimator distEst;
 
-    // Microphone buffer manager (triple‑buffered DMA acquisition).
     SDS_MicrophoneBuffer& micBufferManager = SDS_MicrophoneBuffer::instance();
-
-    // Global data model for publishing results.
     SDS_Data& dm = SDS_Data::instance();
 
-    // Distance estimation result container.
     DistanceResult dr;
-
-    // USB sender for READ(3) mode
     SDS_USB_MicSender usbSender;
-
-    // High‑resolution cycle timer (DWT).
-    DWTTimer& dwt = DWTTimer::instance();
 
     uint32_t loop = 0;
 };

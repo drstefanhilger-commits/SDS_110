@@ -74,9 +74,14 @@ void MicTask::runOnce()
 	switch (dm.getMode()) {
 		case 1: detectHandler(); break;		//Mode Detect
 		case 2: detectHandler(); break;		// Mode Read
-		case 3: claibrateHandler(); break;
+		case 3: claibrateHandler(); break;	// Mode Calibrate
 		default: errorHandler(); break;
 	}
+
+    dm.setMicLoopTime(execTimeCycles_);
+    dm.setMicTaskFreeStack(freeStackBytes_);
+    dm.setMicLoopCounter(dm.getSrpLoopCounter() + 1);
+
 }
 
 // Handler for sampling

@@ -8,10 +8,9 @@
 #pragma once
 
 #include "SDS_Data.hpp"
-#include "DWTTimer.hpp"
 #include "LCDDriver.hpp"
 #include <stdio.h>
-
+#include "DWT.hpp"
 
 class MyDebug {
 public:
@@ -21,18 +20,18 @@ public:
 
 	static MyDebug& instance() {static MyDebug inst; return inst; };
 
-    void start() 	{ pDWTTimer->getStartTime(); };
-    void stop()  	{ pDWTTimer->getStopTime(); };
-    float diffMs()  { return pDWTTimer->getTimeDifferenceMs(); };
-
-    void deltaTimeUs(int x, int y, Color color=Color::White) {
-    	snprintf(buf, sizeof(buf), "DTime: %f [us]", pDWTTimer->getTimeDifferenceUs());
-    	pGfx->text8x12(x, y, buf, color);
-    };
-    void deltaTimeMs(int x, int y, Color color=Color::White) {
-    	snprintf(buf, sizeof(buf), "DTime: %f [ms]", pDWTTimer->getTimeDifferenceMs());
-    	pGfx->text8x12(x, y, buf, color);
-    };
+//    void start() 	{ pDWTTimer->getStartTime(); };
+//    void stop()  	{ pDWTTimer->getStopTime(); };
+//    float diffMs()  { return 0; }; //pDWTTimer->getTimeDifferenceMs(); };
+//
+//    void deltaTimeUs(int x, int y, Color color=Color::White) {
+//    	snprintf(buf, sizeof(buf), "DTime: %f [us]", pDWTTimer->getTimeDifferenceUs());
+//    	pGfx->text8x12(x, y, buf, color);
+//    };
+//    void deltaTimeMs(int x, int y, Color color=Color::White) {
+//    	snprintf(buf, sizeof(buf), "DTime: %f [ms]", pDWTTimer->getTimeDifferenceMs());
+//    	pGfx->text8x12(x, y, buf, color);
+//    };
 
 
 private:

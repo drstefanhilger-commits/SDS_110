@@ -207,3 +207,11 @@ struct Message {
     uint32_t crc32  = 0;
 };
 #pragma pack(pop)
+
+// ======================================================
+//  SDS DATA MODEL – Error Message Type
+// ======================================================
+
+struct SDS_ErrorMessage {
+    char text[32];
+};

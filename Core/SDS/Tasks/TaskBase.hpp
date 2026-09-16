@@ -43,6 +43,7 @@
 #pragma once
 
 #include "cmsis_os2.h"
+#include "DWT.hpp"
 #include <cstdint>
 
 class TaskBase {
@@ -70,7 +71,7 @@ protected:
     // Optional hook executed when the thread exits (rarely reached).
     virtual void onExit() {}
 
-    void delay(uint32_t ms);
+    void delay_(uint32_t ms);
 
 private:
     // Static trampoline function used by CMSIS‑RTOS2.
@@ -83,4 +84,13 @@ protected:
     uint32_t     stackSize_;             // Stack size in bytes
     uint32_t     delayMs_;               // Periodic delay in milliseconds
     osPriority_t priority_;              // Thread priority
+
+    // --- Monitoring fields ---
+	uint32_t lastRunCycles_ 	= 0;
+	uint32_t execTimeCycles_ 	= 0;
+	uint32_t jitterCycles_ 		= 0;
+	uint32_t freeStackBytes_ 	= 0;
+	uint32_t loopNr_			= 0;
+
+	DWTTimer& dwt				= DWTTimer::instance();
 };

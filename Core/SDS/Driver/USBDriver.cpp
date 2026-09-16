@@ -55,9 +55,10 @@ bool USB_SendRead(uint32_t timestamp,
 
     SDS_MsgRead msg;
 
+    int offset = frameNr*SDS_MSG_BUFFER_SIZE;
 	for (int i = 0; i < SDS_MSG_BUFFER_SIZE; i++) {
 		if (rb && micNr < SDS_NUM_MICS) {
-			msg.data[i] = static_cast<uint32_t>(rb->raw[micNr][i]);
+			msg.data[i] = static_cast<uint32_t>(rb->raw[micNr][i+offset]);
 		} else {
 			msg.data[i] = 0;
 		}

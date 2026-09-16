@@ -73,26 +73,41 @@ void TaskBase::start()
 // ---------------------------------------------------------------------------
 void TaskBase::threadEntry(void* argument)
 {
-    // Convert generic pointer to TaskBase instance.
-    auto* self = reinterpret_cast<TaskBase*>(argument);
+    TaskBase* self = static_cast<TaskBase*>(argument);
 
-    // Initialization hook.
     self->onStart();
 
-    // Deterministic periodic loop.
-    for (;;) {
+    self->lastRunCycles_ = self->dwt.instance().cycles();
+
+    while (true)
+    {
+    	// --- Get current cycle
+        uint32_t t0 = self->dwt.instance().cycles();
+
+        // --- Jitter ---
+        self->jitterCycles_ = t0 - self->lastRunCycles_;
+        self->lastRunCycles_ = t0;
+
+        // --- runOnce() execution time ---
         self->runOnce();
-        osDelay(self->delayMs_);
+        uint32_t t1 = self->dwt.instance().cycles();
+        self->execTimeCycles_ = t1 - t0;
+
+        // --- Stack usage ---
+        self->freeStackBytes_ = osThreadGetStackSpace(self->taskHandle_);
+
+        // --- Increment Loop Number ---
+        self->loopNr_++;
+
+        // --- Loop delay ---
+        self->delay_(self->delayMs_);
     }
 
-    // Cleanup hook (rarely reached because of infinite loop).
     self->onExit();
-
-    // Terminate the thread (CMSIS‑RTOS2).
-    osThreadExit();
 }
 
-void TaskBase::delay(uint32_t ms) {
+
+void TaskBase::delay_(uint32_t ms) {
 	osDelay(ms);
 }
 
