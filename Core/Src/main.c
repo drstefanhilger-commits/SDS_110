@@ -227,7 +227,7 @@ int main(void)
   osKernelInitialize();
 
   /* USER CODE BEGIN RTOS_MUTEX */
-  SDS_Init();
+  SDS110_Init();
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
@@ -249,11 +249,10 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  SDS_StartDisplayManagerTask();
-//  SDS_StartMicTask();
-//  SDS_StartSRPPhatTask();
-//  SDS_StartUSBTask();
-//  SDS_StartLoggerTask();
+  SDS110_StartDisplayTask();
+  SDS110_StartProcessingTask();
+  SDS110_StartUSBTask();
+  SDS110_StartLoggerTask();
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */

@@ -46,6 +46,12 @@ public:
     uint32_t getSelectedBands() const { return getValue(selectedBands); }
     uint32_t getReportCount() const { return getValue(reportCount); }
 
+    // --- HBD (124) Diagnose --------------------------------------------------
+    struct HbdStatus { float f0Hz = 0, score = 0, snrDb = 0; uint8_t consistent = 0; bool detected = false; };
+    void setHbd(float f0, float score, float snr, uint8_t consistent, bool det)
+    { HbdStatus h{f0, score, snr, consistent, det}; setValue(hbd_, h); }
+    HbdStatus getHbd() const { return getValue(hbd_); }
+
     // --- HBD-ML Status ------------------------------------------------------
     void setMlInitError(bool v) { setValue(mlInitError, v); }
     bool getMlInitError() const { return getValue(mlInitError); }
@@ -120,6 +126,7 @@ private:
     uint32_t selectedBands = 0;
     uint32_t reportCount = 0;
     bool     mlInitError = false, mlRunError = false;
+    HbdStatus hbd_{};
 
     // System
     uint16_t id = 0;

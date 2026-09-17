@@ -6,7 +6,7 @@ und der Candidate Report liegen im Processing Module auf dem PC. Das Board sende
 
 | Neu | Aus SDS | Änderung |
 |---|---|---|
-| Machine_Learning_Module_124.{hpp,cpp} | – (SDS_AIModel wird nicht übernommen) | Platzhalter: p_b aus Bandleistung, bis HBD-ML vorliegt (`ML_PLACEHOLDER`) |
+| Machine_Learning_Module_124.{hpp,cpp}, HBD.{hpp,cpp} | HBD-Vorlage (klassischer Harmonic Band Detector) | HBD auf |X| aus 122; Brücke HBD -> s(t) über Band-SNR, Harmonischen-Boost, Score-Gate |
 | Correlation_Processing_Module_126.{hpp,cpp} | Algorithm/SRPPhat, Model/SDS_SRPBuffers | GCC-PHAT jetzt quellkonditioniert (S(t), w); SRP-Gitterscan durch TDOA-Least-Squares-Peilung ersetzt; kiss_fft → CMSIS |
 | Localisation_Module_128.{hpp,cpp} | Algorithm/DistanceEstimator, SRP_DAS_Distance, SRPPhat::calibrateAzimuth | hyperbolische LS-Lösung für N≥3; Einzel-Unit: Peilung + Pegel-Fallback |
 | Output_Interface_130.{hpp,cpp} | USB_SendDetection in SRPTask | Legacy-Frame + neuer Candidate Report (id 4) |
@@ -28,7 +28,7 @@ und der Candidate Report liegen im Processing Module auf dem PC. Das Board sende
 → ~13 ms pro 64-ms-Frame; mit 50 % Overlap später ~40 % Last.
 
 ## Offene Punkte
-1. HBD-ML in 124 einsetzen, `ML_PLACEHOLDER = false`.
+1. HBD-Parameter (HBD_BAND_SNR_DB, HBD_GATE_FLOOR, perBandSnrDb) mit Aufnahmen abstimmen.
 2. Feedback-Empfang (Nachrichtentyp 4 in USBTask → Output_Interface_130::pollFeedback).
 3. PC-Monitor (Processing Module 120): Inter-Unit-GCC-PHAT auf den Referenzkanal-Spektren ≥ [3]
    Einheiten (Patent Abschnitt 1/6; Werte in Klammern noch offen) mit `126::crossCorrelate()` und

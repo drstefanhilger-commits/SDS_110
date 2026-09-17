@@ -33,6 +33,8 @@ public:
 
     uint32_t id() const { return id_; }
     const Microphone_Array_114& array() const { return array_; }
+    const Sampling_Circuitry_116& sampling() const { return sampling_; }
+    Sampling_Circuitry_116& sampling() { return sampling_; }
 
 private:
     uint32_t id_;

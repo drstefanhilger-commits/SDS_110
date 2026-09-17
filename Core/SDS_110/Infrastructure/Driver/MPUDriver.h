@@ -35,7 +35,7 @@ static inline void SDS110_MPU_ConfigRegion(uint8_t number, uint32_t base, uint8_
     HAL_MPU_ConfigRegion(&r);
 }
 
-static inline void SDS110_MPU_Config(void) //ToDo SDS110_MPU_Config in MPU_Config
+static inline void SDS110_MPU_Config(void)
 {
     HAL_MPU_Disable();
 
@@ -53,4 +53,3 @@ static inline void SDS110_MPU_Config(void) //ToDo SDS110_MPU_Config in MPU_Confi
 
     HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 }
-

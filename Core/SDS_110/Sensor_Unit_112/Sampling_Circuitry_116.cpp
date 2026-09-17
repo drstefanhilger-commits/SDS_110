@@ -60,6 +60,12 @@ bool Sampling_Circuitry_116::configureCodec()
 
 bool Sampling_Circuitry_116::configureSai()
 {
+    // SAI-Kerneltakt muss konfiguriert sein (CubeMX Clock Configuration: SAI2 <- PLLSAI),
+    // sonst teilt HAL_SAI_Init durch 0.
+    const uint32_t periph = (hsai_->Instance == SAI1_Block_A || hsai_->Instance == SAI1_Block_B)
+                            ? RCC_PERIPHCLK_SAI1 : RCC_PERIPHCLK_SAI2;
+    if (HAL_RCCEx_GetPeriphCLKFreq(periph) == 0U) { ++errors_; return false; }
+
     // Aus sai.c: Master RX, PCM long, TDM-8 x 32 bit (Frame 256 bit)
     SAI_HandleTypeDef& h = *hsai_;
     h.Init.AudioMode      = SAI_MODEMASTER_RX;

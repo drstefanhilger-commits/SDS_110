@@ -9,6 +9,7 @@
 namespace sds110 {
 
 SDS110_SDRAM_SECTION Spectrum Processing_Module_120::spectra_[NUM_MICS];
+void* Processing_Module_120_spectraProbe() { return &Processing_Module_120::spectra_[0]; }
 
 Processing_Module_120& Processing_Module_120::instance()
 {
@@ -18,11 +19,23 @@ Processing_Module_120& Processing_Module_120::instance()
     return inst;
 }
 
+static bool sdramSelfTest()
+{
+    // schreibt/liest ein Muster in das erste Spektrum (liegt in .sdram_data)
+    volatile uint32_t* p = reinterpret_cast<volatile uint32_t*>(Processing_Module_120_spectraProbe());
+    const uint32_t pat[2] = { 0xA5A5F00Fu, 0x5A5A0FF0u };
+    for (int i = 0; i < 2; ++i) { p[i] = pat[i]; }
+    for (int i = 0; i < 2; ++i) { if (p[i] != pat[i]) return false; }
+    return true;
+}
+
 bool Processing_Module_120::init(SAI_HandleTypeDef* hsai, I2C_HandleTypeDef* hi2c)
 {
     SDS_Data& dm = SDS_Data::instance();
+    if (!sdramSelfTest()) { dm.pushErrorMessage("SDRAM not initialised"); return false; }
+
     const bool unitOk = unit_.init(hsai, hi2c);
-    if (!unitOk) dm.pushErrorMessage("116 init failed");
+    if (!unitOk) dm.pushErrorMessage(unit_.sampling().errorCount() ? "116: SAI clock / I2C" : "116 init failed");
 
     feat_.init();
     const bool mlOk = ml_.init();
@@ -50,9 +63,10 @@ bool Processing_Module_120::processFrame()
     unit_.releaseFrame(frame);
 
     // (c) 124: Acoustic State s(t)
-    if (!ml_.infer(features_, state_)) { dm.setMlRunError(true); return true; }
+    if (!ml_.infer(feat_.magnitude(), features_, state_)) { dm.setMlRunError(true); return true; }
     dm.setMlRunError(false);
     dm.setAcousticState(state_);
+    dm.setHbd(ml_.hbd().f0Hz, ml_.hbd().score, ml_.hbd().globalSnrAvgDb, ml_.hbd().consistentBands, ml_.hbd().droneDetected);
 
     // Feedback der Tracking Unit (Abschnitt 10), falls vorhanden
     if (out_.pollFeedback(feedback_)) corr_.applyFeedback(feedback_);
@@ -60,6 +74,10 @@ bool Processing_Module_120::processFrame()
     // (d)(e) 126: Selektion, Gewichtung, quellkonditionierte GCC-PHAT, Peilung
     corr_.deriveSelection(state_, selection_);
     corr_.estimateBearing(spectra_, selection_, bearing_);
+    if (SRP_REFERENCE_ENABLED) {                       // Vergleich TDOA-LS (Patent) vs. SRP-PHAT (alt)
+        float srpAz = 0.0f, srpPow = 0.0f, srpRatio = 0.0f;
+        if (corr_.srpScan(srpAz, srpPow, srpRatio)) { dm.setDebugValue(0, srpAz); dm.setDebugValue(1, srpRatio); }
+    }
 
     // (f) 128: Kandidatenposition (Einzel-Unit: Peilung + Pegel-Fallback)
     float levelA = 0.0f;

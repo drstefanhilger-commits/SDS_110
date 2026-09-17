@@ -96,6 +96,12 @@ void LCDTask::showDetection()
     gfx_->text8x12(10, 20, buf_, colorDis);
     snprintf(buf_, sizeof(buf_), "Confidence     %.2f", static_cast<double>(dm_.getConfidence()));
     gfx_->text8x12(10, 30, buf_, Color::White);
+    if (SRP_REFERENCE_ENABLED) {
+        const float srpAz = dm_.getDebugValue(0);
+        const Color c = (fabsf(srpAz - trueAz) < errorAz_) ? Color::Green : Color::Yellow;
+        snprintf(buf_, sizeof(buf_), "SRP-PHAT az    %.3f", static_cast<double>(srpAz));
+        gfx_->text8x12(10, 60, buf_, c);
+    }
 
     if (dm_.getSimulation() == 1) {
         snprintf(buf_, sizeof(buf_), "True Azimuth   %.3f", static_cast<double>(trueAz));
@@ -123,6 +129,14 @@ void LCDTask::showAcousticState()
     }
     snprintf(buf_, sizeof(buf_), "s(t) frame %lu", static_cast<unsigned long>(s.frame_id));
     gfx_->text8x12(240, 115, buf_, Color::White);
+
+    const SDS_Data::HbdStatus h = dm_.getHbd();
+    snprintf(buf_, sizeof(buf_), "HBD f0 %5.1f Hz", static_cast<double>(h.f0Hz));
+    gfx_->text8x12(10, 10, buf_, Color::White);
+    snprintf(buf_, sizeof(buf_), "score %.2f  snr %.1f", static_cast<double>(h.score), static_cast<double>(h.snrDb));
+    gfx_->text8x12(10, 20, buf_, Color::White);
+    snprintf(buf_, sizeof(buf_), "consist %u/8  %s", h.consistent, h.detected ? "DRONE" : "-");
+    gfx_->text8x12(10, 30, buf_, h.detected ? Color::Green : Color::White);
 
     gfx_->text8x12(10, 50, dm_.getMlInitError() ? "ML Init Error" : "ML Init OK",
                    dm_.getMlInitError() ? Color::Red : Color::Green);

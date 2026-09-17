@@ -69,6 +69,10 @@ constexpr float    SPEED_OF_SOUND   = 343.0f; // wird temperaturkorrigiert
 constexpr uint32_t NUM_MIC_PAIRS    = NUM_MICS * (NUM_MICS - 1) / 2;   // 28
 constexpr float    PEAK_EXCLUDE_S   = 3.0f / SAMPLE_RATE_HZ;           // Nachbarschaft um Hauptpeak für Peak-Ratio
 constexpr float    BEARING_MIN_PAIRS_FRACTION = 0.5f;                  // min. Anteil gültiger Paare
+// Referenz-Peilung SRP-PHAT (Harness/Vergleich): Scan über die gespeicherten Paarkorrelationen
+constexpr uint32_t SRP_MAX_LAG      = 64;     // Samples, >= Arraydurchmesser/c*fs*1.1 (0.4 m -> 62)
+constexpr uint32_t SRP_AZ_STEPS     = 360;    // 1° Raster
+constexpr bool     SRP_REFERENCE_ENABLED = true;
 
 // --- 6. Lokalisation ----------------------------------------------------
 constexpr uint32_t MIN_PAIRS        = 3;
@@ -78,8 +82,15 @@ constexpr bool     SINGLE_UNIT_LEVEL_DISTANCE = true;
 constexpr float    LEVEL_DIST_K_REF = 100.0f;  // r = K / (A + eps)
 constexpr float    LEVEL_DIST_EPS   = 1e-3f;
 
-// --- 124 Platzhalter bis HBD-ML vorliegt --------------------------------
-constexpr bool     ML_PLACEHOLDER   = true;   // p_b aus normierter Bandleistung
+// --- Harness: Simulation ohne Mikrofone (USB Typ 3 = 1) -----------------
+constexpr uint8_t  SIM_SCENARIO_ID  = 0;      // 0 DroneSweep, 1 DroneStatic, 2 SingleTone, 3 WindNoise, 4 Silence
+constexpr float    SIM_F0_HZ        = 180.0f;
+constexpr float    SIM_SNR_DB       = 20.0f;
+
+// --- 124 HBD -> s(t) ----------------------------------------------------
+constexpr float    HBD_BAND_SNR_DB  = 8.0f;   // Band-SNR, bei dem p_b = 0,5
+constexpr float    HBD_SIGMOID_DB   = 3.0f;   // Steilheit der Sigmoid (dB)
+constexpr float    HBD_GATE_FLOOR   = 0.3f;   // Restanteil der p_b ohne HBD-Detektion
 
 // --- 10. Feedback -------------------------------------------------------
 constexpr float    THETA_REF        = 0.6f;

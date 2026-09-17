@@ -60,8 +60,12 @@ public:
     bool crossCorrelate(const Spectrum& Xi, const Spectrum& Xj, const ComponentSelection& sel,
                         float maxDelay_s, TdoaMeasurement& out);
 
-    /// Intra-Unit-Peilung aus allen Mikrofonpaaren einer Unit
+    /// Intra-Unit-Peilung aus allen Mikrofonpaaren einer Unit (TDOA-Least-Squares, Patentpfad)
     bool estimateBearing(const Spectrum* micSpectra, const ComponentSelection& sel, Bearing& out);
+
+    /// Referenz: SRP-PHAT-Scan über die in estimateBearing() gespeicherten Paarkorrelationen
+    /// (klassisches Verfahren aus SDS/Algorithm/SRPPhat, hier ohne eigene FFTs). Nur Vergleich.
+    bool srpScan(float& azimuth_deg, float& peakPower, float& peakRatio) const;
 
     /// Abschnitt 10: Feedback der Tracking Unit
     void applyFeedback(const TrackingFeedback& fb);
@@ -80,6 +84,9 @@ private:
     float spec_[N_FFT];              // gepacktes Spektrum für die IFFT
     float corr_[N_FFT];              // Kreuzkorrelation (zeitlich)
     TdoaMeasurement pairTdoa_[NUM_MIC_PAIRS];
+    // Fenster ±SRP_MAX_LAG jeder Paarkorrelation für srpScan()
+    float pairCorr_[NUM_MIC_PAIRS][2 * SRP_MAX_LAG + 1];
+    float pairDx_[NUM_MIC_PAIRS], pairDy_[NUM_MIC_PAIRS];   // (p_i - p_j)/c * fs
 };
 
 } // namespace sds110

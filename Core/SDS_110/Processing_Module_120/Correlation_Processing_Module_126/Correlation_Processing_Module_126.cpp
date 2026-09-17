@@ -21,6 +21,13 @@ void Correlation_Processing_Module_126::init(const Microphone_Array_114& array)
         }
     }
     maxIntraDelay_s_ = dmax / SPEED_OF_SOUND * 1.1f;   // 10 % Reserve
+    uint32_t idx = 0;
+    for (uint32_t i = 0; i < NUM_MICS; ++i)
+        for (uint32_t j = i + 1; j < NUM_MICS; ++j, ++idx) {
+            pairDx_[idx] = (micPos_[i].x - micPos_[j].x) / SPEED_OF_SOUND * SAMPLE_RATE_HZ;
+            pairDy_[idx] = (micPos_[i].y - micPos_[j].y) / SPEED_OF_SOUND * SAMPLE_RATE_HZ;
+        }
+    std::memset(pairCorr_, 0, sizeof(pairCorr_));
     clearFeedback();
 }
 
@@ -136,7 +143,13 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
         for (uint32_t j = i + 1; j < NUM_MICS; ++j, ++idx) {
             TdoaMeasurement& m = pairTdoa_[idx];
             m.i = i; m.j = j;
-            if (!crossCorrelate(S[i], S[j], sel, maxIntraDelay_s_, m)) continue;
+            const bool ok = crossCorrelate(S[i], S[j], sel, maxIntraDelay_s_, m);
+            if (SRP_REFERENCE_ENABLED) {
+                // Korrelationsfenster für den SRP-Scan sichern (corr_ ist zirkulär, negative Lags am Ende)
+                for (int lag = -static_cast<int>(SRP_MAX_LAG); lag <= static_cast<int>(SRP_MAX_LAG); ++lag)
+                    pairCorr_[idx][lag + SRP_MAX_LAG] = (sel.num_bins == 0) ? 0.0f : corr_[(lag + static_cast<int>(N_FFT)) % N_FFT];
+            }
+            if (!ok) continue;
             ++valid; peakSum += m.peak;
             const float ax = (micPos_[i].x - micPos_[j].x) / SPEED_OF_SOUND;
             const float ay = (micPos_[i].y - micPos_[j].y) / SPEED_OF_SOUND;
@@ -168,6 +181,51 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
     if (az < 0.0f) az += 360.0f;
     out.azimuth_deg = az;
     out.valid = true;
+    return true;
+}
+
+// ---------------------------------------------------------------- SRP-PHAT-Referenz
+// SRP(φ) = Σ_pairs C_ij(τ_ij(φ)), τ_ij(φ) = ((p_i - p_j)·u(φ)) / c · fs, linear interpoliert.
+bool Correlation_Processing_Module_126::srpScan(float& azimuth_deg, float& peakPower, float& peakRatio) const
+{
+    float best = -1e30f, second = -1e30f; uint32_t bestStep = 0;
+    for (uint32_t s = 0; s < SRP_AZ_STEPS; ++s) {
+        const float phi = static_cast<float>(s) * (2.0f * PI / SRP_AZ_STEPS);
+        const float ux = std::cos(phi), uy = std::sin(phi);
+        float acc = 0.0f;
+        for (uint32_t k = 0; k < NUM_MIC_PAIRS; ++k) {
+            const float tau = pairDx_[k] * ux + pairDy_[k] * uy;            // Lag in Samples
+            const float pos = tau + static_cast<float>(SRP_MAX_LAG);
+            const int   i0  = static_cast<int>(std::floor(pos));
+            if (i0 < 0 || i0 + 1 > static_cast<int>(2 * SRP_MAX_LAG)) continue;
+            const float fr = pos - static_cast<float>(i0);
+            acc += pairCorr_[k][i0] * (1.0f - fr) + pairCorr_[k][i0 + 1] * fr;
+        }
+        if (acc > best) { second = best; best = acc; bestStep = s; }
+        else if (acc > second) second = acc;
+    }
+    if (best <= 0.0f) return false;
+    // Parabel-Interpolation um das Maximum (1°-Raster)
+    auto at = [&](int s) {
+        s = (s + static_cast<int>(SRP_AZ_STEPS)) % static_cast<int>(SRP_AZ_STEPS);
+        const float phi = static_cast<float>(s) * (2.0f * PI / SRP_AZ_STEPS);
+        const float ux = std::cos(phi), uy = std::sin(phi); float acc = 0.0f;
+        for (uint32_t k = 0; k < NUM_MIC_PAIRS; ++k) {
+            const float pos = pairDx_[k] * ux + pairDy_[k] * uy + static_cast<float>(SRP_MAX_LAG);
+            const int i0 = static_cast<int>(std::floor(pos));
+            if (i0 < 0 || i0 + 1 > static_cast<int>(2 * SRP_MAX_LAG)) continue;
+            const float fr = pos - static_cast<float>(i0);
+            acc += pairCorr_[k][i0] * (1.0f - fr) + pairCorr_[k][i0 + 1] * fr;
+        }
+        return acc;
+    };
+    const float ym = at(static_cast<int>(bestStep) - 1), y0 = best, yp = at(static_cast<int>(bestStep) + 1);
+    const float den = ym - 2.0f * y0 + yp;
+    const float delta = (std::fabs(den) > 1e-12f) ? 0.5f * (ym - yp) / den : 0.0f;
+    float az = (static_cast<float>(bestStep) + delta) * (360.0f / SRP_AZ_STEPS);
+    if (az < 0.0f)    az += 360.0f;
+    if (az >= 360.0f) az -= 360.0f;
+    azimuth_deg = az; peakPower = best; peakRatio = best / (std::fabs(second) + 1e-9f);
     return true;
 }
 
