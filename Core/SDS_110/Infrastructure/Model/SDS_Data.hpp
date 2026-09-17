@@ -53,8 +53,9 @@ public:
     bool getMlRunError() const  { return getValue(mlRunError); }
 
     // --- System Status ------------------------------------------------------
-    void setId(uint8_t v) { setValue(id, v); }
-    uint8_t getId() const { return getValue(id); }
+    /// Unit-ID: Standard aus STM32-UID (siehe SDS110_Init), per USB-Kommando Typ 5 überschreibbar
+    void setId(uint16_t v) { setValue(id, v); }
+    uint16_t getId() const { return getValue(id); }
     void setMode(SDS_Mode v) { setValue(mode, v); }
     SDS_Mode getMode() const { return getValue(mode); }
     void setSimulation(uint32_t v) { setValue(simulation, v); }
@@ -121,7 +122,7 @@ private:
     bool     mlInitError = false, mlRunError = false;
 
     // System
-    uint8_t  id = 0;
+    uint16_t id = 0;
     SDS_Mode mode = SDS_Mode::DETECT;
     uint32_t simulation = 1;
     uint32_t syncTimeDifference = 0;

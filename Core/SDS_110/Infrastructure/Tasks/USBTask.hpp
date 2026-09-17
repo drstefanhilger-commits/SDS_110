@@ -38,6 +38,7 @@ private:
     void handleTimeSync(const uint8_t* rx);
     void handleModeChange(const uint8_t* rx);
     void handleSimulation(const uint8_t* rx);
+    void handleSetUnitId(const uint8_t* rx);     // Typ 5: Payload u32 = neue Unit-ID
     void handleError(const uint8_t* rx);
     static bool hasMagic(const uint8_t* rx);
     static uint32_t payloadLen(const uint8_t* rx) { return (rx[5] << 16) | (rx[6] << 8) | rx[7]; }

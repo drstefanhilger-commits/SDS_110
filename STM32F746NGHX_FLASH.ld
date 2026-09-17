@@ -13,6 +13,9 @@ MEMORY
 {
   RAM   (xrw) : ORIGIN = 0x20000000, LENGTH = 320K
   FLASH (rx)  : ORIGIN = 0x08000000, LENGTH = 1024K
+  /* Externes SDRAM (8 MB ab 0xC0000000). Die ersten 2 MB sind für die beiden
+     LTDC-Framebuffer reserviert (LCDDriver: 2 x 480x272x4 Byte ab 0xC0000000). */
+  SDRAM (xrw) : ORIGIN = 0xC0200000, LENGTH = 6M
 }
 
 /* Sections */
@@ -122,6 +125,19 @@ SECTIONS
     _ebss = .;
     __bss_end__ = _ebss;
   } >RAM
+
+  /* SDS_110: große DSP-Puffer (Mic-Frames, Spektren, Mel-Filterbank) im SDRAM.
+     NOLOAD: keine Initialisierung durch den Startup-Code – das SDRAM ist erst nach
+     MX_FMC_Init() nutzbar; die Objekte werden von ihren Konstruktoren/init() gesetzt. */
+  .sdram_data (NOLOAD) :
+  {
+    . = ALIGN(32);
+    _ssdram_data = .;
+    *(.sdram_data)
+    *(.sdram_data*)
+    . = ALIGN(32);
+    _esdram_data = .;
+  } >SDRAM
 
   ._user_heap_stack :
   {

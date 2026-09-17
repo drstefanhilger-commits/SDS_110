@@ -68,13 +68,11 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Harness}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Sensor_Unit_112}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/{Tasks,Driver,Utils,Model}}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Driver}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Model}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Tasks}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Utils}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/{Feature_Extraction_Module_122,Machine_Learning_Module_124,Correlation_Processing_Module_126,Localisation_Module_128,Output_Interface_130}}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/Correlation_Processing_Module_126}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/Feature_Extraction_Module_122}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/Localisation_Module_128}&quot;"/>
@@ -126,13 +124,11 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Harness}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Sensor_Unit_112}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/{Tasks,Driver,Utils,Model}}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Driver}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Model}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Tasks}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Utils}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/{Feature_Extraction_Module_122,Machine_Learning_Module_124,Correlation_Processing_Module_126,Localisation_Module_128,Output_Interface_130}}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/Correlation_Processing_Module_126}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/Feature_Extraction_Module_122}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/Localisation_Module_128}&quot;"/>
@@ -179,13 +175,11 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Harness}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Sensor_Unit_112}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/{Tasks,Driver,Utils,Model}}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Driver}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Model}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Tasks}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Infrastructure/Utils}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120}&quot;"/>
-									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/{Feature_Extraction_Module_122,Machine_Learning_Module_124,Correlation_Processing_Module_126,Localisation_Module_128,Output_Interface_130}}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/Correlation_Processing_Module_126}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/Feature_Extraction_Module_122}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Core/SDS_110/Processing_Module_120/Localisation_Module_128}&quot;"/>

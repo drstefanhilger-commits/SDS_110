@@ -67,11 +67,19 @@ struct SDS_ModeSimulation {
     uint8_t crc[4]   = {0x00, 0x00, 0x00, 0x00};
 };
 
+struct SDS_SetUnitId {
+    uint8_t magic[4] = {0xDE, 0xAD, 0xBE, 0xEF};
+    uint8_t id       =  0x05;
+    uint8_t size[3]  = {0x00, 0x00, 0x10};
+    uint8_t unit[4]  = {0x00, 0x00, 0x00, 0x01};   // Unit-ID (u32, nur untere 16 Bit genutzt)
+    uint8_t crc[4]   = {0x00, 0x00, 0x00, 0x00};
+};
+
 struct SDS_MsgDetect {
     uint32_t magic     = 0xDEADBEEF;
     uint32_t len_id    = ((sizeof(SDS_MsgDetect) & 0x00FFFFFF) | ((uint32_t)0x01 << 24));
     uint32_t timestamp = 0;
-    uint32_t mic;
+    uint32_t mic;              // = Unit-ID (SDS_110)
     float    azi;
     float    distance;
     float    conf;

@@ -1,10 +1,12 @@
 /*
  * Machine_Learning_Module_124.hpp
- * ML-Modul 124 (Patent, Abschnitt 3, FIG. 4):
- * Modell mit B Sigmoid-Ausgängen -> s(t) = (p_1(t) .. p_B(t)).
- * Optional Glättung über 3 Frames. Training erfolgt offline (kein Teil von 100).
- * Migration: ML/SDS_AIModel.c/h (CubeAI) – aktuell 4 Klassen, muss auf
- *            B = 64 Bandwahrscheinlichkeiten umgestellt werden.
+ * ML-Modul 124 (Patent, Abschnitt 3, FIG. 4): FeatureVector -> s(t) = (p_1..p_B),
+ * B = 64 Sigmoid-Ausgänge. Zielimplementierung: HBD-ML (Harmonic Band Detection),
+ * wird nach der Migration eingesetzt.
+ *
+ * Bis dahin (ML_PLACEHOLDER = true) liefert infer() eine Näherung aus der
+ * normierten Bandleistung, damit 126/128/130 durchlaufen und getestet werden
+ * können. Das alte CubeAI-Modell (SDS_AIModel) wird NICHT übernommen.
  */
 #pragma once
 #include "SDS_110_Config.hpp"
@@ -15,13 +17,15 @@ namespace sds110 {
 
 class Machine_Learning_Module_124 {
 public:
-    bool init();                 // Modellparameter laden (CubeAI)
-    /// Features -> Acoustic State s(t)
+    bool init();
     bool infer(const FeatureVector& features, AcousticState& state);
+    bool ready() const { return ready_; }
 private:
     void smooth(AcousticState& state);
+    bool  ready_ = false;
     float history_[STATE_SMOOTH_FRAMES][NUM_BANDS] = {};
-    uint32_t histIdx_ = 0;
+    uint32_t histIdx_ = 0, histCount_ = 0;
+    uint32_t frame_ = 0;
 };
 
 } // namespace sds110

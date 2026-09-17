@@ -116,7 +116,7 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
-static void MPU_Config(void);
+//static void MPU_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC3_Init(void);
 static void MX_CRC_Init(void);
@@ -160,11 +160,11 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  SDS110_MPU_Config();          // vor I-/D-Cache-Enable und HAL_Init
   /* USER CODE END 1 */
 
   /* MPU Configuration--------------------------------------------------------*/
-  MPU_Config();
+//  MPU_Config();
 
   /* Enable the CPU Cache */
 
@@ -219,14 +219,15 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART6_UART_Init();
   MX_FATFS_Init();
+
   /* USER CODE BEGIN 2 */
-//  SDS_Init();
   /* USER CODE END 2 */
 
   /* Init scheduler */
   osKernelInitialize();
 
   /* USER CODE BEGIN RTOS_MUTEX */
+  SDS_Init();
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
@@ -248,7 +249,7 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-//  SDS_StartDisplayManagerTask();
+  SDS_StartDisplayManagerTask();
 //  SDS_StartMicTask();
 //  SDS_StartSRPPhatTask();
 //  SDS_StartUSBTask();
@@ -496,12 +497,8 @@ static void MX_DMA2D_Init(void)
 
 	HAL_SDRAM_SendCommand(&hsdram1, &Command, 0x1000);
 	HAL_Delay(1);
-
   /* USER CODE END DMA2D_Init 0 */
 
-  /* USER CODE BEGIN DMA2D_Init 1 */
-
-  /* USER CODE END DMA2D_Init 1 */
   hdma2d.Instance = DMA2D;
   hdma2d.Init.Mode = DMA2D_M2M;
   hdma2d.Init.ColorMode = DMA2D_OUTPUT_ARGB8888;
@@ -1487,7 +1484,7 @@ static void MX_FMC_Init(void)
   }
 
   /* USER CODE BEGIN FMC_Init 2 */
-//  SDRAM_InitSequence(&hsdram1);
+  SDRAM_InitSequence(&hsdram1);
   /* USER CODE END FMC_Init 2 */
 }
 

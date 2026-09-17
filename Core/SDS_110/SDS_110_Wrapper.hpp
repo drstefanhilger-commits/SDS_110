@@ -5,7 +5,7 @@
  * Zieht wie bisher die Header-only-Treiber ein, die main.c direkt aufruft:
  *   SDRAMDriver.h  -> SDRAM-Init
  *   PrintfDriver.h -> ITM/SWO für printf
- *   MPUDriver.h    -> static MPU_Config() (SRAM/SDRAM uncached)
+ *   MPUDriver.h    -> SDS110_MPU_Config() – in main.c, USER CODE BEGIN 1 aufrufen
  * Diese liegen bis zur Migration weiter in Core/SDS/Driver (Include-Pfad
  * beibehalten) und ziehen später nach Infrastructure/Driver um.
  *
@@ -17,9 +17,9 @@
 // Nur für main.c (C): Header-only-Treiber mit nicht-inline Definitionen.
 // Aus C++-Dateien NICHT einziehen, sonst doppelte Definition beim Linken.
 #ifndef __cplusplus
-#include "SDRAMDriver.h"
-#include "PrintfDriver.h"
-#include "MPUDriver.h"
+#include "Infrastructure/Driver/SDRAMDriver.h"
+#include "Infrastructure/Driver/PrintfDriver.h"
+#include "Infrastructure/Driver/MPUDriver.h"
 #endif
 
 #ifdef __cplusplus

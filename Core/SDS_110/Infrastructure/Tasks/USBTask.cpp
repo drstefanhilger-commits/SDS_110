@@ -42,6 +42,7 @@ void USBTask::runOnce()
             case 1:  handleTimeSync(rx);   break;
             case 2:  handleModeChange(rx); break;
             case 3:  handleSimulation(rx); break;
+            case 5:  handleSetUnitId(rx);  break;
             default: handleError(rx);      break;
         }
     }
@@ -78,6 +79,12 @@ void USBTask::handleSimulation(const uint8_t* rx)
     dm_.setSimulation(payloadU32(rx));
     resetCounters();
     dm_.setId(rx[0]);
+}
+
+void USBTask::handleSetUnitId(const uint8_t* rx)
+{
+    if (payloadLen(rx) != 16) { handleError(rx); return; }
+    dm_.setId(static_cast<uint16_t>(payloadU32(rx) & 0xFFFF));
 }
 
 void USBTask::handleError(const uint8_t* rx)

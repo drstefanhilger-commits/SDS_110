@@ -1,16 +1,30 @@
-# SDS_110 – Acoustic Detection System (Patent Stefan_FSL5, FIG. 1)
+# SDS_110 – Firmware der akustischen Sensoreinheit (Patent Stefan_FSL5, FIG. 1)
 
 Modulnummern entsprechen den Bezugszeichen des Patents.
-Datenfluss (Claim 1 / Claim 10):
 
-  112 Sensor Unit ─┐
-   114 Mic Array   │  synchrone Frames
-   116 Sampling    ├──► 122 Feature Extraction ──► 124 ML (s(t) = p_1..p_B)
-   118 Pre-Proc   ─┘                                   │
-                                                       ▼
-  140 ◄── 130 Output Interface ◄── 128 Localisation ◄── 126 Correlation (S(t), w(t,k), GCC-PHAT, TDOA)
-   ▲                                                    ▲
-   └── Feedback ŝ, x̂(t+1) von Tracking Unit 150 ────────┘
+## Zuordnung Patent -> Hardware
+| Patent | Gerät | Inhalt |
+|---|---|---|
+| Sensoreinheit 112-n | **STM32F746-Board (dieses Repo)** | 114 Mikrofonarray, 116 Abtastung, 118 Vorverarbeitung |
+| Vorverlagerte Stufen von 120 | STM32F746-Board | 122 Merkmale, 124 s(t) (HBD-ML), 126 Selektion/Gewichtung + Intra-Unit-Peilung |
+| Processing Module 120 | **PC-Monitor, Komponente A** | 126 Inter-Unit-GCC-PHAT, 128 hyperbolische Lokalisation (≥ [3] Paare), 130 Candidate Report |
+| Tracking Unit 150 | **PC-Monitor, Komponente B** (getrennt von A, Schnittstelle 140) | 152–162, Trajektorie, Feedback ŝ / x̂ |
 
-Regel (Claim 10): Kein Modul in SDS_110 bildet eine Trajektorie.
-Tracking (150–162) liegt außerhalb dieses Projekts.
+Eine Einheit kennt nur sich selbst (Intra-Unit). Die Unterscheidung mehrerer Einheiten
+erfolgt über die Unit-ID im UnitReport auf dem PC.
+
+## Datenfluss
+```
+Board (112-n)                                   PC-Monitor
+114 Mic ─ 116 SAI/DMA ─ 118 AGC/BP/NS ─ 122 STFT ─ 124 s(t) ─ 126 S(t),w, Peilung
+                                                          │
+                                                   UnitReport (USB, id 4)
+                                                          ▼
+                                    120: 126(e) Inter-Unit GCC-PHAT ─ 128 Hyperbeln ─ 130
+                                                          │ CandidateReport (140)
+                                                          ▼
+                                                   150 Tracking ──► Feedback ŝ, x̂ ──► 126
+```
+Regel (Claim 10): Kein Modul in SDS 110 bildet eine Trajektorie.
+Werte in eckigen Klammern ([3], [48 kHz], [10 µs] …) sind im Patententwurf noch offene
+Werte des Ausführungsbeispiels; die Claims nennen keine Zahl.

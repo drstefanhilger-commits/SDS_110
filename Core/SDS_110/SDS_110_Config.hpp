@@ -50,7 +50,7 @@ constexpr float    NS_MAX_ATTEN     = 0.25f;  // maximale Dämpfung (-12 dB) bei
 constexpr uint32_t MEL_BANDS        = 40;     // wie altes Modell
 constexpr float    MEL_LO_HZ        = 80.0f;
 constexpr float    MEL_HI_HZ        = 8000.0f;
-constexpr uint32_t MEL_MAX_BINS_PER_BAND = 512; // sparse Filterbank
+constexpr uint32_t MEL_MAX_BINS_PER_BAND = 128; // sparse Filterbank; oberstes Band (8 kHz) ~110 Bins
 constexpr uint32_t AM_HISTORY_FRAMES = 16;    // ~0.5 s bei 32 ms Hop
 
 // --- 3. ML ------------------------------------------------------------
@@ -65,8 +65,21 @@ constexpr float    WEIGHT_GAMMA     = 1.0f;   // g(p)=p^γ, γ=1 bevorzugt
 constexpr float    PEAK_RATIO_MIN   = 1.5f;
 constexpr float    SPEED_OF_SOUND   = 343.0f; // wird temperaturkorrigiert
 
+// --- 5b. Intra-Unit-Peilung (126, erlaubt: Korrelation, kein Beamforming) -
+constexpr uint32_t NUM_MIC_PAIRS    = NUM_MICS * (NUM_MICS - 1) / 2;   // 28
+constexpr float    PEAK_EXCLUDE_S   = 3.0f / SAMPLE_RATE_HZ;           // Nachbarschaft um Hauptpeak für Peak-Ratio
+constexpr float    BEARING_MIN_PAIRS_FRACTION = 0.5f;                  // min. Anteil gültiger Paare
+
 // --- 6. Lokalisation ----------------------------------------------------
 constexpr uint32_t MIN_PAIRS        = 3;
+constexpr uint32_t LS_ITERATIONS    = 8;      // Gauss-Newton
+// Einzel-Unit-Fallback (Legacy 1/r-Pegelmodell aus DistanceEstimator; kein Patentbestandteil)
+constexpr bool     SINGLE_UNIT_LEVEL_DISTANCE = true;
+constexpr float    LEVEL_DIST_K_REF = 100.0f;  // r = K / (A + eps)
+constexpr float    LEVEL_DIST_EPS   = 1e-3f;
+
+// --- 124 Platzhalter bis HBD-ML vorliegt --------------------------------
+constexpr bool     ML_PLACEHOLDER   = true;   // p_b aus normierter Bandleistung
 
 // --- 10. Feedback -------------------------------------------------------
 constexpr float    THETA_REF        = 0.6f;
