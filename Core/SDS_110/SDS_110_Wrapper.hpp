@@ -32,6 +32,8 @@ void SDS110_StartProcessingTask(void);   // Task um Processing_Module_120
 void SDS110_StartDisplayTask(void);
 void SDS110_StartUSBTask(void);
 void SDS110_StartLoggerTask(void);
+void SDS110_StartLoggerTask1(void);
+
 
 // --- Kompatibilität zu main.c (alte Namen) --------------------------------
 #define SDS_Init                     SDS110_Init

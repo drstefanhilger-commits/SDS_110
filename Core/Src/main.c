@@ -94,6 +94,7 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim5;
+TIM_HandleTypeDef htim7;
 TIM_HandleTypeDef htim8;
 TIM_HandleTypeDef htim12;
 
@@ -137,6 +138,7 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_TIM7_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_TIM12_Init(void);
 static void MX_USART1_UART_Init(void);
@@ -214,6 +216,7 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM5_Init();
+  MX_TIM7_Init();
   MX_TIM8_Init();
   MX_TIM12_Init();
   MX_USART1_UART_Init();
@@ -1280,6 +1283,26 @@ static void MX_TIM5_Init(void)
   HAL_TIM_MspPostInit(&htim5);
 
 }
+
+void MX_TIM7_Init(void)
+{
+    TIM_HandleTypeDef htim7;
+
+    htim7.Instance = TIM7;
+    htim7.Init.Prescaler = 0;
+    htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim7.Init.Period = 1000 - 1;   // Beispielwert
+    htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+
+    __HAL_RCC_TIM7_CLK_ENABLE();
+
+    HAL_TIM_Base_Init(&htim7);
+    HAL_TIM_Base_Start_IT(&htim7);
+
+    HAL_NVIC_SetPriority(TIM7_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(TIM7_IRQn);
+}
+
 
 /**
   * @brief TIM8 Initialization Function
