@@ -32,16 +32,7 @@ void SDS110_StartProcessingTask(void);   // Task um Processing_Module_120
 void SDS110_StartDisplayTask(void);
 void SDS110_StartUSBTask(void);
 void SDS110_StartLoggerTask(void);
-//void SDS110_StartLoggerTask1(void);
 
-
-// --- Kompatibilität zu main.c (alte Namen) --------------------------------
-//#define SDS_Init                     SDS110_Init
-//#define SDS_StartSRPPhatTask         SDS110_StartProcessingTask
-//#define SDS_StartDisplayManagerTask  SDS110_StartDisplayTask
-//#define SDS_StartUSBTask             SDS110_StartUSBTask
-//#define SDS_StartLoggerTask          SDS110_StartLoggerTask
-//#define SDS_StartMicTask()           ((void)0)   // Akquisition läuft in 116 per DMA, kein eigener Task
 
 #ifdef __cplusplus
 }

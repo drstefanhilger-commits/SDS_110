@@ -5,13 +5,15 @@
  * Systemdaten, Fehler). Im READ-Modus statt der vier AI-Klassen jetzt
  * die 64 Bandwahrscheinlichkeiten s(t) als Balkenspektrum.
  *
+ * Getaktet durch TIM4 über TaskTimerBase (20 Hz), vorher TaskBase mit osDelay(50).
+ *
  * Migration aus SDS/Tasks/LCDTask:
  *  - neue SDS_Data-API (getTaskStats, getAcousticState, setCandidate-Felder)
  *  - usb_debug_counter liegt jetzt in USBTask.cpp
  *  - Algorithm.hpp entfällt (keine SRP-Abhängigkeit mehr)
  */
 #pragma once
-#include "TaskBase.hpp"
+#include "Infrastructure/Timer/TaskTimerBase.hpp"
 #include "Infrastructure/Model/Model.hpp"
 #include "Infrastructure/Driver/LCDDriver.hpp"
 
@@ -19,13 +21,19 @@ extern "C" volatile uint32_t usb_debug_counter;
 
 namespace sds110 {
 
-class LCDTask : public TaskBase {
+class LCDTask : public TaskTimerBase {
 public:
     static LCDTask& instance() { static LCDTask inst; return inst; }
+
+    static constexpr float kRateHz = 20.0f;   // 50 ms, wie bisher osDelay(50)
+
 protected:
-    void runOnce() override;
+    void onTask() override;
+
 private:
     LCDTask();
+    LCDTask(const LCDTask&) = delete;
+    LCDTask& operator=(const LCDTask&) = delete;
     void showDetection();
     void showAcousticState();
     void showRadar();

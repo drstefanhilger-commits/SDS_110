@@ -2,17 +2,37 @@
  * LCDTask.cpp  (Infrastructure/Tasks)
  */
 #include "LCDTask.hpp"
+#include "Infrastructure/Timer/HardwareTimer.hpp"
+#include "cmsis_os2.h"
 #include <cmath>
 #include <cstdio>
 
-namespace sds110 {
-
-LCDTask::LCDTask() : TaskBase(2048, 50, osPriorityNormal)
-{
-    gfx_->init(gfx_->pStartFrameBuffer, 480, 272);
+namespace {
+// TIM4: General-Purpose-Timer auf APB1 (108 MHz), eigener IRQ-Vektor (nicht geteilt).
+// In CubeMX den TIM4 global interrupt NICHT aktivieren (sonst doppelter Handler).
+sds110::HardwareTimer lcdTimer(TIM4, TIM4_IRQn, 7);
 }
 
-void LCDTask::runOnce()
+extern "C" void TIM4_IRQHandler(void)
+{
+    lcdTimer.handleInterrupt();
+}
+
+namespace sds110 {
+
+LCDTask::LCDTask()
+    : TaskTimerBase("LCDTask", 2048 /*Bytes, snprintf %f braucht Stack*/,
+                    static_cast<UBaseType_t>(osPriorityNormal))
+{
+    gfx_->init(gfx_->pStartFrameBuffer, 480, 272);
+
+    const bool ok = lcdTimer.init(kRateHz);   // Timer-Takt aus RCC
+    configASSERT(ok);
+    attachTimer(&lcdTimer);
+    setStatsId(TaskId::Lcd);                  // Laufzeit -> SDS_Data -> Zeile "LCD"
+}
+
+void LCDTask::onTask()
 {
     gfx_->clear(Color::Black);
     switch (dm_.getMode()) {
@@ -26,7 +46,7 @@ void LCDTask::runOnce()
     }
     showError();
     gfx_->activateFrameBuffer();
-    reportStats(TaskId::Lcd);
+    // Stats meldet TaskTimerBase nach der Messung (setStatsId im Konstruktor)
 }
 
 void LCDTask::showRadar()
