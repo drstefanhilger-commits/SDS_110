@@ -12,7 +12,11 @@
  * Nachrichten max. 63 Byte. Das Symbol usb_debug_counter (bisher in LCDTask)
  * wird hier definiert.
  *
- * Migration aus SDS/Tasks/USBTask: Ablauf unverändert; SDS_Data-API angepasst
+ * Ereignisgetrieben: waitForWork() blockiert auf rxQueue_, bis ein Kommando
+ * kommt (kein Polling, keine Latenz). Stats "USB": Bearbeitungszeit je
+ * Aufwachen, Zähler = Anzahl Aufwachvorgänge.
+ *
+ * Migration aus SDS/Tasks/USBTask: SDS_Data-API angepasst
  * (setMode(SDS_Mode), setTaskStats, setErrorBuffer statt getErrorBuffer()+memcpy).
  */
 #pragma once
@@ -26,15 +30,20 @@ namespace sds110 {
 class USBTask : public TaskBase {
 public:
     static USBTask& instance() { static USBTask inst; return inst; }
-    /// aus CDC_Receive_FS (ISR-Kontext)
-    void onUsbReceive(const uint8_t* buf, uint32_t len);
+
+    /// aus CDC_Receive_FS (ISR-Kontext). Konstruiert NICHT die Instanz:
+    /// solange der Task nicht angelegt ist, wird verworfen.
+    static void onUsbReceiveISR(const uint8_t* buf, uint32_t len);
+
+    uint32_t rxDropped() const { return rxDropped_; }
 
 protected:
-    void onStart() override;
+    void waitForWork() override;
     void runOnce() override;
 
 private:
     USBTask();
+    void handle(const uint8_t* rx);
     void handleTimeSync(const uint8_t* rx);
     void handleModeChange(const uint8_t* rx);
     void handleSimulation(const uint8_t* rx);
@@ -48,6 +57,11 @@ private:
     static constexpr size_t MAX_LENGTH = 64;
     SDS_Data&     dm_ = SDS_Data::instance();
     QueueHandle_t rxQueue_ = nullptr;
+    uint8_t       rx_[MAX_LENGTH] = {};          // von waitForWork() empfangen
+    bool          rxValid_ = false;
+    volatile uint32_t rxDropped_ = 0;            // Queue voll / Task nicht bereit
+
+    static USBTask* volatile active_;            // gesetzt, sobald Queue existiert
 };
 
 } // namespace sds110

@@ -22,7 +22,7 @@ namespace sds110 {
 
 LCDTask::LCDTask()
     : TaskTimerBase("LCDTask", 2048 /*Bytes, snprintf %f braucht Stack*/,
-                    static_cast<UBaseType_t>(osPriorityNormal))
+                    static_cast<UBaseType_t>(osPriorityBelowNormal))   // Anzeige ist am wenigsten zeitkritisch
 {
     gfx_->init(gfx_->pStartFrameBuffer, 480, 272);
 

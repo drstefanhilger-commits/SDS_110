@@ -1,6 +1,9 @@
 /*
  * TaskBase.hpp  (Infrastructure/Tasks)
- * Periodischer CMSIS-RTOS2-Task: onStart() -> runOnce()-Schleife -> onExit().
+ * CMSIS-RTOS2-Task: onStart() -> Schleife { waitForWork(); runOnce(); }.
+ * waitForWork() ist standardmäßig osDelay(delayMs) (periodisch); ereignis-
+ * getriebene Tasks überschreiben es und blockieren z. B. auf einer Queue.
+ * Gemessen wird nur runOnce(), die Wartezeit zählt nicht zur Laufzeit.
  * Unverändert aus SDS/Tasks/TaskBase, Namespace sds110; Monitoring-Werte
  * werden per reportStats(TaskId) in SDS_Data geschrieben.
  */
@@ -22,6 +25,7 @@ protected:
     virtual ~TaskBase() = default;
 
     virtual void runOnce() = 0;
+    virtual void waitForWork() { osDelay(delayMs_); }   // vor jeder Messung
     virtual void onStart() {}
     virtual void onExit() {}
 

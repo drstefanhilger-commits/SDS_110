@@ -268,7 +268,7 @@ int main(void)
   /* add threads, ... */
   SDS110_StartDisplayTask();
 //  SDS110_StartProcessingTask();
-//  SDS110_StartUSBTask();
+  SDS110_StartUSBTask();
   SDS110_StartLoggerTask();
   /* USER CODE END RTOS_THREADS */
 

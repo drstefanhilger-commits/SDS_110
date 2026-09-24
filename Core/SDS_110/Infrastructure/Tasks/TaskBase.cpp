@@ -25,6 +25,7 @@ void TaskBase::threadEntry(void* argument)
     self->onStart();
     self->lastRunCycles_ = dwt.cycles();
     for (;;) {
+        self->waitForWork();                       // Delay oder Ereignis
         const uint32_t t0 = dwt.cycles();
         self->jitterCycles_  = t0 - self->lastRunCycles_;
         self->lastRunCycles_ = t0;
@@ -32,7 +33,6 @@ void TaskBase::threadEntry(void* argument)
         self->execTimeCycles_ = dwt.cycles() - t0;
         self->freeStackBytes_ = osThreadGetStackSpace(self->taskHandle_);
         ++self->loopNr_;
-        osDelay(self->delayMs_);
     }
 }
 
