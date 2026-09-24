@@ -5,7 +5,6 @@
 #include "Infrastructure/Tasks/USBTask.hpp"
 #include "Infrastructure/Tasks/LCDTask.hpp"
 #include "Infrastructure/Tasks/LoggerTask.hpp"
-#include "Infrastructure/Tasks/LoggerTask1.hpp"
 #include "Infrastructure/Tasks/ProcessingTask.hpp"
 #include "Infrastructure/Model/SDS_Data.hpp"
 
@@ -28,6 +27,5 @@ void SDS110_StartProcessingTask(void) { sds110::ProcessingTask::instance().start
 void SDS110_StartDisplayTask(void)    { sds110::LCDTask::instance().start(); }
 void SDS110_StartUSBTask(void)        { sds110::USBTask::instance().start(); }
 void SDS110_StartLoggerTask(void)     { sds110::LoggerTask::instance().start(); }
-void SDS110_StartLoggerTask1(void)    { sds110::LoggerTask1::instance().start(); }
 
 } // extern "C"

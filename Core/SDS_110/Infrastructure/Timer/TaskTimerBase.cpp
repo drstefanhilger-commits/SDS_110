@@ -1,44 +1,61 @@
 #include "TaskTimerBase.hpp"
 #include "Infrastructure/Utils/DWT.hpp"
 
-TaskTimerBase::TaskTimerBase(const char* taskName, uint16_t stackSize, UBaseType_t priority)
-    : overrunFlag(false),
-      taskRunning(false),
-      timer(nullptr)
+namespace sds110 {
+
+TaskTimerBase::TaskTimerBase(const char* name, uint32_t stackBytes, UBaseType_t priority)
+    : name_(name), stackBytes_(stackBytes), priority_(priority)
 {
-    xTaskCreate(taskEntry, taskName, stackSize, this, priority, &taskHandle);
+    // Kein xTaskCreate hier: der Task könnte sonst laufen, bevor die
+    // abgeleitete Klasse fertig konstruiert ist (pure virtual call).
+    (void)DWTTimer::instance();          // stellt sicher, dass CYCCNT läuft
 }
 
-void TaskTimerBase::attachTimer(HardwareTimer* t)
+bool TaskTimerBase::start()
 {
-    timer = t;
+    if (timer_ == nullptr) return false;
 
-    allowedTimeUs = timer->getRateHz();
+    if (taskHandle_ == nullptr) {
+        const BaseType_t ok = xTaskCreate(taskEntry, name_,
+                                          static_cast<configSTACK_DEPTH_TYPE>(stackBytes_ / sizeof(StackType_t)),
+                                          this, priority_, &taskHandle_);
+        configASSERT(ok == pdPASS);
+        if (ok != pdPASS) { taskHandle_ = nullptr; return false; }
+    }
 
-    timer->setCallback([this]() {
-        this->onTimerISR();
-    });
+    // Budget: Default = eine Timer-Periode
+    const float periodUs = 1.0e6f / timer_->getRateHz();
+    if (allowedTimeUs_ <= 0.0f || allowedTimeUs_ > periodUs) allowedTimeUs_ = periodUs;
+    allowedCycles_ = static_cast<uint32_t>(allowedTimeUs_ * (SystemCoreClock / 1.0e6f));
 
-}
+    overrunFlag_.store(false);
+    budgetExceeded_.store(false);
+    overrunCount_.store(0);
+    maxExecCycles_ = 0;
 
-void TaskTimerBase::start()
-{
-    overrunFlag.store(false);
-    taskRunning.store(false);
-    if (timer) timer->start();
+    // Callback erst setzen, wenn taskHandle_ gültig ist
+    timer_->setCallback([this]() { onTimerISR(); });
+    timer_->start();
+    return true;
 }
 
 void TaskTimerBase::stop()
 {
-    if (timer) timer->stop();
+    if (timer_) timer_->stop();
 }
 
 void TaskTimerBase::onTimerISR()
 {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    if (taskHandle_ == nullptr) return;
 
-    vTaskNotifyGiveFromISR(taskHandle, &xHigherPriorityTaskWoken);
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    if (taskRunning_.load()) {           // Vorgänger-Zyklus noch aktiv
+        overrunFlag_.store(true);
+        overrunCount_.fetch_add(1);
+    }
+
+    BaseType_t woken = pdFALSE;
+    vTaskNotifyGiveFromISR(taskHandle_, &woken);
+    portYIELD_FROM_ISR(woken);
 }
 
 void TaskTimerBase::taskEntry(void* arg)
@@ -50,15 +67,31 @@ void TaskTimerBase::taskLoop()
 {
     for (;;)
     {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        const uint32_t pending = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        if (pending > 1) {                // Ticks verschluckt, während Task nicht lief
+            overrunFlag_.store(true);
+            overrunCount_.fetch_add(pending - 1);
+        }
 
-        uint32_t start = DWT->CYCCNT;
+        taskRunning_.store(true);
+        const uint32_t t0 = DWT->CYCCNT;
         onTask();
-        uint32_t end = DWT->CYCCNT;
+        const uint32_t dt = DWT->CYCCNT - t0;   // Überlauf-sicher (unsigned)
+        taskRunning_.store(false);
 
-        if ((end - start) > allowedTimeUs)
-            overrunFlag.store(true);
-        else
-            overrunFlag.store(false);
+        lastExecCycles_ = dt;
+        if (dt > maxExecCycles_) maxExecCycles_ = dt;
+        if (dt > allowedCycles_) budgetExceeded_.store(true);
+        ++loopNr_;
     }
 }
+
+float TaskTimerBase::lastExecUs() const { return DWTTimer::instance().cyclesToUs(lastExecCycles_); }
+float TaskTimerBase::maxExecUs()  const { return DWTTimer::instance().cyclesToUs(maxExecCycles_); }
+
+uint32_t TaskTimerBase::freeStackBytes() const
+{
+    return taskHandle_ ? uxTaskGetStackHighWaterMark(taskHandle_) * sizeof(StackType_t) : 0;
+}
+
+} // namespace sds110
