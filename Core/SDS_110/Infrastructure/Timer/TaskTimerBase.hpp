@@ -9,6 +9,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "HardwareTimer.hpp"
+#include "Infrastructure/Model/SDS_Data.hpp"   // TaskId, TaskStats
 
 namespace sds110 {
 
@@ -42,6 +43,9 @@ protected:
 
     virtual void onTask() = 0;
 
+    /// Nach jedem Zyklus Laufzeit/Stack/Zähler unter dieser TaskId in SDS_Data ablegen
+    void setStatsId(TaskId id) { statsId_ = id; reportStats_ = true; }
+
 private:
     static void taskEntry(void* arg);
     void taskLoop();
@@ -55,6 +59,8 @@ private:
     TaskHandle_t   taskHandle_ = nullptr;
     float          allowedTimeUs_ = 0.0f;
     uint32_t       allowedCycles_ = 0;
+    TaskId         statsId_       = TaskId::Count;
+    bool           reportStats_   = false;
 
     std::atomic<bool>     taskRunning_{false};
     std::atomic<bool>     overrunFlag_{false};

@@ -83,6 +83,12 @@ void TaskTimerBase::taskLoop()
         if (dt > maxExecCycles_) maxExecCycles_ = dt;
         if (dt > allowedCycles_) budgetExceeded_.store(true);
         ++loopNr_;
+
+        // aktuelle Verarbeitungszeit (dieser Zyklus) in ms -> SDS_Data -> LCD "Log"-Zeile
+        if (reportStats_)
+            SDS_Data::instance().setTaskStats(statsId_, freeStackBytes(),
+                                              DWTTimer::instance().cyclesToUs(dt) / 1000.0f,
+                                              loopNr_);
     }
 }
 

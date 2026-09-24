@@ -4,7 +4,6 @@
 #include "LoggerTask.hpp"
 #include "Infrastructure/Timer/HardwareTimer.hpp"
 #include "Infrastructure/Driver/USBDriver.hpp"
-#include "Infrastructure/Model/SDS_Data.hpp"
 #include "cmsis_os2.h"
 #include <cstring>
 
@@ -26,6 +25,7 @@ LoggerTask::LoggerTask()
     const bool ok = loggerTimer.init(kRateHz);   // Timer-Takt aus RCC
     configASSERT(ok);
     attachTimer(&loggerTimer);
+    setStatsId(TaskId::Logger);                   // Laufzeit erscheint im LCD als "Log"
 }
 
 void LoggerTask::onTask()
@@ -50,9 +50,6 @@ void LoggerTask::onTask()
         ++droppedTicks_;
         clearOverrun();
     }
-
-    SDS_Data::instance().setTaskStats(TaskId::Logger, freeStackBytes(),
-                                      maxExecUs() / 1000.0f, loopCount());
 }
 
 } // namespace sds110
