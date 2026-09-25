@@ -8,7 +8,6 @@
 namespace sds110 {
 
 static inline float sigmoid(float x) { return 1.0f / (1.0f + std::exp(-x)); }
-static inline float clamp01(float x)  { return (x < 0.0f) ? 0.0f : (x > 1.0f) ? 1.0f : x; }
 
 bool Machine_Learning_Module_124::init()
 {
@@ -16,6 +15,7 @@ bool Machine_Learning_Module_124::init()
     HBD_InitState(hbdState_, hbdParams_);
     std::memset(history_, 0, sizeof(history_));
     histIdx_ = histCount_ = frame_ = 0;
+    sinceDetect_ = HBD_HOLD_FRAMES;
     ready_ = true;
     return true;
 }
@@ -24,6 +24,7 @@ bool Machine_Learning_Module_124::infer(const float* mag, const FeatureVector& /
 {
     if (!ready_ || !mag) return false;
     HBD_ProcessFrame(hbdParams_, hbdState_, mag);
+    sinceDetect_ = hbdState_.droneDetected ? 0 : (sinceDetect_ < HBD_HOLD_FRAMES ? sinceDetect_ + 1 : HBD_HOLD_FRAMES);
     bandProbabilities(s);
     s.frame_id = frame_++;
     smooth(s);
@@ -36,15 +37,17 @@ void Machine_Learning_Module_124::bandProbabilities(AcousticState& s) const
     const HBD_Params& p = hbdParams_;
 
     // 1) Band-SNR aus Noise-Floor
+    float q[NUM_BANDS];
     for (uint32_t b = 0; b < NUM_BANDS; ++b) {
         uint32_t k0, k1; Feature_Extraction_Module_122::bandBins(b, k0, k1);
         float sig = -1e9f, noise = 0.0f;
         for (uint32_t k = k0; k < k1; ++k) { if (st.magDb[k] > sig) sig = st.magDb[k]; noise += st.noiseFloorDb[k]; }
         const float snr = (k1 > k0) ? sig - noise / static_cast<float>(k1 - k0) : 0.0f;
-        s.p[b] = sigmoid((snr - HBD_BAND_SNR_DB) / HBD_SIGMOID_DB);
+        q[b] = sigmoid((snr - HBD_BAND_SNR_DB) / HBD_SIGMOID_DB);
+        s.p[b] = HBD_GATE_FLOOR * q[b];                     // ohne Harmonische: nie selektiert
     }
 
-    // 2) Harmonische verstärken
+    // 2) Bänder mit Harmonischen
     const uint8_t H = (p.harmonic.numHarmonics > HBD_MAX_HARMONICS) ? HBD_MAX_HARMONICS : p.harmonic.numHarmonics;
     for (uint8_t h = 0; h < H; ++h) {
         if (st.harmonicBin[h] == 0) continue;
@@ -53,13 +56,13 @@ void Machine_Learning_Module_124::bandProbabilities(AcousticState& s) const
         const uint32_t b = static_cast<uint32_t>((hz - BAND_LO_HZ) / BAND_WIDTH_HZ);
         if (b >= NUM_BANDS) continue;
         const float ph = st.consistencyHistory[h] * sigmoid((st.lastBandSnr[h] - p.snr.perBandSnrDb[h]) / HBD_SIGMOID_DB);
-        if (ph > s.p[b]) s.p[b] = ph;
+        const float v = (ph > q[b]) ? ph : q[b];
+        if (v > s.p[b]) s.p[b] = v;
     }
 
-    // 3) globales Gate
-    const float g = clamp01(st.score / (p.decision.finalScoreThreshold + 1e-6f));
-    const float gate = HBD_GATE_FLOOR + (1.0f - HBD_GATE_FLOOR) * g;
-    for (uint32_t b = 0; b < NUM_BANDS; ++b) s.p[b] *= gate;
+    // 3) Gate: HBD-Detektion innerhalb der letzten HBD_HOLD_FRAMES Frames
+    if (sinceDetect_ >= HBD_HOLD_FRAMES)
+        for (uint32_t b = 0; b < NUM_BANDS; ++b) s.p[b] *= HBD_GATE_FLOOR;
 }
 
 void Machine_Learning_Module_124::smooth(AcousticState& s)

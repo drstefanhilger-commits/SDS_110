@@ -32,7 +32,8 @@ struct HBD_NoiseFloorParams {
 };
 struct HBD_SnrThresholds    { float globalSnrDb; float perBandSnrDb[8]; uint8_t numBandsUsed; };
 struct HBD_ConsistencyParams{ float minConsistency; uint8_t minStableHarmonics; uint8_t temporalWindow; };
-struct HBD_DecisionParams   { float bandWeights[8]; uint8_t numWeightsUsed; float finalScoreThreshold; };
+struct HBD_DecisionParams   { float bandWeights[8]; uint8_t numWeightsUsed; float finalScoreThreshold;
+                              uint16_t warmupFrames; };   // keine Entscheidung, solange der Noise-Floor einschwingt
 
 struct HBD_Params {
     HBD_FftParams         fft;
@@ -59,6 +60,7 @@ struct HBD_State {
     uint8_t consistentBands;
     bool    droneDetected;
     bool    floorInit;                           // Noise-Floor initialisiert
+    uint32_t frameCount;                         // verarbeitete Frames (Anlaufzeit)
 };
 
 void HBD_InitParams_48k(HBD_Params& p);

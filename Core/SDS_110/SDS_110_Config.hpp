@@ -90,7 +90,8 @@ constexpr float    SIM_SNR_DB       = 20.0f;
 // --- 124 HBD -> s(t) ----------------------------------------------------
 constexpr float    HBD_BAND_SNR_DB  = 8.0f;   // Band-SNR, bei dem p_b = 0,5
 constexpr float    HBD_SIGMOID_DB   = 3.0f;   // Steilheit der Sigmoid (dB)
-constexpr float    HBD_GATE_FLOOR   = 0.3f;   // Restanteil der p_b ohne HBD-Detektion
+constexpr float    HBD_GATE_FLOOR   = 0.3f;   // Faktor für Bänder ohne Harmonische bzw. bei geschlossenem Gate
+constexpr uint32_t HBD_HOLD_FRAMES  = 16;     // Gate offen bis ~1 s nach der letzten HBD-Detektion
 
 // --- 10. Feedback -------------------------------------------------------
 constexpr float    THETA_REF        = 0.6f;

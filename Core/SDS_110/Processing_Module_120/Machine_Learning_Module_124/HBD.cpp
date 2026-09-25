@@ -26,6 +26,7 @@ void HBD_InitParams_48k(HBD_Params& p)
     for (int i = 0; i < 8; ++i) p.decision.bandWeights[i] = w[i];
     p.decision.numWeightsUsed = 8;
     p.decision.finalScoreThreshold = 0.48f;
+    p.decision.warmupFrames = 48;   // ~3 s: Floor schwingt nach dem Start (AGC-Anlauf) bis ~Frame 40 ein
 }
 
 void HBD_InitState(HBD_State& s, const HBD_Params& p)
@@ -35,6 +36,7 @@ void HBD_InitState(HBD_State& s, const HBD_Params& p)
     s.f0Hz = 0.0f; s.globalSnrAvgDb = 0.0f; s.score = 0.0f;
     s.stableCount = 0; s.consistentBands = 0; s.droneDetected = false;
     s.floorInit = false;
+    s.frameCount = 0;
 }
 
 // Mittlerer dB-Pegel über ±localHalfWidthBins (gleitende Summe)
@@ -124,7 +126,9 @@ bool HBD_ProcessFrame(const HBD_Params& p, HBD_State& s, const float* mag)
     // 6) Entscheidung
     const bool snrOk   = (s.globalSnrAvgDb >= p.snr.globalSnrDb);
     const bool scoreOk = (score >= p.decision.finalScoreThreshold);
-    s.droneDetected = (snrOk && consistencyOk && scoreOk);
+    if (s.frameCount < p.decision.warmupFrames) ++s.frameCount;
+    const bool warm = s.frameCount >= p.decision.warmupFrames;
+    s.droneDetected = warm && snrOk && consistencyOk && scoreOk;
     return s.droneDetected;
 }
 

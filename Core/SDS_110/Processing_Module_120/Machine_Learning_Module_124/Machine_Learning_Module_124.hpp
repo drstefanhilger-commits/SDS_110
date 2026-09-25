@@ -6,11 +6,13 @@
  *
  * Brücke HBD -> s(t):
  *   1. je Patent-Band b: SNR_b = max|X| im Band − mittlerer Noise-Floor (dB)
- *      p_b = σ((SNR_b − HBD_BAND_SNR_DB) / HBD_SIGMOID_DB)
+ *      q_b = σ((SNR_b − HBD_BAND_SNR_DB) / HBD_SIGMOID_DB)
  *   2. Bänder, in die eine Harmonische h fällt:
- *      p_b = max(p_b, c_h · σ((SNR_h − θ_h) / HBD_SIGMOID_DB)), c_h = Konsistenz von h
- *   3. globales Gate g = clamp(score / finalScoreThreshold, 0, 1):
- *      p_b *= HBD_GATE_FLOOR + (1 − HBD_GATE_FLOOR) · g
+ *      p_b = max(q_b, c_h · σ((SNR_h − θ_h) / HBD_SIGMOID_DB)), c_h = Konsistenz von h
+ *      übrige Bänder: p_b = HBD_GATE_FLOOR · q_b  (< θ_sel, werden nicht selektiert)
+ *   3. Gate: offen, solange der HBD in den letzten HBD_HOLD_FRAMES Frames eine Drohne
+ *      erkannt hat; sonst p_b *= HBD_GATE_FLOOR. Ohne HBD-Detektion bleibt damit jedes
+ *      p_b < θ_sel -> SDS_Data::detected = false, kein UnitReport.
  *   4. Glättung über STATE_SMOOTH_FRAMES
  *
  * Eingang ist das Betragsspektrum aus 122 (nicht der FeatureVector); der bleibt
@@ -44,6 +46,7 @@ private:
     bool  ready_ = false;
     float history_[STATE_SMOOTH_FRAMES][NUM_BANDS] = {};
     uint32_t histIdx_ = 0, histCount_ = 0, frame_ = 0;
+    uint32_t sinceDetect_ = HBD_HOLD_FRAMES;       // Frames seit der letzten HBD-Detektion
 };
 
 } // namespace sds110
