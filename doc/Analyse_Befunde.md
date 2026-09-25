@@ -13,7 +13,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 8 | Peak-Ratio-Test (lokale Nebenmaxima statt ±3 Samples) | 25.09.2026 | 82c8fcc |
 | 24 | Band-Selektion 124: nur Harmonische, Gate mit HBD-Haltezeit, HBD-Anlaufzeit | 25.09.2026 | b4a18f4 |
 | 13 | FreeRTOS-Heap 64 KB, Prüfung bei Task-Anlage, Hooks halten an | 25.09.2026 | 8d3644c |
-| 12 | Kommandolänge: Vorlagen auf 16, gemeinsame Konstante | 25.09.2026 | noch nicht committet |
+| 12 | Kommandolänge: Vorlagen auf 16, gemeinsame Konstante | 25.09.2026 | 7207038 |
 
 ## Blocker (Hardware-Pfad)
 
@@ -47,7 +47,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 11. **USB-Senden fehlerhaft** – `CDC_Transmit_FS` speichert nur den Zeiger, gesendet wird aus Stack-Variablen (OTG-FS füllt den FIFO später im Interrupt). `send()` schickt zwei Nachrichten direkt hintereinander → UnitReport (id 4) meist `USBD_BUSY`. READ-Modus sendet 192 × 532 Byte ohne BUSY-Behandlung. Mehrere Tasks senden ohne Sperre. Abhilfe: TX-Queue + ein Sende-Task mit statischem Puffer, Warten auf `TransmitCplt`.
     Status: **bearbeitet (25.09.2026, Commit 15a87ab)** – auf dem Board noch nicht getestet – TX-Ringpuffer (8 KB) in `USBDriver`, Nachrichten werden im kritischen Abschnitt vollständig kopiert, Versand in Blöcken bis 2 KB aus statischem `txBuf_`, Nachladen in `CDC_TransmitCplt_FS` (USER CODE 13). Kein zusätzlicher Task. READ-Streaming wartet bis 20 ms auf Platz und verwirft sonst den Rest des Frames. Zähler `USBDriver::txDropped()`.
 12. **Kommandolänge widersprüchlich** – Handler verlangt `payloadLen == 16`, Vorlagen für Typ 1–3 in `SDS_Structs.hpp` haben `0x0C`. Gegen PC-Seite prüfen.
-    Status: **bearbeitet (25.09.2026)** – gebaut, auf dem Board nicht getestet.
+    Status: **bearbeitet (25.09.2026, Commit 7207038)** – gebaut, auf dem Board nicht getestet.
     - Klärung: Der Handler (16) ist richtig. Seit Commit `b0cfc2c` (07.09.2026, Magic `DE AD BE EF` eingeführt) ist das Längenfeld die Gesamtlänge der Nachricht (4 Magic + 1 Id + 3 Länge + 4 Wert + 4 CRC = 16), wie bei den Nachrichten Board → PC. Vorher (bis `ce6a0a2`, 27.08.2026) gab es keinen Magic, und die Länge war 12. `PC_Monitor_Test.ptp` sendet ebenfalls `00 00 10`. Die Vorlagen mit `0x0C` stammten aus dem alten Format und werden in der Firmware nicht verwendet.
     - `SDS_Structs.hpp`: Konstante `SDS_CMD_LENGTH = 16`, alle vier Vorlagen nutzen sie, `static_assert` auf 16 Byte; Formatbeschreibung als Kommentar.
     - `USBTask`: `payloadLen()` → `msgLen()` (ist die Gesamtlänge), Vergleich gegen `SDS_CMD_LENGTH` statt der Zahl 16.
