@@ -23,7 +23,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 16 | Zeitstempel µs-genau (DWT) und für das erste Sample des Blocks | 25.09.2026 | ea1e5b7 |
 | 17 | 50-%-Überlappung: Hops in 114/118, Analysefenster (Frame_Assembler), Zeitkonstanten in Sekunden | 25.09.2026 | 05b3d3d |
 | 18 | Einheitliche Konfidenz aus Paaren und Residuum in Samples (128) | 25.09.2026 | e0ca865 |
-| 19 | Logger: threadsicher, Überlaufschutz, max. 255 Zeichen | 25.09.2026 | noch nicht committet |
+| 19 | Logger: threadsicher, Überlaufschutz, max. 255 Zeichen | 25.09.2026 | 7da4097 |
 
 ## Blocker (Hardware-Pfad)
 
@@ -121,7 +121,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
     - Neu `candidateConfidence()` in 128: (Paare / max. Paare) · 1/(1 + (Residuum_Samples / `CONF_RESIDUAL_REF_SAMPLES`)²), Referenz 4 Samples. `CandidateLocation::confidence` wird in `fromBearing()` (Residuum s → Samples, max. 28 Paare) und `solve()` (Residuum m → Samples) gesetzt; `SDS_Data::setCandidate()` und der Legacy-Frame (über `UnitReport::confidence`) übernehmen den Wert.
     - Host-Test (Median): Drohne 30/20/10/3/0/−3 dB 0,96/0,86/0,68/0,53/0,49/0,29; Einzelton 0,13; Stille 0,01; Wind 0,99 (Konfidenz bewertet die Peilung, nicht die Drohnen-Detektion – die entscheidet `detected`, Punkt 24). UnitReport-Serialisierungstest (Punkt 10) weiterhin bestanden.
 19. `Logger::write` nicht threadsicher; Längenbegrenzung 255 statt 256.
-    Status: **bearbeitet (25.09.2026)** – im Host-Test geprüft, auf dem Board nicht getestet.
+    Status: **bearbeitet (25.09.2026, Commit 7da4097)** – im Host-Test geprüft, auf dem Board nicht getestet.
     - Zusätzlich gefunden: `write()` prüfte den freien Platz nicht – ungelesene Daten wurden überschrieben; erreichte `head` genau `tail`, galt der Puffer als leer (bis 4 KB verloren). Derzeit ruft niemand `write()` auf, die Fehler hätten sich erst bei Nutzung gezeigt.
     - `Logger::write()`: Formatierung außerhalb der Sperre (max. `MAX_MSG` = 255 Zeichen), Einfügen in kurzem kritischen Abschnitt (PRIMASK, damit auch aus ISRs aufrufbar), Meldung ganz oder gar nicht; passt sie nicht, wird sie verworfen und gezählt (`dropped()`). Ungenutztes `#include "SDS_Data.hpp"` aus `Logger.hpp` entfernt.
     - Host-Test: 300 Zeichen → 255 Bytes ohne Nullbyte (vorher 256 mit Nullbyte); 4 Schreib-Threads × 20 000 Meldungen + 1 Leser parallel: 0 defekte, 0 vertauschte Meldungen, empfangen + verworfen = gesendet (vorher bereits die erste Meldung defekt).
