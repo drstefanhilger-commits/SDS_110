@@ -3,8 +3,10 @@
  *
  * Mikrofonarray 114 (Patent, Abschnitt 1, FIG. 1/2):
  *  - Geometrie: M = 8 IM69D130 im regelmäßigen Oktagon, Radius MIC_RADIUS_M
- *  - Frame-Puffer: Triple-Buffering (FREE -> WRITING -> READY -> READING),
- *    Frames von FRAME_SAMPLES pro Mikrofon als normalisierte float.
+ *  - Hop-Puffer: Triple-Buffering (FREE -> WRITING -> READY -> READING),
+ *    je Puffer HOP_SAMPLES (32 ms) pro Mikrofon als normalisierte float, ohne Überlappung.
+ *    Die 50-%-Überlappung der Analyse-Frames entsteht erst hinter 118 im Frame_Assembler,
+ *    damit 118 (IIR-Filter, NS, AGC) jedes Sample genau einmal verarbeitet.
  *
  * Migration aus SDS:
  *  - Model/SDS_Params.hpp      : SDS_MIC_POSITIONS, SDS_MIC_RADIUS
@@ -28,8 +30,8 @@ struct MicFrame {
     FrameState state;
     uint32_t   frame_id;
     uint64_t   time_utc_us;                     // Zeitreferenz des ersten Samples
-    uint32_t   writeIndex;                      // 0 .. FRAME_SAMPLES
-    float      data[NUM_MICS][FRAME_SAMPLES];   // normalisiert [-1, 1)
+    uint32_t   writeIndex;                      // 0 .. HOP_SAMPLES
+    float      data[NUM_MICS][HOP_SAMPLES];     // normalisiert [-1, 1)
 };
 
 class Microphone_Array_114 {

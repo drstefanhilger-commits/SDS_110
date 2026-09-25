@@ -27,10 +27,17 @@ constexpr float    BAND_HI_HZ       = 4000.0f;
 constexpr uint32_t REF_MIC          = 0;      // Referenzkanal (Patent: Mikrofon [1])
 constexpr uint32_t FRAME_SAMPLES    = SAMPLE_RATE_HZ * FRAME_MS / 1000;   // 3072
 constexpr uint32_t HOP_SAMPLES      = FRAME_SAMPLES * (100 - FRAME_OVERLAP_PC) / 100; // 1536
+static_assert(FRAME_SAMPLES % HOP_SAMPLES == 0, "Frame muss ein Vielfaches des Hops sein");
+/// Analyse-Takt: 114 liefert Hops (32 ms), Frame_Assembler setzt je Hop einen Frame (64 ms,
+/// 50 % Überlappung) zusammen -> 118 läuft je Hop, 122..126 je Frame, beide mit dieser Rate.
+constexpr float    HOP_S            = static_cast<float>(HOP_SAMPLES) / SAMPLE_RATE_HZ;   // 0,032 s
+/// Dauer in Sekunden -> Anzahl Hops/Frames (für Haltezeiten, Fenster usw.)
+constexpr uint32_t framesFor(float seconds) { return static_cast<uint32_t>(seconds / HOP_S + 0.5f); }
 
 // --- 114 / 116 Hardware ---------------------------------------------
 constexpr float    MIC_RADIUS_M     = 0.20f;  // Oktagon-Radius (aus SDS_Params)
 constexpr uint32_t DMA_BLOCK_SAMPLES = 128;   // Samples pro Mic je DMA-Halbpuffer
+static_assert(HOP_SAMPLES % DMA_BLOCK_SAMPLES == 0, "114: DMA-Block darf nicht über eine Hop-Grenze reichen");
 constexpr uint32_t NUM_MIC_FRAMES   = 3;      // Triple-Buffering
 /// Rohformat im DMA-Puffer: ADAU7118 sendet 24-bit PCM MSB-first im 32-bit-TDM-Slot, der SAI
 /// liest den ganzen Slot (DataSize 32) -> int32 = pcm24 << 8 (linksbündig, Bits 7..0 = 0).
@@ -53,9 +60,11 @@ constexpr float    SAI_FS_TOLERANCE  = 1e-3f;   // max. relative Abweichung der 
 constexpr float    AGC_TARGET_RMS   = 0.1f;   // Zielpegel (float, Vollaussteuerung = 1)
 constexpr float    AGC_MAX_GAIN     = 32.0f;  // +30 dB
 constexpr float    AGC_MIN_GAIN     = 0.05f;  // -26 dB
-constexpr float    AGC_ATTACK       = 0.30f;  // Glättung pro Frame, Pegel steigt
-constexpr float    AGC_RELEASE      = 0.05f;  // Glättung pro Frame, Pegel fällt
-constexpr float    NS_FLOOR_ALPHA   = 0.02f;  // Rauschboden-Nachführung (langsam)
+// Zeitkonstanten in Sekunden; 118 rechnet sie je Hop in Glättungsfaktoren um (1 − exp(−HOP_S/τ)).
+// Werte entsprechen den bisherigen Faktoren je 64-ms-Frame (0,30 / 0,05 / 0,02).
+constexpr float    AGC_ATTACK_TAU_S = 0.179f; // Pegel steigt -> schnell runterregeln
+constexpr float    AGC_RELEASE_TAU_S= 1.248f; // Pegel fällt -> langsam hochregeln
+constexpr float    NS_FLOOR_TAU_S   = 3.168f; // Rauschboden-Nachführung (langsam)
 constexpr float    NS_MAX_ATTEN     = 0.25f;  // maximale Dämpfung (-12 dB) bei reinem Rauschen
 
 // --- 122 Feature Extraction ---------------------------------------------
@@ -63,10 +72,10 @@ constexpr uint32_t MEL_BANDS        = 40;     // wie altes Modell
 constexpr float    MEL_LO_HZ        = 80.0f;
 constexpr float    MEL_HI_HZ        = 8000.0f;
 constexpr uint32_t MEL_MAX_BINS_PER_BAND = 128; // sparse Filterbank; oberstes Band (8 kHz) ~110 Bins
-constexpr uint32_t AM_HISTORY_FRAMES = 16;    // ~0.5 s bei 32 ms Hop
+constexpr uint32_t AM_HISTORY_FRAMES = framesFor(0.5f);   // 16 Frames bei 32 ms Hop
 
 // --- 3. ML ------------------------------------------------------------
-constexpr uint32_t STATE_SMOOTH_FRAMES = 3;
+constexpr uint32_t STATE_SMOOTH_FRAMES = framesFor(0.19f); // gleitender Mittelwert ~0,19 s (6 Frames)
 
 // --- 4. Selektion / Gewichtung -----------------------------------------
 constexpr float    THETA_SEL        = 0.5f;   // Selektionsschwelle
@@ -103,7 +112,12 @@ constexpr float    SIM_SNR_DB       = 20.0f;
 constexpr float    HBD_BAND_SNR_DB  = 8.0f;   // Band-SNR, bei dem p_b = 0,5
 constexpr float    HBD_SIGMOID_DB   = 3.0f;   // Steilheit der Sigmoid (dB)
 constexpr float    HBD_GATE_FLOOR   = 0.3f;   // Faktor für Bänder ohne Harmonische bzw. bei geschlossenem Gate
-constexpr uint32_t HBD_HOLD_FRAMES  = 16;     // Gate offen bis ~1 s nach der letzten HBD-Detektion
+constexpr uint32_t HBD_HOLD_FRAMES  = framesFor(1.0f);   // Gate offen bis 1 s nach der letzten HBD-Detektion
+// HBD-Zeitkonstanten (HBD_InitParams_48k rechnet sie in Werte je Frame um)
+constexpr float    HBD_FLOOR_TAU_S      = 1.034f;  // Noise-Floor-EMA (bisher 0,94 je 64-ms-Frame)
+constexpr float    HBD_FLOOR_RISE_DB_S  = 0.156f;  // max. Anstieg an Peaks (bisher 0,01 dB je 64-ms-Frame, ~2 min)
+constexpr float    HBD_WARMUP_S         = 3.0f;    // keine Entscheidung nach dem Start
+constexpr float    HBD_CONSISTENCY_S    = 0.32f;   // Konsistenz-Gedächtnis (bisher 5 Frames à 64 ms)
 
 // --- 10. Feedback -------------------------------------------------------
 constexpr float    THETA_REF        = 0.6f;

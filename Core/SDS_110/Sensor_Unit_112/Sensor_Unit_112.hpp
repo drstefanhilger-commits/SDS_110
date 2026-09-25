@@ -7,6 +7,7 @@
 #include "Microphone_Array_114.hpp"
 #include "Sampling_Circuitry_116.hpp"
 #include "Pre_Processor_118.hpp"
+#include "Frame_Assembler.hpp"
 
 namespace sds110 {
 
@@ -21,15 +22,30 @@ public:
     }
     bool start() { return sampling_.start(); }
 
-    /// nächsten vorverarbeiteten Frame holen (nullptr = noch keiner fertig).
-    /// Aufrufer gibt ihn mit releaseFrame() zurück.
-    MicFrame* nextFrame()
+    /// Nächsten Hop aus 114 holen, mit 118 verarbeiten und ins Analysefenster schieben.
+    /// Rückgabe false: kein Hop bereit. Sonst true; frame zeigt auf einen vollständigen
+    /// Analyse-Frame (64 ms, 50 % Überlappung) oder ist nullptr, solange das Fenster füllt.
+    bool nextFrame(const AnalysisFrame*& frame)
     {
-        MicFrame* f = array_.acquireReadable();
-        if (f) pre_.process(*f);
-        return f;
+        frame = nullptr;
+        MicFrame* h = array_.acquireReadable();
+        if (!h) return false;
+        pre_.process(*h);
+        const bool full = asm_.push(*h);
+        array_.release(h);
+        if (full) frame = &asm_.frame();
+        return true;
     }
-    void releaseFrame(MicFrame* f) { array_.release(f); }
+
+    /// READ-Modus: nächster vorverarbeiteter Hop ohne Überlappung (nullptr = keiner bereit).
+    /// Aufrufer gibt ihn mit releaseHop() zurück. Das Analysefenster beginnt danach neu.
+    MicFrame* nextHop()
+    {
+        MicFrame* h = array_.acquireReadable();
+        if (h) { pre_.process(*h); asm_.reset(); }
+        return h;
+    }
+    void releaseHop(MicFrame* h) { array_.release(h); }
 
     uint32_t id() const { return id_; }
     const Microphone_Array_114& array() const { return array_; }
@@ -42,6 +58,7 @@ private:
     Microphone_Array_114&   array_    = Microphone_Array_114::instance();
     Sampling_Circuitry_116& sampling_ = Sampling_Circuitry_116::instance();
     Pre_Processor_118       pre_;
+    Frame_Assembler         asm_;   // liegt mit 120 im SDRAM (~98 kB)
 };
 
 } // namespace sds110

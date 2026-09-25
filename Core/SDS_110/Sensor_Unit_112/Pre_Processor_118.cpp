@@ -40,11 +40,17 @@ void Pre_Processor_118::init()
     designHighpass(BANDPASS_LO_HZ, static_cast<float>(SAMPLE_RATE_HZ), &coeffs_[0]);
     designLowpass (BANDPASS_HI_HZ, static_cast<float>(SAMPLE_RATE_HZ), &coeffs_[5]);
 
+    // Zeitkonstanten -> Glättungsfaktoren je Hop
+    aAttack_  = 1.0f - std::exp(-HOP_S / AGC_ATTACK_TAU_S);
+    aRelease_ = 1.0f - std::exp(-HOP_S / AGC_RELEASE_TAU_S);
+    aFloor_   = 1.0f - std::exp(-HOP_S / NS_FLOOR_TAU_S);
+
     for (uint32_t ch = 0; ch < NUM_MICS; ++ch) {
         arm_biquad_cascade_df2T_init_f32(&iir_[ch], 2, coeffs_, state_[ch]);
         gain_[ch]     = 1.0f;
         noiseRms_[ch] = 1e-3f;
         applied_[ch]  = 1.0f;
+        prevApplied_[ch] = 1.0f;
     }
 }
 
@@ -61,50 +67,55 @@ void Pre_Processor_118::bandpass(uint32_t ch, float* x, uint32_t n)
     arm_biquad_cascade_df2T_f32(&iir_[ch], x, x, n);
 }
 
-float Pre_Processor_118::noiseSuppress(uint32_t ch, float* x, uint32_t n)
+// Verstärkung der Rauschunterdrückung aus dem Hop-RMS r (nach Bandpass)
+float Pre_Processor_118::noiseGain(uint32_t ch, float r)
 {
     // Rauschboden: schnelles Absenken, langsames Anheben (Minimum-Tracking)
-    const float r = rms(x, n);
     float& nf = noiseRms_[ch];
     if (r < nf) nf = r;
-    else        nf += NS_FLOOR_ALPHA * (r - nf);
+    else        nf += aFloor_ * (r - nf);
 
-    // Wiener-artige Frame-Verstärkung: g = 1 - (nf/r)^2, begrenzt auf NS_MAX_ATTEN
+    // Wiener-artige Verstärkung: g = 1 - (nf/r)^2, begrenzt auf NS_MAX_ATTEN
     if (r <= 1e-9f) return 1.0f;
     const float snr = (r * r) / (nf * nf + 1e-12f);
     float g = 1.0f - 1.0f / snr;
     if (g < NS_MAX_ATTEN) g = NS_MAX_ATTEN;
-    if (g < 1.0f) { arm_scale_f32(x, g, x, n); return g; }
-    return 1.0f;
+    return (g < 1.0f) ? g : 1.0f;
 }
 
-float Pre_Processor_118::agc(uint32_t ch, float* x, uint32_t n)
+// AGC-Verstärkung aus dem Hop-RMS r (nach NS)
+float Pre_Processor_118::agcGain(uint32_t ch, float r)
 {
-    const float r = rms(x, n);
-    if (r <= 1e-9f) return 1.0f;
-
+    float& g = gain_[ch];
+    if (r <= 1e-9f) return g;
     float target = AGC_TARGET_RMS / r;
     if (target > AGC_MAX_GAIN) target = AGC_MAX_GAIN;
     if (target < AGC_MIN_GAIN) target = AGC_MIN_GAIN;
-
-    float& g = gain_[ch];
-    const float a = (target < g) ? AGC_ATTACK : AGC_RELEASE;   // Pegel steigt -> schnell runterregeln
+    const float a = (target < g) ? aAttack_ : aRelease_;   // Pegel steigt -> schnell runterregeln
     g += a * (target - g);
-
-    arm_scale_f32(x, g, x, n);
     return g;
 }
 
-// ---------------------------------------------------------------- Frame
+// ---------------------------------------------------------------- Hop
+// NS und AGC ergeben eine Gesamtverstärkung je Hop. Sie wird als lineare Rampe vom Wert
+// des vorigen Hops aus angewendet: Die Analyse-Frames (122) überdecken zwei Hops, ein
+// Verstärkungssprung an der Hop-Grenze läge mitten im Frame und verschmierte das Spektrum.
 void Pre_Processor_118::process(MicFrame& frame)
 {
     for (uint32_t ch = 0; ch < NUM_MICS; ++ch) {
         float* x = frame.data[ch];
-        float g = 1.0f;
-        if (bandpassOn_) bandpass(ch, x, FRAME_SAMPLES);
-        if (nsOn_)       g *= noiseSuppress(ch, x, FRAME_SAMPLES);
-        if (agcOn_)      g *= agc(ch, x, FRAME_SAMPLES);
-        applied_[ch] = g;
+        if (bandpassOn_) bandpass(ch, x, HOP_SAMPLES);
+
+        const float r = rms(x, HOP_SAMPLES);
+        const float gNs  = nsOn_  ? noiseGain(ch, r) : 1.0f;
+        const float gAgc = agcOn_ ? agcGain(ch, r * gNs) : 1.0f;
+        const float g0 = applied_[ch], g1 = gNs * gAgc;
+        if (g0 != 1.0f || g1 != 1.0f) {
+            const float step = (g1 - g0) / static_cast<float>(HOP_SAMPLES);
+            for (uint32_t i = 0; i < HOP_SAMPLES; ++i) x[i] *= g0 + step * static_cast<float>(i + 1);
+        }
+        prevApplied_[ch] = g0;
+        applied_[ch] = g1;
     }
 }
 

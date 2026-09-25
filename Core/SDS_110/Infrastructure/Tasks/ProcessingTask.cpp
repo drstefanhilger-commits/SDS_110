@@ -19,13 +19,13 @@ void ProcessingTask::onStart()
 void ProcessingTask::feedSimulation()
 {
     // Simulation (USB-Kommando Typ 3, Standard 1): Generator statt SAI/DMA.
-    // Ein Frame pro Aufruf; die Verarbeitung im selben Durchlauf hält 114 frei.
+    // Ein Hop (32 ms) pro Aufruf; die Verarbeitung im selben Durchlauf hält 114 frei.
     const bool sim = dm_.getSimulation() != 0;
     if (sim && !simRunning_)  { proc_.unit().sampling().stop(); simRunning_ = true; }
     if (!sim && simRunning_)  { if (!proc_.start()) dm_.pushErrorMessage("116 start failed"); simRunning_ = false; }
     if (!sim) return;
 
-    sim_.generateFrame(TimeBase::nowUs());   // gleiche Zeitbasis wie 116
+    sim_.generateHop(TimeBase::nowUs());     // gleiche Zeitbasis wie 116
     dm_.setDebugValue(2, sim_.trueAzimuth());     // LCD: "True Azimuth"
     dm_.setDebugValue(3, sim_.trueDistance());    // LCD: "True Distance"
 }

@@ -23,7 +23,7 @@
 #pragma once
 #include "arm_math.h"
 #include "SDS_110_Config.hpp"
-#include "Sensor_Unit_112/Microphone_Array_114.hpp"
+#include "Sensor_Unit_112/Frame_Assembler.hpp"
 
 namespace sds110 {
 
@@ -45,7 +45,7 @@ public:
     void init();
 
     /// Referenzkanal: STFT + alle Merkmale (Standardpfad Claim 1 (b))
-    void process(const MicFrame& frame, Spectrum& refSpectrum, FeatureVector& features);
+    void process(const AnalysisFrame& frame, Spectrum& refSpectrum, FeatureVector& features);
 
     /// STFT eines beliebigen Kanals (für 126: Intra-Unit-Korrelation)
     void computeSpectrum(const float* x, uint32_t n, Spectrum& out);

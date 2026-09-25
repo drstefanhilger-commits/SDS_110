@@ -134,7 +134,7 @@ void Feature_Extraction_Module_122::updateAm(const float* bandPow, float* amDept
 }
 
 // ---------------------------------------------------------------- Frame
-void Feature_Extraction_Module_122::process(const MicFrame& frame, Spectrum& refSpectrum, FeatureVector& f)
+void Feature_Extraction_Module_122::process(const AnalysisFrame& frame, Spectrum& refSpectrum, FeatureVector& f)
 {
     computeSpectrum(frame.data[REF_MIC], FRAME_SAMPLES, refSpectrum);
 

@@ -41,14 +41,13 @@ public:
     static Signal_Simulator& instance();
     void init(const SimParams& p);
     SimParams& params() { return p_; }
-    /// erzeugt einen kompletten Frame und pusht ihn blockweise in 114
-    void generateFrame(uint64_t time_utc_us);
+    /// erzeugt einen Hop (HOP_SAMPLES je Mikrofon) und pusht ihn blockweise in 114
+    void generateHop(uint64_t time_utc_us);
     float trueAzimuth() const { return p_.azimuth_deg; }
     float trueDistance() const { return p_.distance_m; }
 
 private:
     Signal_Simulator() = default;
-    float source(uint32_t n);           // Quellsignal, phasenkontinuierlich
     float noise();
     void  advanceSweep();
 
@@ -59,9 +58,12 @@ private:
     double   amPhase_ = 0.0;
     uint32_t rng_ = 0x12345678;
     float    pinkState_[3] = {};
-    // Quellsignal mit Vorlauf für negative Verzögerungen
-    static constexpr uint32_t GUARD = 64;
-    float src_[FRAME_SAMPLES + 2 * GUARD];
+    // Quellsignal: [GUARD Vergangenheit][HOP_SAMPLES aktuell][GUARD Vorlauf]; zwischen zwei
+    // Aufrufen wird um HOP_SAMPLES geschoben, jedes Sample wird genau einmal erzeugt
+    static constexpr uint32_t GUARD = 64;   // > max. Verzögerung (Radius 0,2 m -> 28 Samples)
+    float src_[HOP_SAMPLES + 2 * GUARD];
+    bool  primed_ = false;
+    float sourceSample();
     int32_t block_[DMA_BLOCK_SAMPLES * NUM_MICS];
 };
 

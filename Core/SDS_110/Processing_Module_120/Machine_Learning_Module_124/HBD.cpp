@@ -16,17 +16,18 @@ void HBD_InitParams_48k(HBD_Params& p)
     p.fft = { SAMPLE_RATE_HZ, static_cast<uint16_t>(N_FFT), static_cast<uint16_t>(HOP_SAMPLES), 2.0f / windowSum };
     p.harmonic = { 80.0f, 350.0f, 8, 40.0f };
     // Grenzen in dBFS; die alte Obergrenze -60 dB lag unter dem Rauschpegel nach der AGC
-    p.noiseFloor = { 0.94f, -140.0f, 0.0f, 10.0f, 0.01f, 8 };   // 0,01 dB/Frame: stehender Ton ~2 min
+    // Werte je Frame aus den Zeitkonstanten (Frame-Takt = Hop, 32 ms); stehender Ton wird nach ~2 min gelernt
+    p.noiseFloor = { std::exp(-HOP_S / HBD_FLOOR_TAU_S), -140.0f, 0.0f, 10.0f, HBD_FLOOR_RISE_DB_S * HOP_S, 8 };
     p.snr.globalSnrDb = 12.0f;
     p.snr.numBandsUsed = 8;
     const float thr[8] = { 14, 12, 10, 8, 7, 6, 5, 4 };
     for (int i = 0; i < 8; ++i) p.snr.perBandSnrDb[i] = thr[i];
-    p.consistency = { 0.60f, 5, 5 };
+    p.consistency = { 0.60f, 5, static_cast<uint8_t>(framesFor(HBD_CONSISTENCY_S)) };
     const float w[8] = { 0.32f, 0.28f, 0.20f, 0.12f, 0.05f, 0.02f, 0.01f, 0.005f };
     for (int i = 0; i < 8; ++i) p.decision.bandWeights[i] = w[i];
     p.decision.numWeightsUsed = 8;
     p.decision.finalScoreThreshold = 0.48f;
-    p.decision.warmupFrames = 48;   // ~3 s: Floor schwingt nach dem Start (AGC-Anlauf) bis ~Frame 40 ein
+    p.decision.warmupFrames = static_cast<uint16_t>(framesFor(HBD_WARMUP_S));   // Floor schwingt nach dem Start (AGC-Anlauf) ~2,5 s ein
 }
 
 void HBD_InitState(HBD_State& s, const HBD_Params& p)

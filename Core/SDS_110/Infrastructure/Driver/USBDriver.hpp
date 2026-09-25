@@ -32,7 +32,7 @@ public:
     /// 32 Byte, id 1 – Azimut/Distanz/Konfidenz (Legacy-Format des PC-Monitors)
     static bool sendDetection(uint32_t timestamp, uint32_t micId, float azimuth, float distance, float confidence,
                               uint32_t waitMs = 0);
-    /// 532 Byte, id 2 – 128 Rohsamples eines Mikrofons ab frameNr*128
+    /// 532 Byte, id 2 – 128 Samples eines Mikrofons ab frameNr*128 (Hop nach 118)
     static bool sendRead(uint32_t timestamp, uint32_t micNr, uint32_t frameNr, const MicFrame* frame,
                          uint32_t waitMs = 0);
     /// 48 Byte, id 3 – 32 Byte Logtext

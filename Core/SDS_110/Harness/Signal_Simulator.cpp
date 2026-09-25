@@ -12,6 +12,7 @@ Signal_Simulator& Signal_Simulator::instance() { static Signal_Simulator inst; r
 void Signal_Simulator::init(const SimParams& p)
 {
     p_ = p;
+    primed_ = false;
     for (auto& ph : phase_) ph = 0.0;
     amPhase_ = 0.0;
     std::memset(pinkState_, 0, sizeof(pinkState_));
@@ -36,7 +37,47 @@ void Signal_Simulator::advanceSweep()
     }
 }
 
-void Signal_Simulator::generateFrame(uint64_t time_utc_us)
+// Ein Quellsample (phasenkontinuierlich), Amplitude ohne 1/r
+float Signal_Simulator::sourceSample()
+{
+    const double dt = 1.0 / SAMPLE_RATE_HZ;
+    const double twoPi = 6.283185307179586;
+    float s = 0.0f;
+    switch (p_.scenario) {
+    case SimScenario::DroneSweep:
+    case SimScenario::DroneStatic: {
+        // Harmonische mit fallender Amplitude (1/h) und Blattpass-AM
+        const float am = 1.0f + 0.5f * static_cast<float>(std::sin(amPhase_));
+        amPhase_ += twoPi * p_.bpf_mod_hz * dt;
+        for (uint8_t h = 0; h < p_.harmonics && h < 16; ++h) {
+            s += static_cast<float>(std::sin(phase_[h])) / (h + 1);
+            phase_[h] += twoPi * p_.f0_hz * (h + 1) * dt;
+            if (phase_[h] > twoPi) phase_[h] -= twoPi;
+        }
+        s *= am * 0.5f;
+        break; }
+    case SimScenario::SingleTone:
+        s = static_cast<float>(std::sin(phase_[0]));
+        phase_[0] += twoPi * p_.f0_hz * dt;
+        if (phase_[0] > twoPi) phase_[0] -= twoPi;
+        break;
+    case SimScenario::WindNoise: {
+        // 1/f-Näherung (Paul-Kellet-Filter, 3 Pole)
+        const float w = noise();
+        pinkState_[0] = 0.99765f * pinkState_[0] + w * 0.0990460f;
+        pinkState_[1] = 0.96300f * pinkState_[1] + w * 0.2965164f;
+        pinkState_[2] = 0.57000f * pinkState_[2] + w * 1.0526913f;
+        s = (pinkState_[0] + pinkState_[1] + pinkState_[2] + w * 0.1848f) * 0.3f;
+        break; }
+    case SimScenario::Silence:
+    default:
+        s = 0.0f;
+        break;
+    }
+    return s;
+}
+
+void Signal_Simulator::generateHop(uint64_t time_utc_us)
 {
     if (p_.scenario == SimScenario::DroneSweep) advanceSweep();
 
@@ -51,49 +92,17 @@ void Signal_Simulator::generateFrame(uint64_t time_utc_us)
     // --- Quellsignal mit Vorlauf ---
     const float amp = p_.source_level / (p_.distance_m > 1.0f ? p_.distance_m : 1.0f);   // 1/r
     const float noiseAmp = amp * std::pow(10.0f, -p_.snr_db / 20.0f);
-    const double dt = 1.0 / SAMPLE_RATE_HZ;
-    const double twoPi = 6.283185307179586;
 
-    for (uint32_t n = 0; n < FRAME_SAMPLES + 2 * GUARD; ++n) {
-        float s = 0.0f;
-        switch (p_.scenario) {
-        case SimScenario::DroneSweep:
-        case SimScenario::DroneStatic: {
-            // Harmonische mit fallender Amplitude (1/h) und Blattpass-AM
-            const float am = 1.0f + 0.5f * static_cast<float>(std::sin(amPhase_));
-            amPhase_ += twoPi * p_.bpf_mod_hz * dt;
-            for (uint8_t h = 0; h < p_.harmonics && h < 16; ++h) {
-                s += static_cast<float>(std::sin(phase_[h])) / (h + 1);
-                phase_[h] += twoPi * p_.f0_hz * (h + 1) * dt;
-                if (phase_[h] > twoPi) phase_[h] -= twoPi;
-            }
-            s *= am * 0.5f;
-            break; }
-        case SimScenario::SingleTone:
-            s = static_cast<float>(std::sin(phase_[0]));
-            phase_[0] += twoPi * p_.f0_hz * dt;
-            if (phase_[0] > twoPi) phase_[0] -= twoPi;
-            break;
-        case SimScenario::WindNoise: {
-            // 1/f-Näherung (Paul-Kellet-Filter, 3 Pole)
-            const float w = noise();
-            pinkState_[0] = 0.99765f * pinkState_[0] + w * 0.0990460f;
-            pinkState_[1] = 0.96300f * pinkState_[1] + w * 0.2965164f;
-            pinkState_[2] = 0.57000f * pinkState_[2] + w * 1.0526913f;
-            s = (pinkState_[0] + pinkState_[1] + pinkState_[2] + w * 0.1848f) * 0.3f;
-            break; }
-        case SimScenario::Silence:
-        default:
-            s = 0.0f;
-            break;
-        }
-        src_[n] = s * amp;
-    }
+    // Nur neue Samples erzeugen: beim ersten Aufruf das ganze Fenster, danach um HOP_SAMPLES schieben
+    uint32_t first = 0;
+    if (primed_) { std::memmove(src_, src_ + HOP_SAMPLES, sizeof(float) * 2 * GUARD); first = 2 * GUARD; }
+    for (uint32_t n = first; n < HOP_SAMPLES + 2 * GUARD; ++n) src_[n] = sourceSample() * amp;
+    primed_ = true;
 
     // --- pro Mikrofon: verzögert + eigenes Rauschen, blockweise wie der DMA ---
     // Format wie die Hardware (116): 24-bit PCM linksbündig im 32-bit-Slot (pcm24 << 8)
     constexpr float toPcm24 = static_cast<float>(1 << 23);
-    for (uint32_t b0 = 0; b0 < FRAME_SAMPLES; b0 += DMA_BLOCK_SAMPLES) {
+    for (uint32_t b0 = 0; b0 < HOP_SAMPLES; b0 += DMA_BLOCK_SAMPLES) {
         for (uint32_t s = 0; s < DMA_BLOCK_SAMPLES; ++s) {
             const uint32_t n = b0 + s;
             for (uint32_t m = 0; m < NUM_MICS; ++m) {
@@ -101,7 +110,7 @@ void Signal_Simulator::generateFrame(uint64_t time_utc_us)
                 const int   i0  = static_cast<int>(pos);
                 const float fr  = pos - static_cast<float>(i0);
                 float v = 0.0f;
-                if (i0 >= 0 && i0 + 1 < static_cast<int>(FRAME_SAMPLES + 2 * GUARD))
+                if (i0 >= 0 && i0 + 1 < static_cast<int>(HOP_SAMPLES + 2 * GUARD))
                     v = src_[i0] * (1.0f - fr) + src_[i0 + 1] * fr;
                 v += noiseAmp * noise();
                 if (v >  0.999f) v =  0.999f;

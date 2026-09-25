@@ -64,14 +64,14 @@ void Microphone_Array_114::pushBlock(const int32_t* interleaved, uint32_t sample
     constexpr float scale = 1.0f / PCM_RAW_FULL_SCALE;   // 24 bit linksbündig im 32-bit-Slot -> [-1, 1)
     uint32_t idx = f->writeIndex;
 
-    for (uint32_t s = 0; s < samplesPerMic && idx < FRAME_SAMPLES; ++s, ++idx) {
+    for (uint32_t s = 0; s < samplesPerMic && idx < HOP_SAMPLES; ++s, ++idx) {
         const int32_t* row = interleaved + s * NUM_MICS;
         for (uint32_t ch = 0; ch < NUM_MICS; ++ch)
             f->data[ch][idx] = static_cast<float>(row[ch]) * scale;
     }
     f->writeIndex = idx;
 
-    if (idx >= FRAME_SAMPLES) {
+    if (idx >= HOP_SAMPLES) {
         f->state = FrameState::Ready;
         latest_  = f;
         active_  = acquireFree();          // nullptr -> nächster Block wird verworfen

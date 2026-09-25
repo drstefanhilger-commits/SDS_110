@@ -112,7 +112,7 @@ bool USBDriver::sendRead(uint32_t timestamp, uint32_t micNr, uint32_t frameNr, c
     constexpr float toPcm24 = static_cast<float>(1 << 23);
     for (uint32_t i = 0; i < SDS_MSG_BUFFER_SIZE; ++i) {
         const uint32_t idx = offset + i;
-        if (frame && micNr < NUM_MICS && idx < FRAME_SAMPLES)
+        if (frame && micNr < NUM_MICS && idx < HOP_SAMPLES)
             msg.data[i] = static_cast<uint32_t>(static_cast<int32_t>(frame->data[micNr][idx] * toPcm24));
         else
             msg.data[i] = 0;
