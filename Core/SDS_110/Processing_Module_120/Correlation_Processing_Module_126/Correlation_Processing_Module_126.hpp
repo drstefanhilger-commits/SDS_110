@@ -86,7 +86,7 @@ private:
     TdoaMeasurement pairTdoa_[NUM_MIC_PAIRS];
     // Fenster ±SRP_MAX_LAG jeder Paarkorrelation für srpScan()
     float pairCorr_[NUM_MIC_PAIRS][2 * SRP_MAX_LAG + 1];
-    float pairDx_[NUM_MIC_PAIRS], pairDy_[NUM_MIC_PAIRS];   // (p_i - p_j)/c * fs
+    float pairDx_[NUM_MIC_PAIRS], pairDy_[NUM_MIC_PAIRS];   // (p_j - p_i)/c * fs
 };
 
 } // namespace sds110

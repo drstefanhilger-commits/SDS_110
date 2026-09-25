@@ -24,8 +24,8 @@ void Correlation_Processing_Module_126::init(const Microphone_Array_114& array)
     uint32_t idx = 0;
     for (uint32_t i = 0; i < NUM_MICS; ++i)
         for (uint32_t j = i + 1; j < NUM_MICS; ++j, ++idx) {
-            pairDx_[idx] = (micPos_[i].x - micPos_[j].x) / SPEED_OF_SOUND * SAMPLE_RATE_HZ;
-            pairDy_[idx] = (micPos_[i].y - micPos_[j].y) / SPEED_OF_SOUND * SAMPLE_RATE_HZ;
+            pairDx_[idx] = (micPos_[j].x - micPos_[i].x) / SPEED_OF_SOUND * SAMPLE_RATE_HZ;
+            pairDy_[idx] = (micPos_[j].y - micPos_[i].y) / SPEED_OF_SOUND * SAMPLE_RATE_HZ;
         }
     std::memset(pairCorr_, 0, sizeof(pairCorr_));
     clearFeedback();
@@ -132,7 +132,9 @@ bool Correlation_Processing_Module_126::crossCorrelate(const Spectrum& X, const 
 }
 
 // ---------------------------------------------------------------- Intra-Unit-Peilung
-// Fernfeld: τ_ij = ((p_i - p_j) · u) / c mit u = (cos φ, sin φ). Gewichtete LS in (ux, uy),
+// Fernfeld: Quelle in Richtung u = (cos φ, sin φ) -> Ankunftszeit t_m = -(p_m · u) / c.
+// crossCorrelate(X_i, X_j) liefert τ_ij = t_i - t_j = ((p_j - p_i) · u) / c
+// (gleiche Konvention wie 128::solve: r_i - r_j = c·τ_ij). Gewichtete LS in (ux, uy),
 // Gewicht = Peakhöhe; Azimut = atan2(uy, ux).
 bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const ComponentSelection& sel, Bearing& out)
 {
@@ -151,8 +153,8 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
             }
             if (!ok) continue;
             ++valid; peakSum += m.peak;
-            const float ax = (micPos_[i].x - micPos_[j].x) / SPEED_OF_SOUND;
-            const float ay = (micPos_[i].y - micPos_[j].y) / SPEED_OF_SOUND;
+            const float ax = (micPos_[j].x - micPos_[i].x) / SPEED_OF_SOUND;
+            const float ay = (micPos_[j].y - micPos_[i].y) / SPEED_OF_SOUND;
             const float w  = m.peak;
             sxx += w * ax * ax; sxy += w * ax * ay; syy += w * ay * ay;
             bx  += w * ax * m.tdoa_s; by += w * ay * m.tdoa_s;
@@ -172,7 +174,7 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
         for (uint32_t j = i + 1; j < NUM_MICS; ++j, ++idx) {
             const TdoaMeasurement& m = pairTdoa_[idx];
             if (!m.valid) continue;
-            const float pred = ((micPos_[i].x - micPos_[j].x) * ux + (micPos_[i].y - micPos_[j].y) * uy) / SPEED_OF_SOUND;
+            const float pred = ((micPos_[j].x - micPos_[i].x) * ux + (micPos_[j].y - micPos_[i].y) * uy) / SPEED_OF_SOUND;
             res += m.peak * (m.tdoa_s - pred) * (m.tdoa_s - pred);
         }
     out.residual    = std::sqrt(res / peakSum);
@@ -185,7 +187,7 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
 }
 
 // ---------------------------------------------------------------- SRP-PHAT-Referenz
-// SRP(φ) = Σ_pairs C_ij(τ_ij(φ)), τ_ij(φ) = ((p_i - p_j)·u(φ)) / c · fs, linear interpoliert.
+// SRP(φ) = Σ_pairs C_ij(τ_ij(φ)), τ_ij(φ) = ((p_j - p_i)·u(φ)) / c · fs, linear interpoliert.
 bool Correlation_Processing_Module_126::srpScan(float& azimuth_deg, float& peakPower, float& peakRatio) const
 {
     float best = -1e30f, second = -1e30f; uint32_t bestStep = 0;
