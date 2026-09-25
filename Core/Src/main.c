@@ -505,14 +505,7 @@ static void MX_DMA2D_Init(void)
 {
 
   /* USER CODE BEGIN DMA2D_Init 0 */
-	FMC_SDRAM_CommandTypeDef Command;
-	Command.CommandMode = FMC_SDRAM_CMD_CLK_ENABLE;
-	Command.CommandTarget = FMC_SDRAM_CMD_TARGET_BANK1;
-	Command.AutoRefreshNumber = 1;
-	Command.ModeRegisterDefinition = 0;
 
-	HAL_SDRAM_SendCommand(&hsdram1, &Command, 0x1000);
-	HAL_Delay(1);
   /* USER CODE END DMA2D_Init 0 */
 
   /* USER CODE BEGIN DMA2D_Init 1 */

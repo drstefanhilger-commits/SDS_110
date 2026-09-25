@@ -19,6 +19,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 6 | Rohdaten-Skalierung 2⁻³¹ (24 Bit linksbündig), Simulator im Hardwareformat | 25.09.2026 | ad18673 |
 | 5 | SAI-Takt aus PLLI2S (47 991 Hz statt 53 571 Hz), Prüfung der Ist-Abtastrate | 25.09.2026 | f7d4a56 |
 | 14 | SDRAM-Selbsttest vor der ersten Nutzung, am D-Cache vorbei | 25.09.2026 | 8a1240d |
+| 15 | Wirkungsloses SDRAM-Kommando in MX_DMA2D_Init entfernt | 25.09.2026 | noch nicht committet |
 
 ## Blocker (Hardware-Pfad)
 
@@ -92,7 +93,9 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
     - `SDS110_Init()`: Test läuft vor `Processing_Module_120::instance()`; bei Fehler Meldung „SDRAM self-test failed“, keine Initialisierung von 112/120, `SDS110_StartProcessingTask()` startet dann nicht. Alter Test und `Processing_Module_120_spectraProbe()` entfernt.
     - Host-Test (HAL-Stub): Handle nicht READY → false ohne Speicherzugriff; intakter Bereich (591 KB) → true, 20 Prüfadressen, 2 Cache-Flushes, kein Schreiben außerhalb; leerer Bereich → true. Fehlerhaftes SDRAM und das Cache-Verhalten lassen sich auf dem Host nicht nachbilden.
 15. SDRAM-Kommando in `MX_DMA2D_Init` läuft vor `MX_FMC_Init` → wirkungslos, entfernen.
-    Status: offen
+    Status: **bearbeitet (25.09.2026)** – gebaut.
+    - Geprüft: `hsdram1.State` ist vor `MX_FMC_Init` `HAL_SDRAM_STATE_RESET`; `HAL_SDRAM_SendCommand` gibt dann `HAL_ERROR` zurück, ohne Register anzufassen. Der Block war also harmlos, kostete nur `HAL_Delay(1)` beim Start. Die vollständige Sequenz (inkl. Clock-Enable) sendet `SDRAM_InitSequence()` in USER CODE „FMC_Init 2“.
+    - Inhalt von USER CODE „DMA2D_Init 0“ in `main.c` entfernt (Marker und CRLF erhalten).
 16. Zeitstempel 1-ms-Tick-basiert und vom Ende des DMA-Blocks (≈ 2,7 ms zu spät).
     Status: offen
 17. 50-%-Überlappung nicht umgesetzt; Framerate 15,6/s statt 30/s (bekannt).
