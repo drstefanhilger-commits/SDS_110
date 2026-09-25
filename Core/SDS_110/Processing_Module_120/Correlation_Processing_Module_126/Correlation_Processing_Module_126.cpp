@@ -109,15 +109,25 @@ bool Correlation_Processing_Module_126::crossCorrelate(const Spectrum& X, const 
     int bestLag = 0; float best = -1e30f;
     for (int lag = -maxLag; lag <= maxLag; ++lag) { const float v = at(lag); if (v > best) { best = v; bestLag = lag; } }
     if (best <= 0.0f) return false;
+    // Maximum am Fensterrand: der eigentliche Peak liegt außerhalb von ±maxDelay
+    if (bestLag == -maxLag || bestLag == maxLag) return false;
 
-    // Zweithöchster Peak außerhalb der Nachbarschaft des Hauptpeaks (Peak-Ratio-Test)
-    const int excl = static_cast<int>(PEAK_EXCLUDE_S * SAMPLE_RATE_HZ);
+    // Peak-Ratio-Test: zweithöchstes lokales Maximum außerhalb der Hauptkeule.
+    // Hauptkeule = vom Hauptpeak aus nach beiden Seiten, solange die Korrelation fällt
+    // (bei schmalbandigen Harmonischen < 1,5 kHz deutlich breiter als wenige Samples).
+    int lobeLo = bestLag, lobeHi = bestLag;
+    while (lobeLo > -maxLag && at(lobeLo - 1) <= at(lobeLo)) --lobeLo;
+    while (lobeHi <  maxLag && at(lobeHi + 1) <= at(lobeHi)) ++lobeHi;
     float second = 0.0f;
     for (int lag = -maxLag; lag <= maxLag; ++lag) {
-        if (std::abs(lag - bestLag) <= excl) continue;
-        const float v = at(lag); if (v > second) second = v;
+        if (lag >= lobeLo && lag <= lobeHi) continue;
+        const float v = at(lag);
+        if (v > second && v >= at(lag - 1) && v >= at(lag + 1)) second = v;   // at() ist zirkulär
     }
-    const float ratio = best / (second + 1e-9f);
+    // ohne Nebenmaximum (Hauptkeule füllt das Fenster) wäre die Ratio unbegrenzt; begrenzt,
+    // weil 128::solve() sie als Gewicht nutzt
+    float ratio = (second > 0.0f) ? best / second : PEAK_RATIO_MAX;
+    if (ratio > PEAK_RATIO_MAX) ratio = PEAK_RATIO_MAX;
 
     // Sub-Sample-Interpolation (Parabel)
     const float ym = at(bestLag - 1), y0 = at(bestLag), yp = at(bestLag + 1);

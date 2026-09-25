@@ -63,11 +63,11 @@ constexpr float    WEIGHT_GAMMA     = 1.0f;   // g(p)=p^γ, γ=1 bevorzugt
 
 // --- 5. GCC-PHAT / TDOA -------------------------------------------------
 constexpr float    PEAK_RATIO_MIN   = 1.5f;
+constexpr float    PEAK_RATIO_MAX   = 20.0f;  // Obergrenze (Gewicht in 128::solve), wenn kein Nebenmaximum im Fenster
 constexpr float    SPEED_OF_SOUND   = 343.0f; // wird temperaturkorrigiert
 
 // --- 5b. Intra-Unit-Peilung (126, erlaubt: Korrelation, kein Beamforming) -
 constexpr uint32_t NUM_MIC_PAIRS    = NUM_MICS * (NUM_MICS - 1) / 2;   // 28
-constexpr float    PEAK_EXCLUDE_S   = 3.0f / SAMPLE_RATE_HZ;           // Nachbarschaft um Hauptpeak für Peak-Ratio
 constexpr float    BEARING_MIN_PAIRS_FRACTION = 0.5f;                  // min. Anteil gültiger Paare
 // Referenz-Peilung SRP-PHAT (Harness/Vergleich): Scan über die gespeicherten Paarkorrelationen
 constexpr uint32_t SRP_MAX_LAG      = 64;     // Samples, >= Arraydurchmesser/c*fs*1.1 (0.4 m -> 62)
