@@ -42,11 +42,17 @@ enum class SDS_Mode : uint32_t {
 // ======================================================
 //  USB Wire-Format (unverändert aus SDS, PC-Monitor-kompatibel)
 // ======================================================
+// Kommandos PC -> Board: [Magic 4][Id 1][Länge 3, big-endian][Wert 4][CRC 4].
+// Die Länge ist die GESAMTLÄNGE der Nachricht (16 Byte), wie bei den Nachrichten
+// Board -> PC (len_id = sizeof). Das Format vor 07.09.2026 (ohne Magic) zählte
+// nur 12 Byte; die Vorlagen unten trugen noch diesen alten Wert.
+constexpr uint32_t SDS_CMD_LENGTH = 16;
+
 #pragma pack(push, 1)
 struct SDS_UnixTimeSync {
     uint8_t magic[4] = {0xDE, 0xAD, 0xBE, 0xEF};
     uint8_t id       =  0x01;
-    uint8_t size[3]  = {0x00, 0x00, 0x0C};
+    uint8_t size[3]  = {0x00, 0x00, SDS_CMD_LENGTH};
     uint8_t time[4]  = {0x00, 0x00, 0x00, 0x00};
     uint8_t crc[4]   = {0x00, 0x00, 0x00, 0x00};   // ToDo activate crc
 };
@@ -54,7 +60,7 @@ struct SDS_UnixTimeSync {
 struct SDS_ModeChange {
     uint8_t magic[4] = {0xDE, 0xAD, 0xBE, 0xEF};
     uint8_t id       =  0x02;
-    uint8_t size[3]  = {0x00, 0x00, 0x0C};
+    uint8_t size[3]  = {0x00, 0x00, SDS_CMD_LENGTH};
     uint8_t mode[4]  = {0x00, 0x00, 0x00, 0x01};   // SDS_Mode
     uint8_t crc[4]   = {0x00, 0x00, 0x00, 0x00};
 };
@@ -62,7 +68,7 @@ struct SDS_ModeChange {
 struct SDS_ModeSimulation {
     uint8_t magic[4] = {0xDE, 0xAD, 0xBE, 0xEF};
     uint8_t id       =  0x03;
-    uint8_t size[3]  = {0x00, 0x00, 0x0C};
+    uint8_t size[3]  = {0x00, 0x00, SDS_CMD_LENGTH};
     uint8_t sim[4]   = {0x00, 0x00, 0x00, 0x01};   // 0 = Real, 1 = Simulated
     uint8_t crc[4]   = {0x00, 0x00, 0x00, 0x00};
 };
@@ -70,10 +76,14 @@ struct SDS_ModeSimulation {
 struct SDS_SetUnitId {
     uint8_t magic[4] = {0xDE, 0xAD, 0xBE, 0xEF};
     uint8_t id       =  0x05;
-    uint8_t size[3]  = {0x00, 0x00, 0x10};
+    uint8_t size[3]  = {0x00, 0x00, SDS_CMD_LENGTH};
     uint8_t unit[4]  = {0x00, 0x00, 0x00, 0x01};   // Unit-ID (u32, nur untere 16 Bit genutzt)
     uint8_t crc[4]   = {0x00, 0x00, 0x00, 0x00};
 };
+static_assert(sizeof(SDS_UnixTimeSync)   == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
+static_assert(sizeof(SDS_ModeChange)     == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
+static_assert(sizeof(SDS_ModeSimulation) == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
+static_assert(sizeof(SDS_SetUnitId)      == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
 
 struct SDS_MsgDetect {
     uint32_t magic     = 0xDEADBEEF;

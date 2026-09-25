@@ -50,7 +50,8 @@ private:
     void handleSetUnitId(const uint8_t* rx);     // Typ 5: Payload u32 = neue Unit-ID
     void handleError(const uint8_t* rx);
     static bool hasMagic(const uint8_t* rx);
-    static uint32_t payloadLen(const uint8_t* rx) { return (rx[5] << 16) | (rx[6] << 8) | rx[7]; }
+    /// Längenfeld: Gesamtlänge der Nachricht (SDS_CMD_LENGTH), nicht nur der Nutzdaten
+    static uint32_t msgLen(const uint8_t* rx)     { return (rx[5] << 16) | (rx[6] << 8) | rx[7]; }
     static uint32_t payloadU32(const uint8_t* rx)  { return (rx[8] << 24) | (rx[9] << 16) | (rx[10] << 8) | rx[11]; }
     void resetCounters();
 

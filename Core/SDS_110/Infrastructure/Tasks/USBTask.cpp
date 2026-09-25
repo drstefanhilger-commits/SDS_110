@@ -77,14 +77,14 @@ void USBTask::resetCounters()
 
 void USBTask::handleTimeSync(const uint8_t* rx)
 {
-    if (payloadLen(rx) != 16) { handleError(rx); return; }
+    if (msgLen(rx) != SDS_CMD_LENGTH) { handleError(rx); return; }
     dm_.setSyncTimeDifference(payloadU32(rx));
     // entfernt: dm_.setId(rx[4]) – überschrieb die Unit-ID mit dem Kommandotyp (1)
 }
 
 void USBTask::handleModeChange(const uint8_t* rx)
 {
-    if (payloadLen(rx) != 16) { handleError(rx); return; }
+    if (msgLen(rx) != SDS_CMD_LENGTH) { handleError(rx); return; }
     const SDS_Mode mode = static_cast<SDS_Mode>(payloadU32(rx));
     if (dm_.getMode() != mode) {
         dm_.setMode(mode);
@@ -95,7 +95,7 @@ void USBTask::handleModeChange(const uint8_t* rx)
 
 void USBTask::handleSimulation(const uint8_t* rx)
 {
-    if (payloadLen(rx) != 16) { handleError(rx); return; }
+    if (msgLen(rx) != SDS_CMD_LENGTH) { handleError(rx); return; }
     dm_.setSimulation(payloadU32(rx));
     resetCounters();
     // entfernt: dm_.setId(rx[0]) – überschrieb die Unit-ID mit 0xDE (Magic)
@@ -103,7 +103,7 @@ void USBTask::handleSimulation(const uint8_t* rx)
 
 void USBTask::handleSetUnitId(const uint8_t* rx)
 {
-    if (payloadLen(rx) != 16) { handleError(rx); return; }
+    if (msgLen(rx) != SDS_CMD_LENGTH) { handleError(rx); return; }
     dm_.setId(static_cast<uint16_t>(payloadU32(rx) & 0xFFFF));
 }
 
