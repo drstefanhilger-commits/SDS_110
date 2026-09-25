@@ -27,9 +27,18 @@ struct CandidateLocation {
     float   azimuth_deg = 0.0f;
     float   distance_m  = 0.0f;
     uint8_t accepted_pairs = 0;
-    float   ls_residual = 0.0f;
+    float   ls_residual = 0.0f;   // Einzel-Unit (fromBearing): s (TDOA); Multi-Unit (solve): m
+    float   confidence  = 0.0f;   // 0..1, siehe candidateConfidence()
     bool    valid = false;
 };
+
+/// Konfidenz 0..1 aus akzeptierten Paaren und LS-Residuum in Samples (CONF_RESIDUAL_REF_SAMPLES)
+inline float candidateConfidence(uint32_t pairs, uint32_t maxPairs, float residualSamples)
+{
+    if (maxPairs == 0) return 0.0f;
+    const float q = residualSamples / CONF_RESIDUAL_REF_SAMPLES;
+    return (static_cast<float>(pairs) / static_cast<float>(maxPairs)) / (1.0f + q * q);
+}
 
 class Localisation_Module_128 {
 public:

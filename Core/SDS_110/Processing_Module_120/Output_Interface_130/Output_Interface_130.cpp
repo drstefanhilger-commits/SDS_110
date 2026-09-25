@@ -18,6 +18,7 @@ void Output_Interface_130::buildReport(const CandidateLocation& loc, const Acous
     r.time_utc_us      = t;
     r.bearing_deg      = loc.azimuth_deg;
     r.bearing_residual = loc.ls_residual;
+    r.confidence       = loc.confidence;
     r.valid_pairs      = loc.accepted_pairs;
     r.level            = level;
     r.num_selected     = 0;
@@ -34,11 +35,10 @@ void Output_Interface_130::buildReport(const CandidateLocation& loc, const Acous
 bool Output_Interface_130::send(const UnitReport& r)
 {
     const uint32_t ts = static_cast<uint32_t>(r.time_utc_us / 1000ULL);
-    const float conf  = (static_cast<float>(r.valid_pairs) / NUM_MIC_PAIRS) / (1.0f + r.bearing_residual * 1e3f);
     const float distFallback = (SINGLE_UNIT_LEVEL_DISTANCE && r.level > 0.0f) ? LEVEL_DIST_K_REF / (r.level + LEVEL_DIST_EPS) : 0.0f;
 
     // 1) Legacy-Frame für den bestehenden PC-Monitor
-    bool ok = USBDriver::sendDetection(ts, r.unit_id, r.bearing_deg, distFallback, conf);
+    bool ok = USBDriver::sendDetection(ts, r.unit_id, r.bearing_deg, distFallback, r.confidence);
 
     // 2) UnitReport (id 4): [unit u16][bearing f32][residual f32][pairs u8][nsel u8][level f32][idx u8 x nsel][p u8 x nsel]
     MessageData d{};

@@ -57,6 +57,8 @@ bool Localisation_Module_128::solve(const TdoaMeasurement* t, uint32_t n, Candid
     out.azimuth_deg    = calibrate(std::atan2(ry, rx) * 180.0f / 3.14159265f);
     out.distance_m     = std::sqrt(rx * rx + ry * ry);
     out.accepted_pairs = static_cast<uint8_t>(valid);
+    // Residuum in m -> Samples: r / c · fs
+    out.confidence     = candidateConfidence(valid, n, out.ls_residual / SPEED_OF_SOUND * SAMPLE_RATE_HZ);
     out.valid = true;
     return true;
 }
@@ -69,6 +71,7 @@ bool Localisation_Module_128::fromBearing(const Bearing& b, float levelA, Candid
     out.azimuth_deg    = calibrate(b.azimuth_deg);
     out.accepted_pairs = b.valid_pairs;
     out.ls_residual    = b.residual;
+    out.confidence     = candidateConfidence(b.valid_pairs, NUM_MIC_PAIRS, b.residual * SAMPLE_RATE_HZ);
     out.distance_m     = (SINGLE_UNIT_LEVEL_DISTANCE && levelA > 0.0f) ? LEVEL_DIST_K_REF / (levelA + LEVEL_DIST_EPS) : 0.0f;
     out.valid = true;
     return true;

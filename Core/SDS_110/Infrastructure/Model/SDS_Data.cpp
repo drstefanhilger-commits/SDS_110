@@ -41,15 +41,13 @@ void SDS_Data::getAcousticState(sds110::AcousticState& out) const
     unlock();
 }
 
-void SDS_Data::setCandidate(float az, float dist, uint8_t pairs, float residual, bool valid)
+void SDS_Data::setCandidate(float az, float dist, float conf, bool valid)
 {
     if (!lock()) { errorFlag = 999; return; }
     if (valid) {
         azimuthDeg = az;
         distance   = dist;
-        // Vertrauensmaß für die Anzeige: Paare relativ zum Maximum, Residuum dämpft
-        const float maxPairs = static_cast<float>(sds110::NUM_UNITS * (sds110::NUM_UNITS - 1) / 2);
-        confidence = (maxPairs > 0.0f ? pairs / maxPairs : 1.0f) / (1.0f + residual);
+        confidence = conf;
         ++reportCount;
     }
     unlock();

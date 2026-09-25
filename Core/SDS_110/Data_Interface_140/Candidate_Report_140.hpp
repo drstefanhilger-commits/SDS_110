@@ -32,6 +32,7 @@ struct UnitReport {
     uint64_t time_utc_us    = 0;   // Zeitreferenz des Frames
     float    bearing_deg    = 0;   // Intra-Unit-Peilung (126, Fernfeld)
     float    bearing_residual = 0; // LS-Residuum der Peilung (s)
+    float    confidence     = 0;   // 0..1 aus 128 (nur Legacy-Frame, nicht im UnitReport-Wire-Format)
     uint8_t  valid_pairs    = 0;   // gültige Mikrofonpaare (max. NUM_MIC_PAIRS)
     float    level          = 0;   // Pegelmaß der selektierten Bänder (Einzel-Unit-Distanz-Fallback)
     uint8_t  num_selected   = 0;

@@ -36,8 +36,8 @@ public:
     // --- Ergebnis der Patent-Kette (von 120 geschrieben) -------------------
     void setAcousticState(const sds110::AcousticState& s);
     void getAcousticState(sds110::AcousticState& out) const;
-    /// Kandidat aus 128: Azimut, Distanz, Qualität
-    void setCandidate(float azimuthDeg, float distanceM, uint8_t acceptedPairs, float residual, bool valid);
+    /// Kandidat aus 128: Azimut, Distanz, Konfidenz 0..1 (candidateConfidence)
+    void setCandidate(float azimuthDeg, float distanceM, float confidence, bool valid);
 
     float    getAzimuth()  const { return getValue(azimuthDeg); }
     float    getDistance() const { return getValue(distance); }

@@ -75,7 +75,7 @@ bool Processing_Module_120::processFrame()
     const float gRef = unit_.preprocessor().frameCenterGain(REF_MIC);
     levelA = std::sqrt(levelA) / ((gRef > 1e-6f) ? gRef : 1e-6f);
     loc_.fromBearing(bearing_, levelA, location_);
-    dm.setCandidate(location_.azimuth_deg, location_.distance_m, location_.accepted_pairs, location_.ls_residual, location_.valid);
+    dm.setCandidate(location_.azimuth_deg, location_.distance_m, location_.confidence, location_.valid);
 
     // UnitReport über 140 an das Processing Module (PC); der Candidate Report (g) entsteht dort
     if (location_.valid && dm.getDetected()) {

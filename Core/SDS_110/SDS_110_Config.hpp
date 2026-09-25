@@ -102,6 +102,10 @@ constexpr uint32_t LS_ITERATIONS    = 8;      // Gauss-Newton
 constexpr bool     SINGLE_UNIT_LEVEL_DISTANCE = true;
 constexpr float    LEVEL_DIST_K_REF = 100.0f;  // r = K / (A + eps)
 constexpr float    LEVEL_DIST_EPS   = 1e-3f;
+// Konfidenz eines Kandidaten (128): (Paare / max. Paare) · 1 / (1 + (Residuum / Referenz)^2),
+// Residuum in Samples (TDOA). Host-Test, Median: Drohne 30 dB 0,85 · 0 dB 3,9 · Einzelton 9 ·
+// Stille (Zufallspeilung) 32 Samples -> Konfidenz ≈ 0,96 / 0,51 / 0,14 / 0,01.
+constexpr float    CONF_RESIDUAL_REF_SAMPLES = 4.0f;
 
 // --- Harness: Simulation ohne Mikrofone (USB Typ 3 = 1) -----------------
 constexpr uint8_t  SIM_SCENARIO_ID  = 0;      // 0 DroneSweep, 1 DroneStatic, 2 SingleTone, 3 WindNoise, 4 Silence
