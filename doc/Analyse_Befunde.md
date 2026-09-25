@@ -1,6 +1,14 @@
 # SDS_110 – Befunde der Code-Analyse (25.09.2026)
 
-Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeiten.
+Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeiten,
+**bearbeitet** = geändert (Datum, Commit; Testumfang steht dabei).
+
+## Übersicht bearbeitet
+
+| Punkt | Thema | Datum | Commit |
+|---|---|---|---|
+| 11 | USB-Senden über TX-Ringpuffer | 25.09.2026 | 15a87ab |
+| 7 | HBD-Rauschboden / Normierung | 25.09.2026 | (dieser Commit) |
 
 ## Blocker (Hardware-Pfad)
 
@@ -20,8 +28,9 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 ## Signalverarbeitung
 
 7. **HBD meldet immer „DRONE“ (berechnet)** – Rauschboden auf max. −60 dB begrenzt (`HBD.cpp:16`), Betragsspektrum aber unnormiert (Rauschbins nach AGC ≈ +10 dB) → Boden klebt bei −60 dB, SNR ≈ 70 dB überall, alle p_b ≈ 1, alle Bänder selektiert, Fehlalarm auch bei Wind/Einzelton. Abhilfe: Spektrum durch Σw normieren (1536 für Hann/3072; `windowGain` ist vorgesehen, aber ungenutzt). Danach beachten: der gleitende Mittelwert (0,94) lernt einen stehenden Drohnenton in ≈ 1 s als Rauschen.
-   Status: offen
-8. **Peak-Ratio-Test in 126 zu streng** – als zweiter Peak zählt jeder Wert außerhalb ±3 Samples statt des zweiten lokalen Maximums (`Correlation_Processing_Module_126.cpp:116`). Bei schmalbandigen Harmonischen < 1,5 kHz ist die Hauptkeule viel breiter → Ratio ≈ 1,1 < 1,5 → keine Peilung. Derzeit durch Punkt 7 verdeckt.
+   Status: **bearbeitet (25.09.2026)** – im Host-Test geprüft, auf dem Board nicht getestet – `HBD.cpp/.hpp`: Spektrum in dBFS normiert (`windowGain = 2/Σw`), Floor-Grenzen −140…0 dBFS, Start-Floor aus dem spektralen Umgebungsmittel, EMA je Bin; schmale Peaks (> Umgebungsmittel + 10 dB) heben den Floor nur um 0,01 dB/Frame (stehender Drohnenton wird erst nach ~2 min gelernt). Host-Test (Simulator, SNR 20 dB, 300 Frames): DRONE bei Drohne 100 %, Einzelton 3 %, Wind 0 %, Stille 0 % (vorher überall 100 %); Empfindlichkeit 81 % bei 10 dB, 38 % bei 3 dB.
+   Nachtrag: `sel>=B_MIN` (Band-Selektion in 124, steuert `SDS_Data::detected`) ist bei Stille noch 22 %, bei Einzelton 54 % – siehe Punkt 24.
+8. **Peak-Ratio-Test in 126 zu streng** – als zweiter Peak zählt jeder Wert außerhalb ±3 Samples statt des zweiten lokalen Maximums (`Correlation_Processing_Module_126.cpp:116`). Bei schmalbandigen Harmonischen < 1,5 kHz ist die Hauptkeule viel breiter → Ratio ≈ 1,1 < 1,5 → keine Peilung. Im Host-Test bestätigt: bei Drohnensignal 0 % gültige Peilungen, auch bei SNR 30 dB.
    Status: offen
 9. **Distanzschätzung misst die AGC** – `levelA` wird nach NS/AGC pro Kanal berechnet (`Processing_Module_120.cpp:84`); r = K/A beschreibt die Verstärkung, nicht den Abstand.
    Status: offen
@@ -31,7 +40,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 ## USB und RTOS
 
 11. **USB-Senden fehlerhaft** – `CDC_Transmit_FS` speichert nur den Zeiger, gesendet wird aus Stack-Variablen (OTG-FS füllt den FIFO später im Interrupt). `send()` schickt zwei Nachrichten direkt hintereinander → UnitReport (id 4) meist `USBD_BUSY`. READ-Modus sendet 192 × 532 Byte ohne BUSY-Behandlung. Mehrere Tasks senden ohne Sperre. Abhilfe: TX-Queue + ein Sende-Task mit statischem Puffer, Warten auf `TransmitCplt`.
-    Status: **umgesetzt (25.09.2026), auf dem Board noch nicht getestet** – TX-Ringpuffer (8 KB) in `USBDriver`, Nachrichten werden im kritischen Abschnitt vollständig kopiert, Versand in Blöcken bis 2 KB aus statischem `txBuf_`, Nachladen in `CDC_TransmitCplt_FS` (USER CODE 13). Kein zusätzlicher Task. READ-Streaming wartet bis 20 ms auf Platz und verwirft sonst den Rest des Frames. Zähler `USBDriver::txDropped()`.
+    Status: **bearbeitet (25.09.2026, Commit 15a87ab)** – auf dem Board noch nicht getestet – TX-Ringpuffer (8 KB) in `USBDriver`, Nachrichten werden im kritischen Abschnitt vollständig kopiert, Versand in Blöcken bis 2 KB aus statischem `txBuf_`, Nachladen in `CDC_TransmitCplt_FS` (USER CODE 13). Kein zusätzlicher Task. READ-Streaming wartet bis 20 ms auf Platz und verwirft sonst den Rest des Frames. Zähler `USBDriver::txDropped()`.
 12. **Kommandolänge widersprüchlich** – Handler verlangt `payloadLen == 16`, Vorlagen für Typ 1–3 in `SDS_Structs.hpp` haben `0x0C`. Gegen PC-Seite prüfen.
     Status: offen
 13. **FreeRTOS-Heap (32 KB) zu knapp** – mit ProcessingTask (16 KB Stack) ≈ 30 KB plus TCBs/Queues. `TaskBase::start()` prüft `osThreadNew` nicht auf NULL. Heap auf ≥ 64 KB erhöhen.
@@ -56,4 +65,11 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 21. MPU-Region 0 macht SRAM1/2 komplett uncached (für DMA nötig, kostet Leistung).
     Status: offen
 22. `MIGRATION_*.md` teilweise veraltet (z. B. Linker-Sektion existiert bereits).
+    Status: offen
+
+## Neu aus dem Host-Test (25.09.2026)
+
+23. **Peilung um 180° verdreht** – `crossCorrelate()` bildet R = X_i·X_j*, dessen Peak bei τ = ((p_j − p_i)·u)/c liegt; `estimateBearing()` und `srpScan()` rechnen aber mit τ = ((p_i − p_j)·u)/c. Im Host-Test zeigt jede gültige Peilung (Wind, breitbandig) 179,9° neben dem wahren Azimut.
+    Status: offen
+24. **Band-Selektion in 124 bei Rauschen zu großzügig** – Das Gate `g = score / finalScoreThreshold` ist schon bei Rauschen offen (Score ≈ 0,5 > 0,48), und `HBD_BAND_SNR_DB = 8 dB` liegt nahe am Maximum von Rauschbins im Band. Folge: `SDS_Data::detected` bei Stille 22 %, bei Einzelton 54 %. Parameter mit Aufnahmen abstimmen (vgl. MIGRATION_120 „Offene Punkte 1“), evtl. Gate an `droneDetected` koppeln.
     Status: offen

@@ -11,9 +11,12 @@ static inline float magToDb(float mag) { return 20.0f * std::log10(mag + 1e-12f)
 
 void HBD_InitParams_48k(HBD_Params& p)
 {
-    p.fft = { SAMPLE_RATE_HZ, static_cast<uint16_t>(N_FFT), static_cast<uint16_t>(HOP_SAMPLES), 1.0f };
+    // Hann über FRAME_SAMPLES (122): Σw = (N-1)/2 -> |X|·2/Σw = Amplitude eines Sinus
+    const float windowSum = 0.5f * static_cast<float>(FRAME_SAMPLES - 1);
+    p.fft = { SAMPLE_RATE_HZ, static_cast<uint16_t>(N_FFT), static_cast<uint16_t>(HOP_SAMPLES), 2.0f / windowSum };
     p.harmonic = { 80.0f, 350.0f, 8, 40.0f };
-    p.noiseFloor = { 0.94f, -100.0f, -60.0f };
+    // Grenzen in dBFS; die alte Obergrenze -60 dB lag unter dem Rauschpegel nach der AGC
+    p.noiseFloor = { 0.94f, -140.0f, 0.0f, 10.0f, 0.01f, 8 };   // 0,01 dB/Frame: stehender Ton ~2 min
     p.snr.globalSnrDb = 12.0f;
     p.snr.numBandsUsed = 8;
     const float thr[8] = { 14, 12, 10, 8, 7, 6, 5, 4 };
@@ -27,10 +30,25 @@ void HBD_InitParams_48k(HBD_Params& p)
 
 void HBD_InitState(HBD_State& s, const HBD_Params& p)
 {
-    for (uint32_t i = 0; i < NUM_BINS; ++i) { s.noiseFloorDb[i] = p.noiseFloor.minFloorDb; s.magDb[i] = p.noiseFloor.minFloorDb; }
+    for (uint32_t i = 0; i < NUM_BINS; ++i) { s.noiseFloorDb[i] = p.noiseFloor.minFloorDb; s.magDb[i] = p.noiseFloor.minFloorDb; s.localDb[i] = p.noiseFloor.minFloorDb; }
     for (uint8_t k = 0; k < HBD_MAX_HARMONICS; ++k) { s.lastBandSnr[k] = 0.0f; s.consistencyHistory[k] = 0.0f; s.harmonicBin[k] = 0; }
     s.f0Hz = 0.0f; s.globalSnrAvgDb = 0.0f; s.score = 0.0f;
     s.stableCount = 0; s.consistentBands = 0; s.droneDetected = false;
+    s.floorInit = false;
+}
+
+// Mittlerer dB-Pegel über ±localHalfWidthBins (gleitende Summe)
+static void localMeanDb(const HBD_Params& p, HBD_State& s)
+{
+    const int hw = p.noiseFloor.localHalfWidthBins, n = static_cast<int>(NUM_BINS);
+    float sum = 0.0f; int cnt = 0;
+    for (int j = 0; j <= hw && j < n; ++j) { sum += s.magDb[j]; ++cnt; }
+    for (int i = 0; i < n; ++i) {
+        s.localDb[i] = sum / static_cast<float>(cnt);
+        const int add = i + hw + 1, rem = i - hw;
+        if (add < n) { sum += s.magDb[add]; ++cnt; }
+        if (rem >= 0) { sum -= s.magDb[rem]; --cnt; }
+    }
 }
 
 bool HBD_ProcessFrame(const HBD_Params& p, HBD_State& s, const float* mag)
@@ -38,11 +56,20 @@ bool HBD_ProcessFrame(const HBD_Params& p, HBD_State& s, const float* mag)
     const float df = static_cast<float>(SAMPLE_RATE_HZ) / N_FFT;
     const uint8_t H = (p.harmonic.numHarmonics > HBD_MAX_HARMONICS) ? HBD_MAX_HARMONICS : p.harmonic.numHarmonics;
 
-    // 1) dB je Bin und Noise-Floor nachführen
+    // 1) dBFS je Bin und Noise-Floor nachführen
+    for (uint32_t i = 0; i < NUM_BINS; ++i) s.magDb[i] = magToDb(mag[i] * p.fft.windowGain);
+    localMeanDb(p, s);
+    if (!s.floorInit) {
+        for (uint32_t i = 0; i < NUM_BINS; ++i) s.noiseFloorDb[i] = s.localDb[i];
+        s.floorInit = true;
+    }
+    const float a = 1.0f - p.noiseFloor.smoothingFactor;
     for (uint32_t i = 0; i < NUM_BINS; ++i) {
-        s.magDb[i] = magToDb(mag[i]);
-        float nf = p.noiseFloor.smoothingFactor * s.noiseFloorDb[i] + (1.0f - p.noiseFloor.smoothingFactor) * s.magDb[i];
-        s.noiseFloorDb[i] = clampf(nf, p.noiseFloor.minFloorDb, p.noiseFloor.maxFloorDb);
+        float step = a * (s.magDb[i] - s.noiseFloorDb[i]);   // EMA (auf und ab)
+        const bool peak = s.magDb[i] > s.localDb[i] + p.noiseFloor.peakMarginDb;
+        if (peak && step > p.noiseFloor.maxRiseDbPerFrame)
+            step = p.noiseFloor.maxRiseDbPerFrame;           // schmaler Peak: nur langsam anheben
+        s.noiseFloorDb[i] = clampf(s.noiseFloorDb[i] + step, p.noiseFloor.minFloorDb, p.noiseFloor.maxFloorDb);
     }
 
     // 2) f0: stärkster Peak im Grundfrequenzbereich
