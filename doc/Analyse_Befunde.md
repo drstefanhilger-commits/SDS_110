@@ -18,7 +18,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 9 | Distanz-Pegel vor NS/AGC (angewendete Verstärkung herausrechnen) | 25.09.2026 | b81255c |
 | 6 | Rohdaten-Skalierung 2⁻³¹ (24 Bit linksbündig), Simulator im Hardwareformat | 25.09.2026 | ad18673 |
 | 5 | SAI-Takt aus PLLI2S (47 991 Hz statt 53 571 Hz), Prüfung der Ist-Abtastrate | 25.09.2026 | f7d4a56 |
-| 14 | SDRAM-Selbsttest vor der ersten Nutzung, am D-Cache vorbei | 25.09.2026 | noch nicht committet |
+| 14 | SDRAM-Selbsttest vor der ersten Nutzung, am D-Cache vorbei | 25.09.2026 | 8a1240d |
 
 ## Blocker (Hardware-Pfad)
 
@@ -86,7 +86,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 ## Kleinere Punkte
 
 14. SDRAM-Selbsttest läuft erst nach dem Konstruktor, der bereits ins SDRAM schreibt → schützt nicht.
-    Status: **bearbeitet (25.09.2026)** – Logik im Host-Test geprüft, auf dem Board nicht getestet.
+    Status: **bearbeitet (25.09.2026, Commit 8a1240d)** – Logik im Host-Test geprüft, auf dem Board nicht getestet.
     - Zusätzlich gefunden: Der alte Test hätte auch später nichts erkannt – das SDRAM ist per MPU Write-Back-cachebar, die zwei Testwörter wurden aus dem D-Cache zurückgelesen.
     - Neu `Infrastructure/Driver/SDRAMSelfTest.{hpp,cpp}`: prüft zuerst `hsdram1.State == READY` (sonst kein Zugriff), dann Muster an Offset 0, 2^k und am letzten Wort von `.sdram_data` (je Adresse eigener Wert → Adressleitungen), `SCB_CleanInvalidateDCache()` vor dem Zurücklesen, zweiter Durchgang invertiert (Datenbits).
     - `SDS110_Init()`: Test läuft vor `Processing_Module_120::instance()`; bei Fehler Meldung „SDRAM self-test failed“, keine Initialisierung von 112/120, `SDS110_StartProcessingTask()` startet dann nicht. Alter Test und `Processing_Module_120_spectraProbe()` entfernt.
