@@ -17,7 +17,7 @@ namespace sds110 {
 
 class TaskBase {
 public:
-    void start();
+    bool start();                               // false: Task nicht angelegt (Heap)
     osThreadId_t handle() const { return taskHandle_; }
 
 protected:

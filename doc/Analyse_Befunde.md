@@ -12,6 +12,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 23 | Peilung 180° verdreht (Vorzeichen Fernfeldmodell) | 25.09.2026 | 187441b |
 | 8 | Peak-Ratio-Test (lokale Nebenmaxima statt ±3 Samples) | 25.09.2026 | 82c8fcc |
 | 24 | Band-Selektion 124: nur Harmonische, Gate mit HBD-Haltezeit, HBD-Anlaufzeit | 25.09.2026 | b4a18f4 |
+| 13 | FreeRTOS-Heap 64 KB, Prüfung bei Task-Anlage, Hooks halten an | 25.09.2026 | noch nicht committet |
 
 ## Blocker (Hardware-Pfad)
 
@@ -47,7 +48,12 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 12. **Kommandolänge widersprüchlich** – Handler verlangt `payloadLen == 16`, Vorlagen für Typ 1–3 in `SDS_Structs.hpp` haben `0x0C`. Gegen PC-Seite prüfen.
     Status: offen
 13. **FreeRTOS-Heap (32 KB) zu knapp** – mit ProcessingTask (16 KB Stack) ≈ 30 KB plus TCBs/Queues. `TaskBase::start()` prüft `osThreadNew` nicht auf NULL. Heap auf ≥ 64 KB erhöhen.
-    Status: offen
+    Status: **bearbeitet (25.09.2026)** – gebaut, auf dem Board nicht getestet.
+    - Genauere Bilanz (Größen aus dem ELF, TCB 172 B; Idle- und Timer-Task liegen statisch, nicht im Heap): heute ≈ 10,3 KB, mit ProcessingTask ≈ 26,9 KB von 32 KB. Es hätte gepasst, aber mit nur ≈ 6 KB Reserve und ohne Fehlermeldung bei Überschreitung.
+    - `configTOTAL_HEAP_SIZE` 32 KB → 64 KB in `FreeRTOSConfig.h` **und** `SDS.ioc` (sonst setzt CubeMX den Wert zurück). RAM-Belegung 69 → 101 KB von 320 KB.
+    - `TaskBase::start()` gibt jetzt `bool` zurück und hält per `configASSERT` an, wenn `osThreadNew` NULL liefert (wie `TaskTimerBase`).
+    - `freertos.c` (USER CODE 4/5): `vApplicationStackOverflowHook` und `vApplicationMallocFailedHook` waren leer; sie halten jetzt mit abgeschalteten Interrupts an.
+    - Hinweis: Der ProcessingTask ist weiterhin auskommentiert (Punkt 1, „nicht bearbeiten“).
 
 ## Kleinere Punkte
 
