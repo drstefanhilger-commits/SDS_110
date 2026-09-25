@@ -16,7 +16,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 12 | Kommandolänge: Vorlagen auf 16, gemeinsame Konstante | 25.09.2026 | 7207038 |
 | 10 | UnitReport: nsel = tatsächlich gesendete Bänder | 25.09.2026 | d572820 |
 | 9 | Distanz-Pegel vor NS/AGC (angewendete Verstärkung herausrechnen) | 25.09.2026 | b81255c |
-| 6 | Rohdaten-Skalierung 2⁻³¹ (24 Bit linksbündig), Simulator im Hardwareformat | 25.09.2026 | noch nicht committet |
+| 6 | Rohdaten-Skalierung 2⁻³¹ (24 Bit linksbündig), Simulator im Hardwareformat | 25.09.2026 | ad18673 |
 
 ## Blocker (Hardware-Pfad)
 
@@ -31,7 +31,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 5. **Abtastrate vermutlich ≈ 53,6 kHz statt 48 kHz** – SAI2 bekommt 192 MHz aus PLLSAI, nach HAL-Formel MCKDIV = 7. Nur berechnet, am FSYNC messen. Abhilfe: SAI2 aus PLLI2S takten (≈ 49,152 MHz), da PLLSAI auch USB (48 MHz) und LTDC versorgt.
    Status: offen
 6. **Rohdaten um Faktor 256 falsch skaliert** – 24-Bit-Samples kommen linksbündig im 32-Bit-Slot; `Microphone_Array_114.cpp:64` skaliert mit 2⁻²³ statt 2⁻³¹. Der Simulator schreibt rechtsbündig und verdeckt den Fehler.
-   Status: **bearbeitet (25.09.2026)** – im Host-Test geprüft, auf dem Board nicht getestet.
+   Status: **bearbeitet (25.09.2026, Commit ad18673)** – im Host-Test geprüft, auf dem Board nicht getestet.
    - `SDS_110_Config.hpp`: `PCM_RAW_FULL_SCALE = 2^31` mit Beschreibung des Rohformats (pcm24 << 8).
    - `Microphone_Array_114::pushBlock()`: Skalierung 1/2^31 statt 1/2^23.
    - `Signal_Simulator`: schreibt jetzt wie die Hardware linksbündig (`pcm24 << 8`), sonst wäre er nach der Korrektur um Faktor 256 zu leise.
