@@ -3,6 +3,7 @@
  */
 #include "ProcessingTask.hpp"
 #include "stm32f7xx_hal.h"
+#include "Infrastructure/Utils/TimeBase.hpp"
 
 namespace sds110 {
 
@@ -24,7 +25,7 @@ void ProcessingTask::feedSimulation()
     if (!sim && simRunning_)  { if (!proc_.start()) dm_.pushErrorMessage("116 start failed"); simRunning_ = false; }
     if (!sim) return;
 
-    sim_.generateFrame(static_cast<uint64_t>(HAL_GetTick()) * 1000ULL);
+    sim_.generateFrame(TimeBase::nowUs());   // gleiche Zeitbasis wie 116
     dm_.setDebugValue(2, sim_.trueAzimuth());     // LCD: "True Azimuth"
     dm_.setDebugValue(3, sim_.trueDistance());    // LCD: "True Distance"
 }

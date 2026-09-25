@@ -14,8 +14,8 @@
  *             ersetzt durch Blockübernahme von DMA_BLOCK_SAMPLES je Halbpuffer.
  *
  * Hardware-Handles (hsai, hi2c) kommen aus main.c / CubeMX.
- * Zeitreferenz: aktuell osKernelGetTickCount in µs; für Inter-Unit-Sync
- * (Patent: GNSS / PTP, 10 µs) später durch Hardware-Timer ersetzen.
+ * Zeitreferenz: TimeBase::nowUs() (DWT, µs seit Start) minus Blockdauer -> Zeit des ersten
+ * Samples im Block. Für Inter-Unit-Sync (Patent: GNSS / PTP, 10 µs) fehlt noch der UTC-Bezug.
  */
 #pragma once
 #include <cstdint>
@@ -51,13 +51,14 @@ private:
     bool configureSaiClock();
     bool configureSai();
     void enablePin(bool on);
-    uint64_t now_us() const;
+    uint64_t firstSampleUs() const;   // Zeit des ersten Samples des gerade fertigen Blocks
 
     SAI_HandleTypeDef* hsai_ = nullptr;
     I2C_HandleTypeDef* hi2c_ = nullptr;
     bool     running_ = false;
     uint32_t errors_  = 0;
     float    fsHz_    = 0.0f;
+    uint32_t blockUs_ = DMA_BLOCK_SAMPLES * 1000000U / SAMPLE_RATE_HZ;   // nach init() aus Ist-Fs
     Microphone_Array_114& array_ = Microphone_Array_114::instance();
 
     static constexpr uint32_t HALF_WORDS = DMA_BLOCK_SAMPLES * NUM_MICS;

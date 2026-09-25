@@ -20,6 +20,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 5 | SAI-Takt aus PLLI2S (47 991 Hz statt 53 571 Hz), Prüfung der Ist-Abtastrate | 25.09.2026 | f7d4a56 |
 | 14 | SDRAM-Selbsttest vor der ersten Nutzung, am D-Cache vorbei | 25.09.2026 | 8a1240d |
 | 15 | Wirkungsloses SDRAM-Kommando in MX_DMA2D_Init entfernt | 25.09.2026 | c673854 |
+| 16 | Zeitstempel µs-genau (DWT) und für das erste Sample des Blocks | 25.09.2026 | noch nicht committet |
 
 ## Blocker (Hardware-Pfad)
 
@@ -97,7 +98,12 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
     - Geprüft: `hsdram1.State` ist vor `MX_FMC_Init` `HAL_SDRAM_STATE_RESET`; `HAL_SDRAM_SendCommand` gibt dann `HAL_ERROR` zurück, ohne Register anzufassen. Der Block war also harmlos, kostete nur `HAL_Delay(1)` beim Start. Die vollständige Sequenz (inkl. Clock-Enable) sendet `SDRAM_InitSequence()` in USER CODE „FMC_Init 2“.
     - Inhalt von USER CODE „DMA2D_Init 0“ in `main.c` entfernt (Marker und CRLF erhalten).
 16. Zeitstempel 1-ms-Tick-basiert und vom Ende des DMA-Blocks (≈ 2,7 ms zu spät).
-    Status: offen
+    Status: **bearbeitet (25.09.2026)** – Zeitlogik im Host-Test geprüft, auf dem Board nicht getestet.
+    - Neu `Infrastructure/Utils/TimeBase.{hpp,cpp}`: `TimeBase::nowUs()` aus DWT->CYCCNT (216 MHz, 4,6 ns), auf 64 bit erweitert (`CycleExtender`); zwischen zwei Aufrufen verpasste Überläufe (CYCCNT läuft alle 19,9 s über) werden über den 1-ms-HAL-Tick ermittelt. TIM2/TIM5 bewusst nicht genutzt (von CubeMX als PWM mit Pins belegt).
+    - `Sampling_Circuitry_116`: Zeitstempel = `nowUs()` − Blockdauer (`DMA_BLOCK_SAMPLES` / Ist-Fs aus Punkt 5 ≈ 2 667 µs) → Zeit des ersten Samples im Block.
+    - `ProcessingTask`: Simulationspfad nutzt dieselbe Zeitbasis statt `HAL_GetTick() · 1000`.
+    - Host-Test `CycleExtender` (DMA-Takt 10 min; zufällige Abstände bis 15 s; Pausen 18–60 s; Pausen bis 1 h; Tick bis 1 ms verzögert): monoton, max. Fehler 0 µs. Gegenprobe ohne Tick-Korrektur: Pausen-Szenarien schlagen fehl.
+    - Weiterhin offen: Die Zeit ist Laufzeit seit Start, keine UTC. Für die Inter-Unit-Synchronisation (Patent: 10 µs) fehlen GNSS-PPS/PTP; der USB-Zeitabgleich (`SDS_Data::syncTimeDifference`) wird nicht angewendet.
 17. 50-%-Überlappung nicht umgesetzt; Framerate 15,6/s statt 30/s (bekannt).
     Status: offen
 18. Mit `NUM_UNITS = 1` ist die angezeigte Konfidenz immer ≈ 1.

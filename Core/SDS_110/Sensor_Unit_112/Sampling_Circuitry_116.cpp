@@ -4,6 +4,7 @@
 #include "Sampling_Circuitry_116.hpp"
 #include "ADAU7118_Registers.hpp"
 #include "cmsis_os2.h"
+#include "Infrastructure/Utils/TimeBase.hpp"
 
 namespace sds110 {
 
@@ -115,6 +116,7 @@ bool Sampling_Circuitry_116::configureSai()
     // Ist-Abtastrate: MCLK = SAI_CK / (2·MCKDIV) (MCKDIV 0 -> Teiler 1), MCLK = 256·Fs
     const uint32_t div = (h.Init.Mckdiv == 0U) ? 1U : 2U * h.Init.Mckdiv;
     fsHz_ = static_cast<float>(saiClk) / (static_cast<float>(div) * 256.0f);
+    blockUs_ = static_cast<uint32_t>(DMA_BLOCK_SAMPLES * 1.0e6f / fsHz_ + 0.5f);
     const float err = (fsHz_ - static_cast<float>(SAMPLE_RATE_HZ)) / static_cast<float>(SAMPLE_RATE_HZ);
     if (err > SAI_FS_TOLERANCE || err < -SAI_FS_TOLERANCE) { ++errors_; return false; }
     return true;
@@ -139,22 +141,23 @@ void Sampling_Circuitry_116::stop()
     running_ = false;
 }
 
-uint64_t Sampling_Circuitry_116::now_us() const
+uint64_t Sampling_Circuitry_116::firstSampleUs() const
 {
-    // Platzhalter bis Hardware-Zeitbasis (TIM / GNSS PPS) vorhanden ist
-    return static_cast<uint64_t>(osKernelGetTickCount()) * 1000ULL;
+    // Der Halb-/Voll-Interrupt kommt, wenn der Block komplett ist; sein erstes Sample
+    // lag eine Blockdauer früher (128 Samples / 47 991 Hz ≈ 2 667 µs)
+    return TimeBase::nowUs() - blockUs_;
 }
 
 void Sampling_Circuitry_116::onRxHalf()
 {
     SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(dmaBuffer_), sizeof(int32_t) * HALF_WORDS);
-    array_.pushBlock(&dmaBuffer_[0], DMA_BLOCK_SAMPLES, now_us());
+    array_.pushBlock(&dmaBuffer_[0], DMA_BLOCK_SAMPLES, firstSampleUs());
 }
 
 void Sampling_Circuitry_116::onRxComplete()
 {
     SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(&dmaBuffer_[HALF_WORDS]), sizeof(int32_t) * HALF_WORDS);
-    array_.pushBlock(&dmaBuffer_[HALF_WORDS], DMA_BLOCK_SAMPLES, now_us());
+    array_.pushBlock(&dmaBuffer_[HALF_WORDS], DMA_BLOCK_SAMPLES, firstSampleUs());
 }
 
 void Sampling_Circuitry_116::onError()
