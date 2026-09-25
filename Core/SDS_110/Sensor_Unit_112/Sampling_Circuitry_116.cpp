@@ -8,8 +8,9 @@
 
 namespace sds110 {
 
-// DMA-Puffer: 32-Byte-Alignment für D-Cache-Invalidierung auf Cortex-M7
-alignas(32) int32_t Sampling_Circuitry_116::dmaBuffer_[2 * HALF_WORDS];
+// DMA-Puffer in SRAM2 (nicht cachebar, MPU-Region 0). Die Invalidierung in onRx*() bleibt als
+// Absicherung, falls der Puffer einmal in gecachten Speicher wandert (dafür 32-Byte-Alignment).
+SDS110_DMA_SECTION alignas(32) int32_t Sampling_Circuitry_116::dmaBuffer_[2 * HALF_WORDS];
 
 Sampling_Circuitry_116& Sampling_Circuitry_116::instance()
 {

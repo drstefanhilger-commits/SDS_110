@@ -55,6 +55,8 @@ constexpr uint32_t SAI_PLLI2S_DIVQ   = 1;
 constexpr float    SAI_FS_TOLERANCE  = 1e-3f;   // max. relative Abweichung der Ist-Abtastrate
 /// Große Puffer im externen SDRAM ablegen (SDRAMDriver muss vorher initialisiert sein)
 #define SDS110_SDRAM_SECTION __attribute__((section(".sdram_data")))
+/// DMA-Puffer in SRAM2, per MPU nicht cachebar (Linker: .dma_nocache in RAM_NC, 16 kB)
+#define SDS110_DMA_SECTION   __attribute__((section(".dma_nocache")))
 
 // --- 118 Pre-Processing -------------------------------------------------
 constexpr float    AGC_TARGET_RMS   = 0.1f;   // Zielpegel (float, Vollaussteuerung = 1)
