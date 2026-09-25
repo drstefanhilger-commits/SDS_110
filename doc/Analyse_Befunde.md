@@ -22,7 +22,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 15 | Wirkungsloses SDRAM-Kommando in MX_DMA2D_Init entfernt | 25.09.2026 | c673854 |
 | 16 | Zeitstempel µs-genau (DWT) und für das erste Sample des Blocks | 25.09.2026 | ea1e5b7 |
 | 17 | 50-%-Überlappung: Hops in 114/118, Analysefenster (Frame_Assembler), Zeitkonstanten in Sekunden | 25.09.2026 | 05b3d3d |
-| 18 | Einheitliche Konfidenz aus Paaren und Residuum in Samples (128) | 25.09.2026 | noch nicht committet |
+| 18 | Einheitliche Konfidenz aus Paaren und Residuum in Samples (128) | 25.09.2026 | e0ca865 |
 
 ## Blocker (Hardware-Pfad)
 
@@ -115,7 +115,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
     - Host-Tests (Vergleich vorher → nachher, gleiche Zeitspanne): Peilung Drohne 30/20/10/3/0 dB gültig 100/100/100/98/91 → 100/100/100/99/90 %, Median-Fehler 0,24/0,49/0,92/1,77/2,16° → 0,19/0,43/0,88/1,55/2,21°; Reports 20/10/3/0 dB 100/100/98/51 → 100/100/100/56 %; Einzelton/Wind/Stille 0/0/0 % Reports; Breitband-Peiltest max. 0,09°; Distanzverhältnis 0,518–0,525 (vorher 0,521–0,528); stehender Ton weiterhin ~2 min erkannt. Eigentest `Frame_Assembler` (Füllen, Schieben, Zeitstempel, Neubeginn bei Lücke, `reset()`): alle Fälle bestanden.
     - Offen: Rechenlast verdoppelt sich (Schätzung aus MIGRATION_120: ~13 ms je Frame → ~40 % bei 31 Frames/s) – am Board mit den Task-Statistiken prüfen. `MIGRATION_122.md` („Overlap noch nicht implementiert“) ist damit veraltet (siehe Punkt 22).
 18. Mit `NUM_UNITS = 1` ist die angezeigte Konfidenz immer ≈ 1.
-    Status: **bearbeitet (25.09.2026)** – im Host-Test geprüft, auf dem Board nicht getestet.
+    Status: **bearbeitet (25.09.2026, Commit e0ca865)** – im Host-Test geprüft, auf dem Board nicht getestet.
     - Zusätzlich gefunden: Zwei verschiedene Formeln – LCD (`SDS_Data`) `1/(1+Residuum_s)` ≈ 1, USB-Legacy-Frame `(Paare/28)/(1+Residuum·1000)` ≈ Paare/28 (Residuum in s bzw. als ms gerechnet, jeweils fast 0). Außerdem hat `CandidateLocation::ls_residual` je nach Pfad unterschiedliche Einheiten (Einzel-Unit s, `solve()` m) – jetzt dokumentiert.
     - Neu `candidateConfidence()` in 128: (Paare / max. Paare) · 1/(1 + (Residuum_Samples / `CONF_RESIDUAL_REF_SAMPLES`)²), Referenz 4 Samples. `CandidateLocation::confidence` wird in `fromBearing()` (Residuum s → Samples, max. 28 Paare) und `solve()` (Residuum m → Samples) gesetzt; `SDS_Data::setCandidate()` und der Legacy-Frame (über `UnitReport::confidence`) übernehmen den Wert.
     - Host-Test (Median): Drohne 30/20/10/3/0/−3 dB 0,96/0,86/0,68/0,53/0,49/0,29; Einzelton 0,13; Stille 0,01; Wind 0,99 (Konfidenz bewertet die Peilung, nicht die Drohnen-Detektion – die entscheidet `detected`, Punkt 24). UnitReport-Serialisierungstest (Punkt 10) weiterhin bestanden.
