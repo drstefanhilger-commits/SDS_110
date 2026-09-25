@@ -26,10 +26,7 @@
 
 namespace sds110 {
 
-void* Processing_Module_120_spectraProbe();
-
 class Processing_Module_120 {
-    friend void* Processing_Module_120_spectraProbe();
 public:
     static Processing_Module_120& instance();
     bool init(SAI_HandleTypeDef* hsai, I2C_HandleTypeDef* hi2c);
