@@ -32,6 +32,10 @@ constexpr uint32_t HOP_SAMPLES      = FRAME_SAMPLES * (100 - FRAME_OVERLAP_PC) /
 constexpr float    MIC_RADIUS_M     = 0.20f;  // Oktagon-Radius (aus SDS_Params)
 constexpr uint32_t DMA_BLOCK_SAMPLES = 128;   // Samples pro Mic je DMA-Halbpuffer
 constexpr uint32_t NUM_MIC_FRAMES   = 3;      // Triple-Buffering
+/// Rohformat im DMA-Puffer: ADAU7118 sendet 24-bit PCM MSB-first im 32-bit-TDM-Slot, der SAI
+/// liest den ganzen Slot (DataSize 32) -> int32 = pcm24 << 8 (linksbündig, Bits 7..0 = 0).
+/// Normierung auf [-1, 1): raw / 2^31  (entspricht (raw >> 8) / 2^23).
+constexpr float    PCM_RAW_FULL_SCALE = 2147483648.0f;
 constexpr uint8_t  ADAU7118_I2C_ADDR_7B = 0x4B; // alt: 0x3A in adau7118.c – prüfen!
 constexpr uint32_t ADAU7118_I2C_TIMEOUT_MS = 100;
 /// Große Puffer im externen SDRAM ablegen (SDRAMDriver muss vorher initialisiert sein)

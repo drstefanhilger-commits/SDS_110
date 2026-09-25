@@ -42,7 +42,8 @@ public:
 
     // --- Schreibseite (116, ISR-Kontext) -----------------------------
     /// Block von DMA_BLOCK_SAMPLES Samples je Mikrofon, interleaved (s*M + ch),
-    /// 24-bit PCM in int32. Schließt bei vollem Frame ab und wechselt Puffer.
+    /// 24-bit PCM linksbündig in int32 (pcm24 << 8, siehe PCM_RAW_FULL_SCALE).
+    /// Schließt bei vollem Frame ab und wechselt Puffer.
     void pushBlock(const int32_t* interleaved, uint32_t samplesPerMic, uint64_t time_utc_us);
 
     // --- Leseseite (118/122, Task-Kontext) ---------------------------

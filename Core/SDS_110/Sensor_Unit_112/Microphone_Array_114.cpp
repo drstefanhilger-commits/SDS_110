@@ -61,7 +61,7 @@ void Microphone_Array_114::pushBlock(const int32_t* interleaved, uint32_t sample
     }
     if (f->writeIndex == 0) f->time_utc_us = time_utc_us;
 
-    constexpr float scale = 1.0f / static_cast<float>(1 << 23);   // 24-bit signed -> float
+    constexpr float scale = 1.0f / PCM_RAW_FULL_SCALE;   // 24 bit linksbündig im 32-bit-Slot -> [-1, 1)
     uint32_t idx = f->writeIndex;
 
     for (uint32_t s = 0; s < samplesPerMic && idx < FRAME_SAMPLES; ++s, ++idx) {

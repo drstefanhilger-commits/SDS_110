@@ -16,6 +16,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 12 | Kommandolänge: Vorlagen auf 16, gemeinsame Konstante | 25.09.2026 | 7207038 |
 | 10 | UnitReport: nsel = tatsächlich gesendete Bänder | 25.09.2026 | d572820 |
 | 9 | Distanz-Pegel vor NS/AGC (angewendete Verstärkung herausrechnen) | 25.09.2026 | b81255c |
+| 6 | Rohdaten-Skalierung 2⁻³¹ (24 Bit linksbündig), Simulator im Hardwareformat | 25.09.2026 | noch nicht committet |
 
 ## Blocker (Hardware-Pfad)
 
@@ -30,7 +31,13 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 5. **Abtastrate vermutlich ≈ 53,6 kHz statt 48 kHz** – SAI2 bekommt 192 MHz aus PLLSAI, nach HAL-Formel MCKDIV = 7. Nur berechnet, am FSYNC messen. Abhilfe: SAI2 aus PLLI2S takten (≈ 49,152 MHz), da PLLSAI auch USB (48 MHz) und LTDC versorgt.
    Status: offen
 6. **Rohdaten um Faktor 256 falsch skaliert** – 24-Bit-Samples kommen linksbündig im 32-Bit-Slot; `Microphone_Array_114.cpp:64` skaliert mit 2⁻²³ statt 2⁻³¹. Der Simulator schreibt rechtsbündig und verdeckt den Fehler.
-   Status: offen
+   Status: **bearbeitet (25.09.2026)** – im Host-Test geprüft, auf dem Board nicht getestet.
+   - `SDS_110_Config.hpp`: `PCM_RAW_FULL_SCALE = 2^31` mit Beschreibung des Rohformats (pcm24 << 8).
+   - `Microphone_Array_114::pushBlock()`: Skalierung 1/2^31 statt 1/2^23.
+   - `Signal_Simulator`: schreibt jetzt wie die Hardware linksbündig (`pcm24 << 8`), sonst wäre er nach der Korrektur um Faktor 256 zu leise.
+   - Test `pushBlock()` mit Rohwerten im Hardwareformat (±Vollaussteuerung, ±0,5/−0,25, 1 LSB, 0): vorher Faktor 256 zu groß (Vollaussteuerung → ±256), nachher alle exakt. Regression: Selektions-, Peil- und Distanztest liefern identische Ausgabe wie vor der Änderung.
+   - `USBDriver::sendRead()` (READ-Modus) rechnet float wie bisher auf 24 Bit rechtsbündig zurück; das Wire-Format zum PC bleibt gleich, die Werte stimmen jetzt auch mit echter Hardware.
+   - Auf der Hardware zu bestätigen (mit den Punkten 2–4): Liegen die 24 Bit tatsächlich in Bits 31…8 des Slots? Das hängt von der ADAU7118-Konfiguration (Datenbreite, Verzögerung im Slot) und vom SAI-Rahmen (`FSOffset`, `FirstBitOffset`) ab.
 
 ## Signalverarbeitung
 

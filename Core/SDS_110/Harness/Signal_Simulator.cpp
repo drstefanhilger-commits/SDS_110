@@ -91,6 +91,7 @@ void Signal_Simulator::generateFrame(uint64_t time_utc_us)
     }
 
     // --- pro Mikrofon: verzögert + eigenes Rauschen, blockweise wie der DMA ---
+    // Format wie die Hardware (116): 24-bit PCM linksbündig im 32-bit-Slot (pcm24 << 8)
     constexpr float toPcm24 = static_cast<float>(1 << 23);
     for (uint32_t b0 = 0; b0 < FRAME_SAMPLES; b0 += DMA_BLOCK_SAMPLES) {
         for (uint32_t s = 0; s < DMA_BLOCK_SAMPLES; ++s) {
@@ -105,7 +106,8 @@ void Signal_Simulator::generateFrame(uint64_t time_utc_us)
                 v += noiseAmp * noise();
                 if (v >  0.999f) v =  0.999f;
                 if (v < -0.999f) v = -0.999f;
-                block_[s * NUM_MICS + m] = static_cast<int32_t>(v * toPcm24);
+                const int32_t pcm24 = static_cast<int32_t>(v * toPcm24);
+                block_[s * NUM_MICS + m] = static_cast<int32_t>(static_cast<uint32_t>(pcm24) << 8);
             }
         }
         array_.pushBlock(block_, DMA_BLOCK_SAMPLES, time_utc_us + static_cast<uint64_t>(b0) * 1000000ULL / SAMPLE_RATE_HZ);
