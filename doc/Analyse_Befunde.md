@@ -11,7 +11,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 7 | HBD-Rauschboden / Normierung | 25.09.2026 | c8be312 |
 | 23 | Peilung 180° verdreht (Vorzeichen Fernfeldmodell) | 25.09.2026 | 187441b |
 | 8 | Peak-Ratio-Test (lokale Nebenmaxima statt ±3 Samples) | 25.09.2026 | 82c8fcc |
-| 24 | Band-Selektion 124: nur Harmonische, Gate mit HBD-Haltezeit, HBD-Anlaufzeit | 25.09.2026 | noch nicht committet |
+| 24 | Band-Selektion 124: nur Harmonische, Gate mit HBD-Haltezeit, HBD-Anlaufzeit | 25.09.2026 | b4a18f4 |
 
 ## Blocker (Hardware-Pfad)
 
@@ -75,7 +75,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 23. **Peilung um 180° verdreht** – `crossCorrelate()` bildet R = X_i·X_j*, dessen Peak bei τ = ((p_j − p_i)·u)/c liegt; `estimateBearing()` und `srpScan()` rechnen aber mit τ = ((p_i − p_j)·u)/c. Im Host-Test zeigt jede gültige Peilung (Wind, breitbandig) 179,9° neben dem wahren Azimut.
     Status: **bearbeitet (25.09.2026, Commit 187441b)** – im Host-Test geprüft, auf dem Board nicht getestet. `Correlation_Processing_Module_126`: Fernfeldmodell in `estimateBearing()` (Normalgleichungen, Residuum) und `srpScan()` (`pairDx_/pairDy_`) auf τ_ij = ((p_j − p_i)·u)/c umgestellt; `crossCorrelate()` unverändert (liefert τ_ij = t_i − t_j, gleiche Konvention wie `128::solve()`). Peiltest (breitbandige Quelle, alle Bänder, Azimut 0…345° in 15°-Schritten): vorher 180° Fehler bei allen 24 Richtungen, nachher 24/24 gültig, max. Fehler 0,08° (TDOA-LS) bzw. 0,07° (SRP). Hinweis: die in MIGRATION_120 erwähnte alte Azimut-Kalibrierung (+12°, ×0,98) stammt aus dem SRP-Code vor der Migration und muss nach dieser Korrektur neu gemessen werden.
 24. **Band-Selektion in 124 bei Rauschen zu großzügig** – Das Gate `g = score / finalScoreThreshold` ist schon bei Rauschen offen (Score ≈ 0,5 > 0,48), und `HBD_BAND_SNR_DB = 8 dB` liegt nahe am Maximum von Rauschbins im Band. Folge: `SDS_Data::detected` bei Stille 22 %, bei Einzelton 54 %. Parameter mit Aufnahmen abstimmen (vgl. MIGRATION_120 „Offene Punkte 1“), evtl. Gate an `droneDetected` koppeln.
-    Status: **bearbeitet (25.09.2026)** – im Host-Test geprüft, auf dem Board nicht getestet.
+    Status: **bearbeitet (25.09.2026, Commit b4a18f4)** – im Host-Test geprüft, auf dem Board nicht getestet.
     - `Machine_Learning_Module_124`: Bänder ohne Harmonische erhalten höchstens `HBD_GATE_FLOOR · q_b` (< θ_sel). Das Gate hängt nicht mehr am Score, sondern ist offen, solange der HBD in den letzten `HBD_HOLD_FRAMES = 16` Frames (~1 s) eine Drohne erkannt hat; sonst p_b · `HBD_GATE_FLOOR`.
     - `HBD`: Anlaufzeit `warmupFrames = 48` (~3 s) ohne Entscheidung – der Floor schwingt nach dem Start (AGC-Anlauf) bis ~Frame 40 ein und löste vorher auch bei Wind aus. Folge: Nach jedem Start werden die ersten ~3 s keine UnitReports gesendet.
     - Host-Test (6 Richtungen, ab Frame 50): Reports Drohne 20/10/3/0 dB: vorher 99/97/85/67 %, nachher 100/100/98/51 %; Einzelton 3 → 0 %, Wind 22 → 0 %, Stille 0 → 0 % (`detected` 68 → 0 %). Langlauf 3 900 Frames je Rauschszenario: 0 Reports. Anteil selektierter Bänder mit Harmonischer: ~42 % → 87–99 %. Peilung Drohne (Punkt-8-Test): 20 dB Median 0,65° → 0,49°, 0 dB gültig 33 % → 91 %.
