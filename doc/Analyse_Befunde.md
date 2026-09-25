@@ -15,6 +15,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 13 | FreeRTOS-Heap 64 KB, Prüfung bei Task-Anlage, Hooks halten an | 25.09.2026 | 8d3644c |
 | 12 | Kommandolänge: Vorlagen auf 16, gemeinsame Konstante | 25.09.2026 | 7207038 |
 | 10 | UnitReport: nsel = tatsächlich gesendete Bänder | 25.09.2026 | d572820 |
+| 9 | Distanz-Pegel vor NS/AGC (angewendete Verstärkung herausrechnen) | 25.09.2026 | noch nicht committet |
 
 ## Blocker (Hardware-Pfad)
 
@@ -39,7 +40,11 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 8. **Peak-Ratio-Test in 126 zu streng** – als zweiter Peak zählt jeder Wert außerhalb ±3 Samples statt des zweiten lokalen Maximums (`Correlation_Processing_Module_126.cpp:116`). Bei schmalbandigen Harmonischen < 1,5 kHz ist die Hauptkeule viel breiter → Ratio ≈ 1,1 < 1,5 → keine Peilung. Im Host-Test bestätigt: bei Drohnensignal 0 % gültige Peilungen, auch bei SNR 30 dB.
    Status: **bearbeitet (25.09.2026, Commit 82c8fcc)** – im Host-Test geprüft, auf dem Board nicht getestet. `crossCorrelate()`: Hauptkeule = vom Maximum aus nach beiden Seiten, solange die Korrelation fällt; zweiter Peak = höchstes lokales Maximum außerhalb der Hauptkeule. Maximum am Fensterrand wird verworfen. Ohne Nebenmaximum wird die Ratio auf `PEAK_RATIO_MAX = 20` begrenzt (Gewicht in `128::solve()`). `PEAK_EXCLUDE_S` entfernt. Host-Test Drohne (volle Kette 118–126, 12 Richtungen, SNR 30…0 dB): gültige Peilungen vorher 0 %, nachher 99 / 97 / 86 / 75 / 56 / 33 %; Fehler-Median 0,5–1,7°, 95 %-Quantil 1,8–6,0°. Breitband-Test aus Punkt 23 unverändert (max. 0,08°). Offen: `srpScan()` berechnet seine Peak-Ratio (nur Debug-Anzeige) noch mit dem direkten Nachbarn des Maximums.
 9. **Distanzschätzung misst die AGC** – `levelA` wird nach NS/AGC pro Kanal berechnet (`Processing_Module_120.cpp:84`); r = K/A beschreibt die Verstärkung, nicht den Abstand.
-   Status: offen
+   Status: **bearbeitet (25.09.2026)** – im Host-Test geprüft, auf dem Board nicht getestet.
+   - `Pre_Processor_118`: `noiseSuppress()` und `agc()` geben die angewendete Verstärkung zurück; `appliedGain(ch)` = NS · AGC des letzten Frames. Zugriff über `Sensor_Unit_112::preprocessor()`.
+   - `Processing_Module_120`: `levelA` wird durch `appliedGain(REF_MIC)` geteilt → Pegel vor der Regelung.
+   - Host-Test (Drohne, SNR 20 dB, Simulator-Pegel ∝ 1/r, 10…200 m): Verhältnis r_geschätzt/r_wahr vorher 0,073 / 0,042 / 0,024 / 0,024 / 0,024 (AGC regelt unterhalb ~50 m, darüber an der Obergrenze 32), nachher 0,525 / 0,521 / 0,528 / 0,523 / 0,522 (konstant, < 1 % Schwankung).
+   - Offen: `LEVEL_DIST_K_REF = 100` ist nicht kalibriert (Simulator: Faktor ≈ 1,9 zu klein; der Simulator-Quellpegel ist willkürlich, daher nicht daraus übernommen). K mit realer Drohne in bekanntem Abstand bestimmen. Das Feld `level` im UnitReport hat damit eine andere Skala als vorher – falls der PC-Monitor es auswertet, dort anpassen.
 10. **UnitReport inkonsistent** – `num_selected` wird ungekürzt (bis 64) gesendet, serialisiert werden max. 56 Einträge (`Output_Interface_130.cpp:50`).
     Status: **bearbeitet (25.09.2026, Commit d572820)** – im Host-Test geprüft, auf dem Board nicht getestet.
     - `Output_Interface_130::send()`: Feld `nsel` enthält die tatsächlich gesendete Anzahl n = min(num_selected, 56); die 56 folgt aus `(sizeof(MessageData) − 16) / 2`.

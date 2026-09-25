@@ -33,6 +33,7 @@ public:
 
     uint32_t id() const { return id_; }
     const Microphone_Array_114& array() const { return array_; }
+    const Pre_Processor_118& preprocessor() const { return pre_; }
     const Sampling_Circuitry_116& sampling() const { return sampling_; }
     Sampling_Circuitry_116& sampling() { return sampling_; }
 

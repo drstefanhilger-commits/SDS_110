@@ -80,9 +80,12 @@ bool Processing_Module_120::processFrame()
     }
 
     // (f) 128: Kandidatenposition (Einzel-Unit: Peilung + Pegel-Fallback)
+    // levelA aus dem Referenzspektrum nach 118; durch die dort angewendete Verstärkung
+    // (NS · AGC) teilen, sonst misst der Pegel die AGC statt der Quelle
     float levelA = 0.0f;
     for (uint32_t b = 0; b < NUM_BANDS; ++b) levelA += std::exp(features_.band_log_power[b]) * state_.p[b];
-    levelA = std::sqrt(levelA);
+    const float gRef = unit_.preprocessor().appliedGain(REF_MIC);
+    levelA = std::sqrt(levelA) / ((gRef > 1e-6f) ? gRef : 1e-6f);
     loc_.fromBearing(bearing_, levelA, location_);
     dm.setCandidate(location_.azimuth_deg, location_.distance_m, location_.accepted_pairs, location_.ls_residual, location_.valid);
 

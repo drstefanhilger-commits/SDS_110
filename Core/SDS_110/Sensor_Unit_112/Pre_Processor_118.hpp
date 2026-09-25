@@ -28,6 +28,9 @@ public:
 
     /// Diagnose: aktuelle AGC-Verstärkung / Rauschboden je Kanal
     float gain(uint32_t ch) const { return gain_[ch]; }
+    /// Gesamtverstärkung (NS · AGC), die im letzten process() auf Kanal ch angewendet wurde.
+    /// Pegel nach 118 geteilt durch diesen Wert = Pegel vor der Regelung (für 128-Distanz).
+    float appliedGain(uint32_t ch) const { return applied_[ch]; }
     float noiseFloor(uint32_t ch) const { return noiseRms_[ch]; }
 
     void enableBandpass(bool on) { bandpassOn_ = on; }
@@ -36,8 +39,8 @@ public:
 
 private:
     void bandpass(uint32_t ch, float* x, uint32_t n);
-    void noiseSuppress(uint32_t ch, float* x, uint32_t n);
-    void agc(uint32_t ch, float* x, uint32_t n);
+    float noiseSuppress(uint32_t ch, float* x, uint32_t n);   // Rückgabe: angewendete Verstärkung
+    float agc(uint32_t ch, float* x, uint32_t n);
     static float rms(const float* x, uint32_t n);
     static void  designHighpass(float fc, float fs, float* coeffs);
     static void  designLowpass (float fc, float fs, float* coeffs);
@@ -49,6 +52,7 @@ private:
 
     float gain_[NUM_MICS];
     float noiseRms_[NUM_MICS];
+    float applied_[NUM_MICS];
     bool  bandpassOn_ = true;
     bool  nsOn_       = true;
     bool  agcOn_      = true;

@@ -44,6 +44,7 @@ void Pre_Processor_118::init()
         arm_biquad_cascade_df2T_init_f32(&iir_[ch], 2, coeffs_, state_[ch]);
         gain_[ch]     = 1.0f;
         noiseRms_[ch] = 1e-3f;
+        applied_[ch]  = 1.0f;
     }
 }
 
@@ -60,7 +61,7 @@ void Pre_Processor_118::bandpass(uint32_t ch, float* x, uint32_t n)
     arm_biquad_cascade_df2T_f32(&iir_[ch], x, x, n);
 }
 
-void Pre_Processor_118::noiseSuppress(uint32_t ch, float* x, uint32_t n)
+float Pre_Processor_118::noiseSuppress(uint32_t ch, float* x, uint32_t n)
 {
     // Rauschboden: schnelles Absenken, langsames Anheben (Minimum-Tracking)
     const float r = rms(x, n);
@@ -69,17 +70,18 @@ void Pre_Processor_118::noiseSuppress(uint32_t ch, float* x, uint32_t n)
     else        nf += NS_FLOOR_ALPHA * (r - nf);
 
     // Wiener-artige Frame-Verstärkung: g = 1 - (nf/r)^2, begrenzt auf NS_MAX_ATTEN
-    if (r <= 1e-9f) return;
+    if (r <= 1e-9f) return 1.0f;
     const float snr = (r * r) / (nf * nf + 1e-12f);
     float g = 1.0f - 1.0f / snr;
     if (g < NS_MAX_ATTEN) g = NS_MAX_ATTEN;
-    if (g < 1.0f) arm_scale_f32(x, g, x, n);
+    if (g < 1.0f) { arm_scale_f32(x, g, x, n); return g; }
+    return 1.0f;
 }
 
-void Pre_Processor_118::agc(uint32_t ch, float* x, uint32_t n)
+float Pre_Processor_118::agc(uint32_t ch, float* x, uint32_t n)
 {
     const float r = rms(x, n);
-    if (r <= 1e-9f) return;
+    if (r <= 1e-9f) return 1.0f;
 
     float target = AGC_TARGET_RMS / r;
     if (target > AGC_MAX_GAIN) target = AGC_MAX_GAIN;
@@ -90,6 +92,7 @@ void Pre_Processor_118::agc(uint32_t ch, float* x, uint32_t n)
     g += a * (target - g);
 
     arm_scale_f32(x, g, x, n);
+    return g;
 }
 
 // ---------------------------------------------------------------- Frame
@@ -97,9 +100,11 @@ void Pre_Processor_118::process(MicFrame& frame)
 {
     for (uint32_t ch = 0; ch < NUM_MICS; ++ch) {
         float* x = frame.data[ch];
+        float g = 1.0f;
         if (bandpassOn_) bandpass(ch, x, FRAME_SAMPLES);
-        if (nsOn_)       noiseSuppress(ch, x, FRAME_SAMPLES);
-        if (agcOn_)      agc(ch, x, FRAME_SAMPLES);
+        if (nsOn_)       g *= noiseSuppress(ch, x, FRAME_SAMPLES);
+        if (agcOn_)      g *= agc(ch, x, FRAME_SAMPLES);
+        applied_[ch] = g;
     }
 }
 
