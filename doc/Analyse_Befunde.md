@@ -21,7 +21,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 14 | SDRAM-Selbsttest vor der ersten Nutzung, am D-Cache vorbei | 25.09.2026 | 8a1240d |
 | 15 | Wirkungsloses SDRAM-Kommando in MX_DMA2D_Init entfernt | 25.09.2026 | c673854 |
 | 16 | Zeitstempel µs-genau (DWT) und für das erste Sample des Blocks | 25.09.2026 | ea1e5b7 |
-| 17 | 50-%-Überlappung: Hops in 114/118, Analysefenster (Frame_Assembler), Zeitkonstanten in Sekunden | 25.09.2026 | noch nicht committet |
+| 17 | 50-%-Überlappung: Hops in 114/118, Analysefenster (Frame_Assembler), Zeitkonstanten in Sekunden | 25.09.2026 | 05b3d3d |
 
 ## Blocker (Hardware-Pfad)
 
@@ -106,7 +106,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
     - Host-Test `CycleExtender` (DMA-Takt 10 min; zufällige Abstände bis 15 s; Pausen 18–60 s; Pausen bis 1 h; Tick bis 1 ms verzögert): monoton, max. Fehler 0 µs. Gegenprobe ohne Tick-Korrektur: Pausen-Szenarien schlagen fehl.
     - Weiterhin offen: Die Zeit ist Laufzeit seit Start, keine UTC. Für die Inter-Unit-Synchronisation (Patent: 10 µs) fehlen GNSS-PPS/PTP; der USB-Zeitabgleich (`SDS_Data::syncTimeDifference`) wird nicht angewendet.
 17. 50-%-Überlappung nicht umgesetzt; Framerate 15,6/s statt 30/s (bekannt).
-    Status: **bearbeitet (25.09.2026)** – im Host-Test geprüft, auf dem Board nicht getestet (Rechenlast nicht gemessen).
+    Status: **bearbeitet (25.09.2026, Commit 05b3d3d)** – im Host-Test geprüft, auf dem Board nicht getestet (Rechenlast nicht gemessen).
     - Aufbau: 114 liefert Hops (`HOP_SAMPLES` = 1536, 32 ms) ohne Überlappung; 118 verarbeitet jeden Hop genau einmal (IIR-Zustand läuft durch); neuer `Sensor_Unit_112/Frame_Assembler` setzt je Hop einen Analyse-Frame aus den letzten 2 Hops zusammen (3072 Samples, 50 % Überlappung, 31,25 Frames/s). Bei Lücken in der Hop-Folge beginnt das Fenster neu. `Sensor_Unit_112::nextFrame()` liefert Analyse-Frames, `nextHop()` die Hops für den READ-Modus (12 statt 24 Pakete je Mikrofon).
     - Zeitkonstanten jetzt in Sekunden in `SDS_110_Config.hpp` (`AGC_*_TAU_S`, `NS_FLOOR_TAU_S`, `HBD_FLOOR_TAU_S`, `HBD_FLOOR_RISE_DB_S`, `HBD_WARMUP_S`, `HBD_CONSISTENCY_S`, `framesFor()` für `HBD_HOLD_FRAMES`, `STATE_SMOOTH_FRAMES`, `AM_HISTORY_FRAMES`); Werte so gewählt, dass das Zeitverhalten gleich bleibt.
     - 118: NS · AGC wird als lineare Rampe je Hop angewendet. Ohne Rampe lag der Verstärkungssprung an der Hop-Grenze mitten im Frame; im Test sank dadurch bei 30 dB SNR die Peak-Ratio von 15,7 auf 5,4 und die gültigen Peilungen von 100 auf 91 %. Für den Distanzpegel (Punkt 9) wird die Verstärkung in der Frame-Mitte verwendet (`frameCenterGain()`).
