@@ -58,13 +58,30 @@ bool Sampling_Circuitry_116::configureCodec()
     return true;
 }
 
+// SAI-Kerneltakt aus PLLI2S (Werte und Begründung: SAI_PLLI2S_* in SDS_110_Config.hpp).
+// Bewusst hier und nicht in PeriphCommonClock_Config(): die ist CubeMX-generiert und nutzt
+// PLLSAI (192 MHz -> 53,57 kHz). Läuft nach MX_SPDIFRX_Init() und überschreibt dessen
+// PLLI2S-Einstellung (SPDIFRX wird nicht genutzt; P und R übernimmt die HAL aus dem Register).
+bool Sampling_Circuitry_116::configureSaiClock()
+{
+    const bool sai1 = (hsai_->Instance == SAI1_Block_A || hsai_->Instance == SAI1_Block_B);
+    RCC_PeriphCLKInitTypeDef clk{};
+    clk.PeriphClockSelection = sai1 ? RCC_PERIPHCLK_SAI1 : RCC_PERIPHCLK_SAI2;
+    clk.Sai1ClockSelection   = RCC_SAI1CLKSOURCE_PLLI2S;
+    clk.Sai2ClockSelection   = RCC_SAI2CLKSOURCE_PLLI2S;
+    clk.PLLI2S.PLLI2SN       = SAI_PLLI2S_N;
+    clk.PLLI2S.PLLI2SQ       = SAI_PLLI2S_Q;
+    clk.PLLI2SDivQ           = SAI_PLLI2S_DIVQ;
+    return HAL_RCCEx_PeriphCLKConfig(&clk) == HAL_OK;
+}
+
 bool Sampling_Circuitry_116::configureSai()
 {
-    // SAI-Kerneltakt muss konfiguriert sein (CubeMX Clock Configuration: SAI2 <- PLLSAI),
-    // sonst teilt HAL_SAI_Init durch 0.
+    if (!configureSaiClock()) { ++errors_; return false; }
     const uint32_t periph = (hsai_->Instance == SAI1_Block_A || hsai_->Instance == SAI1_Block_B)
                             ? RCC_PERIPHCLK_SAI1 : RCC_PERIPHCLK_SAI2;
-    if (HAL_RCCEx_GetPeriphCLKFreq(periph) == 0U) { ++errors_; return false; }
+    const uint32_t saiClk = HAL_RCCEx_GetPeriphCLKFreq(periph);
+    if (saiClk == 0U) { ++errors_; return false; }    // sonst teilt HAL_SAI_Init durch 0
 
     // Aus sai.c: Master RX, PCM long, TDM-8 x 32 bit (Frame 256 bit)
     SAI_HandleTypeDef& h = *hsai_;
@@ -93,7 +110,14 @@ bool Sampling_Circuitry_116::configureSai()
     h.SlotInit.SlotActive     = 0xFF;
 
     // GPIO/Clock-MSP kommt aus HAL_SAI_MspInit (CubeMX, stm32f7xx_hal_msp.c)
-    return HAL_SAI_Init(&h) == HAL_OK;
+    if (HAL_SAI_Init(&h) != HAL_OK) return false;
+
+    // Ist-Abtastrate: MCLK = SAI_CK / (2·MCKDIV) (MCKDIV 0 -> Teiler 1), MCLK = 256·Fs
+    const uint32_t div = (h.Init.Mckdiv == 0U) ? 1U : 2U * h.Init.Mckdiv;
+    fsHz_ = static_cast<float>(saiClk) / (static_cast<float>(div) * 256.0f);
+    const float err = (fsHz_ - static_cast<float>(SAMPLE_RATE_HZ)) / static_cast<float>(SAMPLE_RATE_HZ);
+    if (err > SAI_FS_TOLERANCE || err < -SAI_FS_TOLERANCE) { ++errors_; return false; }
+    return true;
 }
 
 // ---------------------------------------------------------------- run

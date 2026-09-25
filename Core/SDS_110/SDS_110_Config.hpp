@@ -38,6 +38,14 @@ constexpr uint32_t NUM_MIC_FRAMES   = 3;      // Triple-Buffering
 constexpr float    PCM_RAW_FULL_SCALE = 2147483648.0f;
 constexpr uint8_t  ADAU7118_I2C_ADDR_7B = 0x4B; // alt: 0x3A in adau7118.c – prüfen!
 constexpr uint32_t ADAU7118_I2C_TIMEOUT_MS = 100;
+/// SAI-Kerneltakt aus PLLI2S (1 MHz Eingang, PLLM = 25 fest wegen 216 MHz SYSCLK):
+/// 344 MHz / 7 / 1 = 49,142857 MHz -> HAL: MCKDIV 2 -> Fs = 49,142857 MHz / 1024 = 47 991 Hz (-186 ppm).
+/// Optimum aller zulässigen Einstellungen; exakt 48 kHz ist mit 1 MHz PLL-Eingang nicht möglich.
+/// PLLSAI (bisher 192 MHz -> 53,57 kHz) scheidet aus, solange sie USB exakt 48 MHz liefern muss.
+constexpr uint32_t SAI_PLLI2S_N      = 344;
+constexpr uint32_t SAI_PLLI2S_Q      = 7;
+constexpr uint32_t SAI_PLLI2S_DIVQ   = 1;
+constexpr float    SAI_FS_TOLERANCE  = 1e-3f;   // max. relative Abweichung der Ist-Abtastrate
 /// Große Puffer im externen SDRAM ablegen (SDRAMDriver muss vorher initialisiert sein)
 #define SDS110_SDRAM_SECTION __attribute__((section(".sdram_data")))
 

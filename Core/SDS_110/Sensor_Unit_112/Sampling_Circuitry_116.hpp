@@ -41,11 +41,14 @@ public:
     void onError();
 
     uint32_t errorCount() const { return errors_; }
+    /// Ist-Abtastrate aus SAI-Kerneltakt und MCKDIV (nach init(), sonst 0)
+    float sampleRateHz() const { return fsHz_; }
 
 private:
     Sampling_Circuitry_116() = default;
     bool configureCodec();
     bool writeReg(uint8_t reg, uint8_t val);
+    bool configureSaiClock();
     bool configureSai();
     void enablePin(bool on);
     uint64_t now_us() const;
@@ -54,6 +57,7 @@ private:
     I2C_HandleTypeDef* hi2c_ = nullptr;
     bool     running_ = false;
     uint32_t errors_  = 0;
+    float    fsHz_    = 0.0f;
     Microphone_Array_114& array_ = Microphone_Array_114::instance();
 
     static constexpr uint32_t HALF_WORDS = DMA_BLOCK_SAMPLES * NUM_MICS;

@@ -17,6 +17,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 10 | UnitReport: nsel = tatsächlich gesendete Bänder | 25.09.2026 | d572820 |
 | 9 | Distanz-Pegel vor NS/AGC (angewendete Verstärkung herausrechnen) | 25.09.2026 | b81255c |
 | 6 | Rohdaten-Skalierung 2⁻³¹ (24 Bit linksbündig), Simulator im Hardwareformat | 25.09.2026 | ad18673 |
+| 5 | SAI-Takt aus PLLI2S (47 991 Hz statt 53 571 Hz), Prüfung der Ist-Abtastrate | 25.09.2026 | noch nicht committet |
 
 ## Blocker (Hardware-Pfad)
 
@@ -29,7 +30,12 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 4. **ADAU7118-Registertabelle vermutlich falsch** – `ADAU7118_Registers.hpp` (POWER, PLL_CTRL, MODE_CTRL …) passt weder zur Tabelle in `ADUA_Design.md` noch zur Registerbelegung des Linux-Treibers (0x00–0x03 IDs nur lesbar, 0x04 ENABLES, 0x05 DEC_RATIO_CLK_MAP, 0x06 HPF, 0x07/0x08 SPT_CTRL1/2, 0x11 DRIVE, 0x12 RESET). Schreibzugriffe auf nur lesbare Register werden per ACK bestätigt → `init()` meldet Erfolg ohne Wirkung. I2C-Adresse (0x4B oder 0x3A) offen. Designdoku §5 falsch: der ADAU7118 ist an der seriellen Schnittstelle Slave (SAI als Master ist korrekt).
    Status: **nicht bearbeiten**
 5. **Abtastrate vermutlich ≈ 53,6 kHz statt 48 kHz** – SAI2 bekommt 192 MHz aus PLLSAI, nach HAL-Formel MCKDIV = 7. Nur berechnet, am FSYNC messen. Abhilfe: SAI2 aus PLLI2S takten (≈ 49,152 MHz), da PLLSAI auch USB (48 MHz) und LTDC versorgt.
-   Status: offen
+   Status: **bearbeitet (25.09.2026)** – gerechnet und gebaut, auf dem Board nicht gemessen.
+   - Bestätigt mit der HAL-Formel dieses Projekts (`stm32f7xx_hal_sai.c:508`): 192 MHz → MCKDIV 7 → 53 571 Hz (+11,6 %).
+   - Durchrechnung aller zulässigen Einstellungen (PLLM = 25 fest, weil 216 MHz SYSCLK aus 25 MHz HSE nur mit M = 25 geht → 1 MHz PLL-Eingang): exakt 48 kHz ist nicht erreichbar. PLLSAI mit USB = 48 MHz exakt: bestenfalls 46 875 Hz (−2,3 %). PLLI2S N = 344, Q = 7, DivQ = 1 → 49,143 MHz → MCKDIV 2 → **47 991 Hz (−186 ppm)**, das Optimum (entspricht den ST-Audio-Beispielen).
+   - `Sampling_Circuitry_116::configureSaiClock()`: stellt vor `HAL_SAI_Init` den SAI-Takt (SAI1 oder SAI2, je nach Handle) auf PLLI2S mit `SAI_PLLI2S_N/Q/DIVQ` aus `SDS_110_Config.hpp`. Bewusst im eigenen Code statt in `PeriphCommonClock_Config()` (CubeMX-generiert). Läuft nach `MX_SPDIFRX_Init()` und überschreibt dessen PLLI2S-Einstellung (SPDIFRX wird nicht genutzt).
+   - Nach `HAL_SAI_Init` wird die Ist-Abtastrate aus SAI-Kerneltakt und MCKDIV berechnet (`sampleRateHz()`); Abweichung > 0,1 % (`SAI_FS_TOLERANCE`) → Fehler, `init()` liefert false.
+   - Empfehlung für CubeMX (Punkt 3): SAI-Taktquelle auf PLLI2S (N 344, Q 7) stellen und SPDIFRX deaktivieren, damit Clock-Tree und Code übereinstimmen. Am Board: FSYNC messen (erwartet 47,991 kHz, BCLK 12,286 MHz).
 6. **Rohdaten um Faktor 256 falsch skaliert** – 24-Bit-Samples kommen linksbündig im 32-Bit-Slot; `Microphone_Array_114.cpp:64` skaliert mit 2⁻²³ statt 2⁻³¹. Der Simulator schreibt rechtsbündig und verdeckt den Fehler.
    Status: **bearbeitet (25.09.2026, Commit ad18673)** – im Host-Test geprüft, auf dem Board nicht getestet.
    - `SDS_110_Config.hpp`: `PCM_RAW_FULL_SCALE = 2^31` mit Beschreibung des Rohformats (pcm24 << 8).
