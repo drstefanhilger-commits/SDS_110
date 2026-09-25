@@ -1,0 +1,59 @@
+# SDS_110 – Befunde der Code-Analyse (25.09.2026)
+
+Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeiten.
+
+## Blocker (Hardware-Pfad)
+
+1. **ProcessingTask nicht gestartet** – `SDS110_StartProcessingTask()` ist in `Core/Src/main.c:270` auskommentiert; weder Verarbeitung noch Simulator laufen.
+   Status: **nicht bearbeiten**
+2. **SAI2 ohne DMA** – `HAL_SAI_MspInit` richtet keinen DMA ein, es gibt keine DMA-IRQ-Handler. `HAL_SAI_Receive_DMA` dereferenziert `hsai->hdmarx` ohne Prüfung (`stm32f7xx_hal_sai.c:1494`) → HardFault, sobald die Simulation per USB abgeschaltet wird.
+   Status: **nicht bearbeiten**
+3. **CubeMX-Konfiguration passt nicht zur eigenen Platine** – `.ioc` ist das Preset STM32F746G-DISCO (ETH, LTDC, DCMI, ULPI). Laut `STM32F746_PINS.txt` nutzt die Platine SAI1 (PE4/PE5), I2C2 (PB10/PB11), PE3 als Enable; der Code nutzt SAI2_A und I2C1. Auf dem DISCO ist PE3 der FAULT-Ausgang des STMPS2151 (`OTG_HS_OverCurrent`) und wird von `Sampling_Circuitry_116.cpp:37` als Push-Pull auf High getrieben.
+   Status: **nicht bearbeiten**
+4. **ADAU7118-Registertabelle vermutlich falsch** – `ADAU7118_Registers.hpp` (POWER, PLL_CTRL, MODE_CTRL …) passt weder zur Tabelle in `ADUA_Design.md` noch zur Registerbelegung des Linux-Treibers (0x00–0x03 IDs nur lesbar, 0x04 ENABLES, 0x05 DEC_RATIO_CLK_MAP, 0x06 HPF, 0x07/0x08 SPT_CTRL1/2, 0x11 DRIVE, 0x12 RESET). Schreibzugriffe auf nur lesbare Register werden per ACK bestätigt → `init()` meldet Erfolg ohne Wirkung. I2C-Adresse (0x4B oder 0x3A) offen. Designdoku §5 falsch: der ADAU7118 ist an der seriellen Schnittstelle Slave (SAI als Master ist korrekt).
+   Status: **nicht bearbeiten**
+5. **Abtastrate vermutlich ≈ 53,6 kHz statt 48 kHz** – SAI2 bekommt 192 MHz aus PLLSAI, nach HAL-Formel MCKDIV = 7. Nur berechnet, am FSYNC messen. Abhilfe: SAI2 aus PLLI2S takten (≈ 49,152 MHz), da PLLSAI auch USB (48 MHz) und LTDC versorgt.
+   Status: offen
+6. **Rohdaten um Faktor 256 falsch skaliert** – 24-Bit-Samples kommen linksbündig im 32-Bit-Slot; `Microphone_Array_114.cpp:64` skaliert mit 2⁻²³ statt 2⁻³¹. Der Simulator schreibt rechtsbündig und verdeckt den Fehler.
+   Status: offen
+
+## Signalverarbeitung
+
+7. **HBD meldet immer „DRONE“ (berechnet)** – Rauschboden auf max. −60 dB begrenzt (`HBD.cpp:16`), Betragsspektrum aber unnormiert (Rauschbins nach AGC ≈ +10 dB) → Boden klebt bei −60 dB, SNR ≈ 70 dB überall, alle p_b ≈ 1, alle Bänder selektiert, Fehlalarm auch bei Wind/Einzelton. Abhilfe: Spektrum durch Σw normieren (1536 für Hann/3072; `windowGain` ist vorgesehen, aber ungenutzt). Danach beachten: der gleitende Mittelwert (0,94) lernt einen stehenden Drohnenton in ≈ 1 s als Rauschen.
+   Status: offen
+8. **Peak-Ratio-Test in 126 zu streng** – als zweiter Peak zählt jeder Wert außerhalb ±3 Samples statt des zweiten lokalen Maximums (`Correlation_Processing_Module_126.cpp:116`). Bei schmalbandigen Harmonischen < 1,5 kHz ist die Hauptkeule viel breiter → Ratio ≈ 1,1 < 1,5 → keine Peilung. Derzeit durch Punkt 7 verdeckt.
+   Status: offen
+9. **Distanzschätzung misst die AGC** – `levelA` wird nach NS/AGC pro Kanal berechnet (`Processing_Module_120.cpp:84`); r = K/A beschreibt die Verstärkung, nicht den Abstand.
+   Status: offen
+10. **UnitReport inkonsistent** – `num_selected` wird ungekürzt (bis 64) gesendet, serialisiert werden max. 56 Einträge (`Output_Interface_130.cpp:50`).
+    Status: offen
+
+## USB und RTOS
+
+11. **USB-Senden fehlerhaft** – `CDC_Transmit_FS` speichert nur den Zeiger, gesendet wird aus Stack-Variablen (OTG-FS füllt den FIFO später im Interrupt). `send()` schickt zwei Nachrichten direkt hintereinander → UnitReport (id 4) meist `USBD_BUSY`. READ-Modus sendet 192 × 532 Byte ohne BUSY-Behandlung. Mehrere Tasks senden ohne Sperre. Abhilfe: TX-Queue + ein Sende-Task mit statischem Puffer, Warten auf `TransmitCplt`.
+    Status: **umgesetzt (25.09.2026), auf dem Board noch nicht getestet** – TX-Ringpuffer (8 KB) in `USBDriver`, Nachrichten werden im kritischen Abschnitt vollständig kopiert, Versand in Blöcken bis 2 KB aus statischem `txBuf_`, Nachladen in `CDC_TransmitCplt_FS` (USER CODE 13). Kein zusätzlicher Task. READ-Streaming wartet bis 20 ms auf Platz und verwirft sonst den Rest des Frames. Zähler `USBDriver::txDropped()`.
+12. **Kommandolänge widersprüchlich** – Handler verlangt `payloadLen == 16`, Vorlagen für Typ 1–3 in `SDS_Structs.hpp` haben `0x0C`. Gegen PC-Seite prüfen.
+    Status: offen
+13. **FreeRTOS-Heap (32 KB) zu knapp** – mit ProcessingTask (16 KB Stack) ≈ 30 KB plus TCBs/Queues. `TaskBase::start()` prüft `osThreadNew` nicht auf NULL. Heap auf ≥ 64 KB erhöhen.
+    Status: offen
+
+## Kleinere Punkte
+
+14. SDRAM-Selbsttest läuft erst nach dem Konstruktor, der bereits ins SDRAM schreibt → schützt nicht.
+    Status: offen
+15. SDRAM-Kommando in `MX_DMA2D_Init` läuft vor `MX_FMC_Init` → wirkungslos, entfernen.
+    Status: offen
+16. Zeitstempel 1-ms-Tick-basiert und vom Ende des DMA-Blocks (≈ 2,7 ms zu spät).
+    Status: offen
+17. 50-%-Überlappung nicht umgesetzt; Framerate 15,6/s statt 30/s (bekannt).
+    Status: offen
+18. Mit `NUM_UNITS = 1` ist die angezeigte Konfidenz immer ≈ 1.
+    Status: offen
+19. `Logger::write` nicht threadsicher; Längenbegrenzung 255 statt 256.
+    Status: offen
+20. `HBD_ML_Model_Data.hpp` (≈ 185 KB) nirgends eingebunden; Modell erwartet Cepstrum-Merkmale, die 122 nicht liefert. `SDS_SimDrone` ebenfalls ungenutzt.
+    Status: offen
+21. MPU-Region 0 macht SRAM1/2 komplett uncached (für DMA nötig, kostet Leistung).
+    Status: offen
+22. `MIGRATION_*.md` teilweise veraltet (z. B. Linker-Sektion existiert bereits).
+    Status: offen
