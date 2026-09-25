@@ -24,7 +24,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 17 | 50-%-Überlappung: Hops in 114/118, Analysefenster (Frame_Assembler), Zeitkonstanten in Sekunden | 25.09.2026 | 05b3d3d |
 | 18 | Einheitliche Konfidenz aus Paaren und Residuum in Samples (128) | 25.09.2026 | e0ca865 |
 | 19 | Logger: threadsicher, Überlaufschutz, max. 255 Zeichen | 25.09.2026 | 7da4097 |
-| 21 | SRAM1 gecacht, DMA-Puffer in nicht cachebarem SRAM2 (Normal statt Strongly-ordered) | 25.09.2026 | noch nicht committet |
+| 21 | SRAM1 gecacht, DMA-Puffer in nicht cachebarem SRAM2 (Normal statt Strongly-ordered) | 25.09.2026 | 0621e76 |
 
 ## Blocker (Hardware-Pfad)
 
@@ -129,7 +129,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 20. `HBD_ML_Model_Data.hpp` (≈ 185 KB) nirgends eingebunden; Modell erwartet Cepstrum-Merkmale, die 122 nicht liefert. `SDS_SimDrone` ebenfalls ungenutzt.
     Status: offen
 21. MPU-Region 0 macht SRAM1/2 komplett uncached (für DMA nötig, kostet Leistung).
-    Status: **bearbeitet (25.09.2026)** – gebaut und Platzierung geprüft, auf dem Board nicht getestet (Leistungsgewinn nicht gemessen).
+    Status: **bearbeitet (25.09.2026, Commit 0621e76)** – gebaut und Platzierung geprüft, auf dem Board nicht getestet (Leistungsgewinn nicht gemessen).
     - Zusätzlich gefunden: Die Region war Strongly-ordered (TEX0/C0/B0), nicht nur uncached – jeder Zugriff geordnet, nicht ausgerichtete Zugriffe unzulässig. Betroffen waren u. a. der Stack aller ISRs (`_estack` = 0x20050000), Teile der Task-Stacks (Ende von `ucHeap`), USB-Puffer, Logger, `SDS_Data`.
     - DMA-Nutzer geprüft: SAI (Puffer mit Cache-Pflege), ETH-Deskriptoren (im DTCM, nie gecacht; ETH wird nicht gestartet), DMA2D (nur SDRAM-Framebuffer, Region 2), USB OTG FS (ohne DMA). SD/FatFS: DMA-Pfad vorhanden, aber keine DMA-Streams/IRQs eingerichtet und FatFS ungenutzt.
     - Linker: `RAM` 304 kB (DTCM + SRAM1), neu `RAM_NC` 16 kB (SRAM2) mit Sektion `.dma_nocache`; `_estack` = 0x2004C000 (Stack jetzt gecacht). MPU-Region 0: nur SRAM2, Normal nicht cachebar (TEX=1, C=0, B=0). SRAM1 fällt unter die Standard-Speicherkarte (Write-Back, Write-Allocate).
