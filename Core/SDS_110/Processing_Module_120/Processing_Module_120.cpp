@@ -100,9 +100,14 @@ bool Processing_Module_120::streamFrame()
     MicFrame* frame = unit_.nextFrame();
     if (!frame) return false;
     const uint32_t ts = static_cast<uint32_t>(frame->time_utc_us / 1000ULL);
-    for (uint32_t m = 0; m < NUM_MICS; ++m)
-        for (uint32_t f = 0; f < FRAME_SAMPLES / SDS_MSG_BUFFER_SIZE; ++f)
-            USBDriver::sendRead(ts, m, f, frame);
+    // 192 x 532 B je Frame (~1,6 MB/s) übersteigt USB-FS: auf Platz im TX-Puffer warten;
+    // gelingt das nicht, Rest des Frames verwerfen statt einzelne Pakete zu verlieren.
+    // Nicht gestreamte Frames zählt 114 als dropped.
+    constexpr uint32_t kWaitMs = 20;
+    bool ok = true;
+    for (uint32_t m = 0; m < NUM_MICS && ok; ++m)
+        for (uint32_t f = 0; f < FRAME_SAMPLES / SDS_MSG_BUFFER_SIZE && ok; ++f)
+            ok = USBDriver::sendRead(ts, m, f, frame, kWaitMs);
     unit_.releaseFrame(frame);
     return true;
 }

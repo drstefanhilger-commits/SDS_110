@@ -4,16 +4,92 @@
 #include "USBDriver.hpp"
 #include "Infrastructure/Utils/crc32.hpp"
 #include "usbd_cdc_if.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "cmsis_os2.h"
 #include <cstring>
+
+extern "C" USBD_HandleTypeDef hUsbDeviceFS;
 
 namespace sds110 {
 
-bool USBDriver::transmit(const void* buf, uint16_t len)
+static_assert((USBDriver::TX_RING_SIZE & (USBDriver::TX_RING_SIZE - 1)) == 0, "TX_RING_SIZE muss Zweierpotenz sein");
+static_assert(sizeof(SDS_MsgRead) <= USBDriver::TX_RING_SIZE, "Nachricht größer als Ringpuffer");
+
+uint8_t  USBDriver::ring_[TX_RING_SIZE];
+uint8_t  USBDriver::txBuf_[TX_CHUNK];
+volatile uint32_t USBDriver::head_      = 0;
+volatile uint32_t USBDriver::tail_      = 0;
+volatile uint32_t USBDriver::txDropped_ = 0;
+
+// ---------------------------------------------------------------- Ringpuffer
+bool USBDriver::linkReady()
 {
-    return CDC_Transmit_FS(reinterpret_cast<uint8_t*>(const_cast<void*>(buf)), len) == USBD_OK;
+    return hUsbDeviceFS.dev_state == USBD_STATE_CONFIGURED && hUsbDeviceFS.pClassData != nullptr;
 }
 
-bool USBDriver::sendDetection(uint32_t timestamp, uint32_t micId, float azimuth, float distance, float confidence)
+bool USBDriver::enqueue(const uint8_t* buf, uint32_t len)
+{
+    const uint32_t used = head_ - tail_;
+    if (len > TX_RING_SIZE - used) return false;
+
+    const uint32_t pos   = head_ & (TX_RING_SIZE - 1);
+    const uint32_t first = (len < TX_RING_SIZE - pos) ? len : TX_RING_SIZE - pos;
+    std::memcpy(&ring_[pos], buf, first);
+    std::memcpy(&ring_[0], buf + first, len - first);
+    head_ = head_ + len;
+    return true;
+}
+
+// Läuft entweder im OTG-FS-ISR (Priorität 5) oder in einem kritischen Abschnitt,
+// der diesen ISR maskiert (configMAX_SYSCALL_INTERRUPT_PRIORITY = 5) – daher ohne Sperre.
+void USBDriver::kick()
+{
+    if (!linkReady()) return;
+    auto* hcdc = static_cast<USBD_CDC_HandleTypeDef*>(hUsbDeviceFS.pClassData);
+    if (hcdc->TxState != 0U) return;                    // Transfer läuft, ISR lädt nach
+
+    uint32_t n = head_ - tail_;
+    if (n == 0) return;
+    if (n > TX_CHUNK) n = TX_CHUNK;
+
+    const uint32_t pos   = tail_ & (TX_RING_SIZE - 1);
+    const uint32_t first = (n < TX_RING_SIZE - pos) ? n : TX_RING_SIZE - pos;
+    std::memcpy(txBuf_, &ring_[pos], first);
+    std::memcpy(txBuf_ + first, &ring_[0], n - first);
+    tail_ = tail_ + n;
+
+    USBD_CDC_SetTxBuffer(&hUsbDeviceFS, txBuf_, n);
+    USBD_CDC_TransmitPacket(&hUsbDeviceFS);
+}
+
+void USBDriver::onTransmitComplete()
+{
+    kick();
+}
+
+bool USBDriver::transmit(const void* buf, uint32_t len, uint32_t waitMs)
+{
+    const auto* p = static_cast<const uint8_t*>(buf);
+    for (uint32_t waited = 0;; ++waited) {
+        if (!linkReady()) break;                        // kein Host: nicht puffern (keine Altdaten)
+
+        taskENTER_CRITICAL();
+        const bool ok = enqueue(p, len);
+        if (ok) kick();
+        taskEXIT_CRITICAL();
+        if (ok) return true;
+
+        if (waited >= waitMs) break;
+        osDelay(1);
+    }
+    ++txDropped_;
+    return false;
+}
+
+// ---------------------------------------------------------------- Nachrichten
+bool USBDriver::sendDetection(uint32_t timestamp, uint32_t micId, float azimuth, float distance, float confidence,
+                              uint32_t waitMs)
 {
     SDS_MsgDetect msg;
     msg.timestamp = timestamp;
@@ -22,10 +98,11 @@ bool USBDriver::sendDetection(uint32_t timestamp, uint32_t micId, float azimuth,
     msg.distance  = distance;
     msg.conf      = confidence;
     msg.crc32     = CRC32::compute_no_crc(msg);
-    return transmit(&msg, sizeof(msg));
+    return transmit(&msg, sizeof(msg), waitMs);
 }
 
-bool USBDriver::sendRead(uint32_t timestamp, uint32_t micNr, uint32_t frameNr, const MicFrame* frame)
+bool USBDriver::sendRead(uint32_t timestamp, uint32_t micNr, uint32_t frameNr, const MicFrame* frame,
+                         uint32_t waitMs)
 {
     SDS_MsgRead msg;
     msg.timestamp = timestamp;
@@ -41,10 +118,10 @@ bool USBDriver::sendRead(uint32_t timestamp, uint32_t micNr, uint32_t frameNr, c
             msg.data[i] = 0;
     }
     msg.crc32 = CRC32::compute_no_crc(msg);
-    return transmit(&msg, sizeof(msg));
+    return transmit(&msg, sizeof(msg), waitMs);
 }
 
-bool USBDriver::sendLogging(uint32_t timestamp, const uint8_t* src, int len)
+bool USBDriver::sendLogging(uint32_t timestamp, const uint8_t* src, int len, uint32_t waitMs)
 {
 #pragma pack(push, 1)
     struct SDS_MsgLog {
@@ -62,17 +139,22 @@ bool USBDriver::sendLogging(uint32_t timestamp, const uint8_t* src, int len)
     const int n = (len < 32) ? len : 32;
     if (n > 0) memcpy(msg.data, src, n);
     msg.crc32 = CRC32::compute_no_crc(msg);
-    return transmit(&msg, sizeof(msg));
+    return transmit(&msg, sizeof(msg), waitMs);
 }
 
-bool USBDriver::sendMessage(uint32_t id, uint32_t timestamp, const MessageData& data)
+bool USBDriver::sendMessage(uint32_t id, uint32_t timestamp, const MessageData& data, uint32_t waitMs)
 {
     Message msg;
     msg.len_id    = ((sizeof(Message) & 0x00FFFFFF) | (id << 24));
     msg.timestamp = timestamp;
     msg.data      = data;
     msg.crc32     = CRC32::compute_no_crc(msg);
-    return transmit(&msg, sizeof(msg));
+    return transmit(&msg, sizeof(msg), waitMs);
 }
 
 } // namespace sds110
+
+extern "C" void USBDriver_OnTransmitComplete(void)
+{
+    sds110::USBDriver::onTransmitComplete();
+}

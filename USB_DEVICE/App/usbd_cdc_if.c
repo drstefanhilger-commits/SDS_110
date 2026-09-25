@@ -316,6 +316,9 @@ static int8_t CDC_TransmitCplt_FS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
   UNUSED(Buf);
   UNUSED(Len);
   UNUSED(epnum);
+  /* nächsten Block aus dem TX-Ringpuffer senden (USBDriver.cpp) */
+  extern void USBDriver_OnTransmitComplete(void);
+  USBDriver_OnTransmitComplete();
   /* USER CODE END 13 */
   return result;
 }
