@@ -11,7 +11,7 @@
 ## API-Änderungen für LCDTask / USBTask / LoggerTask
 | Alt | Neu |
 |---|---|
-| `setAzimuth/setDistance/setConfidence/setDetected` | `setCandidate(az, dist, pairs, residual, valid)` (nur 120 schreibt) |
+| `setAzimuth/setDistance/setConfidence/setDetected` | `setCandidate(az, dist, confidence, valid)` (nur 120 schreibt; Konfidenz aus `candidateConfidence()` in 128, seit Befund 18) |
 | `getAiDrone/Human/Wind/Background`, `getDroneDetected` | `getAcousticState(out)` (64 Bänder), `getSelectedBands()`, `getDetected()` |
 | `setAiInitError/RunError` | `setMlInitError/RunError` |
 | `setSrpTaskFreeStack/SrpLoopTime/SrpLoopCounter` | `setTaskStats(TaskId::Proc120, stack, time, counter)` |

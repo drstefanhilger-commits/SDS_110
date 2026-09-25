@@ -7,15 +7,14 @@
 | Driver/USBDriver.{hpp,cpp} | Driver/USBDriver + SDSUSBMicSender | Klasse `USBDriver` (statisch); sendRead liest MicFrame (float) |
 | Utils/DWT.hpp, Utils/crc32.hpp | Utils/ | Namespace |
 
-Noch nicht migriert (main.c ruft sie über den Wrapper): LCDTask, LoggerTask, Logger,
-LCDDriver, Font8x12, SDRAMDriver, MPUDriver, PrintfDriver, syscalls.c.
+Stand 25.09.2026: Alles migriert (siehe „Stand 2“), `Core/SDS` ist entfernt. `syscalls.c` liegt in
+`Core/Src` (CubeIDE-Version). main.c ruft die neue API aus `SDS_110_Wrapper.hpp`
+(`SDS110_Init`, `SDS110_Start*Task`); die alten Namen `SDS_Init` / `SDS_Start*` gibt es nicht mehr.
 
-## Wichtig bei komplett ausgeschlossenem Core/SDS
-- `Core/SDS/Utils/syscalls.c` muss im Build bleiben (oder nach Infrastructure/Utils kopiert
-  werden), sonst fehlen `_write` & Co. für printf/ITM.
-- `SDS_Init`, `SDS_StartDisplayManagerTask`, `SDS_StartLoggerTask` bleiben undefined, bis
-  LCDTask/LoggerTask migriert und `SDS_110_Wrapper.cpp` angelegt ist. Übergangsweise in
-  main.c auskommentieren oder `SDS_110_Wrapper.cpp` mit leeren Rümpfen anlegen.
+Spätere Änderungen: USBDriver sendet über einen TX-Ringpuffer (Befund 11); `TaskBase::start()` liefert
+`bool` und hält bei fehlgeschlagener Task-Anlage an, Heap 64 kB (Befund 13); Logger threadsicher (Befund 19);
+`USBTask::msgLen()` statt `payloadLen()` (Befund 12); neu `Utils/TimeBase` (Befund 16) und
+`Driver/SDRAMSelfTest` (Befund 14).
 
 ## Stand 2 (LCD/Logger)
 | Neu | Aus SDS | Änderung |
@@ -25,10 +24,8 @@ LCDDriver, Font8x12, SDRAMDriver, MPUDriver, PrintfDriver, syscalls.c.
 | Utils/Logger.{hpp,cpp} | Utils/Logger | Include-Pfad |
 | Driver/LCDDriver.hpp, Font8x12.*, SDRAMDriver.h, PrintfDriver.h, MPUDriver.h | Driver/ | unverändert kopiert |
 
-main.c: `SDS_Init()`, `SDS_StartDisplayManagerTask()`, `SDS_StartUSBTask()`, `SDS_StartLoggerTask()`
-können wieder einkommentiert werden. `SDS_StartMicTask()` ist ein No-op-Makro,
-`SDS_StartSRPPhatTask()` bleibt leer bis Processing_Module_120 fertig ist.
+main.c (Stand 25.09.2026): `SDS110_Init()`, `SDS110_StartDisplayTask()`, `SDS110_StartUSBTask()`,
+`SDS110_StartLoggerTask()` aktiv; `SDS110_StartProcessingTask()` ist auskommentiert (Befund 1, zurückgestellt).
 
-Hinweis 122: Feature_Extraction_Module_122.{hpp,cpp} gehören nach
-Processing_Module_120/Feature_Extraction_Module_122/ (Patent-Ort). Die Kopie unter
-Sensor_Unit_112/ im Repo löschen, sonst zwei gleichnamige Header im Include-Pfad.
+~~Hinweis 122: Kopie unter Sensor_Unit_112/ löschen~~ – *erledigt*, 122 liegt nur noch unter
+Processing_Module_120/Feature_Extraction_Module_122/.

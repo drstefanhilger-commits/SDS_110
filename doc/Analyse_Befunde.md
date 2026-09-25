@@ -25,6 +25,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 18 | Einheitliche Konfidenz aus Paaren und Residuum in Samples (128) | 25.09.2026 | e0ca865 |
 | 19 | Logger: threadsicher, Überlaufschutz, max. 255 Zeichen | 25.09.2026 | 7da4097 |
 | 21 | SRAM1 gecacht, DMA-Puffer in nicht cachebarem SRAM2 (Normal statt Strongly-ordered) | 25.09.2026 | 0621e76 |
+| 22 | Migrationsnotizen und READMEs auf aktuellen Stand | 25.09.2026 | noch nicht committet |
 
 ## Blocker (Hardware-Pfad)
 
@@ -136,7 +137,11 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
     - SAI-DMA-Puffer über `SDS110_DMA_SECTION` in `.dma_nocache`; Probe-Link mit aktivem ProcessingTask: `dmaBuffer_` (8 kB) an 0x2004C000.
     - Hinweis für FatFS (falls genutzt): SD-DMA erst einrichten (Streams, IRQs), Puffer dann in `.dma_nocache` legen oder `ENABLE_SD_DMA_CACHE_MAINTENANCE` mit 32-Byte-ausgerichteten Puffern verwenden (STs Invalidierung auf abgerundete Adressen kann sonst Nachbardaten verwerfen).
 22. `MIGRATION_*.md` teilweise veraltet (z. B. Linker-Sektion existiert bereits).
-    Status: offen
+    Status: **bearbeitet (25.09.2026)**.
+    - Herkunftstabellen („Neu ← Aus SDS“) als Historie unverändert. Aktualisiert wurden Stand-, Speicher- und „Offene Punkte“-Abschnitte: Erledigtes durchgestrichen bzw. markiert mit Verweis auf die Befundnummer, Offenes mit Befund- und Statusangabe.
+    - `MIGRATION_112.md` (Offene Punkte 1–6, Aufruf aus main.c), `MIGRATION_120.md` (Speicher gemessen mit `sizeof`, Laufzeit mit Überlappung, Offene Punkte; alte Azimut-Kalibrierung nach Befund 23 nicht übertragbar), `MIGRATION_122.md` (Speicher, ML-Modell-Stand, Overlap erledigt), `MIGRATION_MODEL.md` (`setCandidate`-Signatur), `MIGRATION_TASKS.md` (Stand, main.c-API, erledigte Hinweise), `Infrastructure/README.md` (tatsächlicher Inhalt), `Harness/README.md` (Hops, Rohformat, Szenario Silence), `Core/SDS_110/README.md` (Framing).
+    - Nicht geändert: `doc/ADUA_Design.md` (gehört zu den zurückgestellten Punkten 3/4) und `doc/Findings.md` (eigene Notizen).
+    - Offene Frage: Nachrichtentyp für das Tracking-Feedback – `MIGRATION_120.md` nennt 4, `Output_Interface_130.hpp` 6.
 
 ## Neu aus dem Host-Test (25.09.2026)
 

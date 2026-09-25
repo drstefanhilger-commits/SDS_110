@@ -16,23 +16,34 @@ und der Candidate Report liegen im Processing Module auf dem PC. Das Board sende
 | entfällt | Third_Party/kiss_fft | CMSIS-DSP |
 
 ## Speicher (statisch)
+Stand 25.09.2026 (gemessen mit `sizeof`):
 - Processing_Module_120: spectra_ 8 × 16,4 kB = 131 kB (SDRAM-Sektion)
-- Feature_Extraction_Module_122 (Mitglied von 120): ~145 kB (MEL_MAX_BINS_PER_BAND=512) – die Instanz
-  liegt im internen RAM! Entweder `MEL_MAX_BINS_PER_BAND` auf 128 (→ ~85 kB) oder 120 als Ganzes in SDRAM.
-  Empfehlung: `Processing_Module_120::instance()` durch eine `SDS110_SDRAM_SECTION static` Instanz ersetzen.
-- Correlation 126: spec_+corr_ 32 kB
-- ProcessingTask-Stack 16 kB (FreeRTOS-Heap prüfen)
+- Die Instanz von Processing_Module_120 liegt komplett im SDRAM (`SDS110_SDRAM_SECTION static`), damit auch
+  ihre Mitglieder: 122 ≈ 86 kB (`MEL_MAX_BINS_PER_BAND` = 128), 124 ≈ 26 kB, 126 ≈ 49 kB,
+  `Frame_Assembler` (in 112) ≈ 98 kB.
+- ProcessingTask-Stack 16 kB; FreeRTOS-Heap auf 64 kB erhöht (Befund 13).
 
 ## Laufzeit pro Frame (F746, grob)
 8 × RFFT 4096 ≈ 2 ms · 28 Paare × (Spektrum-Produkt + IFFT) ≈ 28 × 0,35 ms ≈ 10 ms · Rest < 1 ms
-→ ~13 ms pro 64-ms-Frame; mit 50 % Overlap später ~40 % Last.
+→ ~13 ms pro Frame. Seit Befund 17 (50 % Überlappung) ein Frame je 32 ms → ~40 % Last (geschätzt,
+am Board mit den Task-Statistiken prüfen).
 
 ## Offene Punkte
+Stand 25.09.2026 – Details und Commits in `doc/Analyse_Befunde.md`.
 1. HBD-Parameter (HBD_BAND_SNR_DB, HBD_GATE_FLOOR, perBandSnrDb) mit Aufnahmen abstimmen.
-2. Feedback-Empfang (Nachrichtentyp 4 in USBTask → Output_Interface_130::pollFeedback).
+   *Teilweise erledigt: Rauschboden in dBFS (Befund 7), Band-Selektion nur für Harmonische mit HBD-Haltezeit
+   (Befund 24) – im Simulator abgestimmt, mit echten Aufnahmen noch zu prüfen.*
+2. Feedback-Empfang (Nachrichtentyp 4 in USBTask → Output_Interface_130::pollFeedback). *Offen.*
+   Hinweis: `Output_Interface_130.hpp` nennt dafür Typ 6 – Nummer mit dem PC-Monitor festlegen.
 3. PC-Monitor (Processing Module 120): Inter-Unit-GCC-PHAT auf den Referenzkanal-Spektren ≥ [3]
    Einheiten (Patent Abschnitt 1/6; Werte in Klammern noch offen) mit `126::crossCorrelate()` und
    `128::solve()` als Referenzcode. Voraussetzung: gemeinsame Zeitbasis ([10 µs]) und Übertragung der
-   Referenzspektren im UnitReport. Bis dahin: Schnitt der Peilstrahlen ≥ 2 Einheiten.
-4. Azimut-Kalibrierung (alt: +12°, ×0.98) nach Messung über `setCalibration()` setzen.
-5. Linker-Sektion `.sdram_data` in STM32F746NGHX_FLASH.ld.
+   Referenzspektren im UnitReport. Bis dahin: Schnitt der Peilstrahlen ≥ 2 Einheiten. *Offen.*
+4. Azimut-Kalibrierung nach Messung über `setCalibration()` setzen. *Offen.* Die alten Werte (+12°, ×0,98)
+   stammen aus dem SRP-Code vor der Migration; seit der Vorzeichenkorrektur der Peilung (Befund 23) nicht
+   übertragbar, neu messen.
+5. ~~Linker-Sektion `.sdram_data`~~ – *erledigt*.
+
+Weitere Änderungen seit der Migration: GCC-PHAT-Peak-Ratio mit lokalen Nebenmaxima (Befund 8), Distanzpegel
+vor NS/AGC (Befund 9, `LEVEL_DIST_K_REF` noch unkalibriert), einheitliche Konfidenz (Befund 18), USB-Senden
+über TX-Ringpuffer (Befund 11).

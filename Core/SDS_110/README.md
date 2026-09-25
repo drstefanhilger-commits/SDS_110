@@ -25,6 +25,9 @@ Board (112-n)                                   PC-Monitor
                                                           ▼
                                                    150 Tracking ──► Feedback ŝ, x̂ ──► 126
 ```
+Framing: 114 liefert Hops von 32 ms, 118 verarbeitet jeden Hop, `Frame_Assembler` bildet daraus
+Analyse-Frames von 64 ms mit 50 % Überlappung (31,25 Frames/s) für 122–126.
+
 Regel (Claim 10): Kein Modul in SDS 110 bildet eine Trajektorie.
 Werte in eckigen Klammern ([3], [48 kHz], [10 µs] …) sind im Patententwurf noch offene
 Werte des Ausführungsbeispiels; die Claims nennen keine Zahl.
