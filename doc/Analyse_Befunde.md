@@ -14,6 +14,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 24 | Band-Selektion 124: nur Harmonische, Gate mit HBD-Haltezeit, HBD-Anlaufzeit | 25.09.2026 | b4a18f4 |
 | 13 | FreeRTOS-Heap 64 KB, Prüfung bei Task-Anlage, Hooks halten an | 25.09.2026 | 8d3644c |
 | 12 | Kommandolänge: Vorlagen auf 16, gemeinsame Konstante | 25.09.2026 | 7207038 |
+| 10 | UnitReport: nsel = tatsächlich gesendete Bänder | 25.09.2026 | noch nicht committet |
 
 ## Blocker (Hardware-Pfad)
 
@@ -40,7 +41,10 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 9. **Distanzschätzung misst die AGC** – `levelA` wird nach NS/AGC pro Kanal berechnet (`Processing_Module_120.cpp:84`); r = K/A beschreibt die Verstärkung, nicht den Abstand.
    Status: offen
 10. **UnitReport inkonsistent** – `num_selected` wird ungekürzt (bis 64) gesendet, serialisiert werden max. 56 Einträge (`Output_Interface_130.cpp:50`).
-    Status: offen
+    Status: **bearbeitet (25.09.2026)** – im Host-Test geprüft, auf dem Board nicht getestet.
+    - `Output_Interface_130::send()`: Feld `nsel` enthält die tatsächlich gesendete Anzahl n = min(num_selected, 56); die 56 folgt aus `(sizeof(MessageData) − 16) / 2`.
+    - Host-Test Serialisierung (0/3/8/56/57/64 Bänder): vorher bei 57 und 64 Bändern `nsel` = 57/64, d. h. der PC hätte 130 bzw. 144 von 128 Byte gelesen; nachher `nsel` = 56 und Bandliste vollständig innerhalb der 128 Byte.
+    - Hinweis: Seit Punkt 24 werden nur noch Bänder mit Harmonischen selektiert (≤ 8 bzw. 3 als Rückfall), mehr als 56 kommen praktisch nicht mehr vor.
 
 ## USB und RTOS
 

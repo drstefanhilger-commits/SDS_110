@@ -46,10 +46,13 @@ bool Output_Interface_130::send(const UnitReport& r)
     std::memcpy(&d.b[o], &r.unit_id, 2);          o += 2;
     std::memcpy(&d.b[o], &r.bearing_deg, 4);      o += 4;
     std::memcpy(&d.b[o], &r.bearing_residual, 4); o += 4;
+    // Nutzlast 128 Byte: 16 Byte Kopf + 2 Byte je Band -> höchstens 56 Bänder. Im Feld nsel
+    // steht die tatsächlich gesendete Anzahl, sonst liest der PC über das Ende hinaus.
+    constexpr uint32_t kMaxBands = (sizeof(MessageData) - 16) / 2;   // 56
+    const uint32_t n = (r.num_selected > kMaxBands) ? kMaxBands : r.num_selected;
     d.b[o++] = r.valid_pairs;
-    d.b[o++] = r.num_selected;
+    d.b[o++] = static_cast<uint8_t>(n);
     std::memcpy(&d.b[o], &r.level, 4);            o += 4;
-    const uint32_t n = (r.num_selected > 56) ? 56 : r.num_selected;   // 16 + 2*56 = 128
     for (uint32_t i = 0; i < n; ++i) d.b[o++] = r.band_index[i];
     for (uint32_t i = 0; i < n; ++i) d.b[o++] = static_cast<uint8_t>(r.band_prob[i] * 255.0f);
     ok = USBDriver::sendMessage(4, ts, d) && ok;
