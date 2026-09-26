@@ -19,6 +19,7 @@ cmake_install.cmake
 Makefile
 !wsl/Makefile
 !test/host/Makefile
+!tools/features/Makefile
 
 # VS Code
 
