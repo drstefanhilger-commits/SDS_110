@@ -23,12 +23,14 @@ gegen die Stubs aus `test/host/shim` (CMSIS-DSP, CMSIS-RTOS2), FFT über `Core/L
 
 ```bash
 build/tools/sds_features [--hbd] [--channel N] <eingabe.wav> <ausgabe-präfix>
+build/tools/sds_features [--hbd] --label <drohne.wav> <umwelt.wav> <ausgabe-präfix>
 ```
 
 | Option | Bedeutung |
 |---|---|
 | `--hbd` | zusätzlich den heutigen HBD-Zustand und dessen s(t) ausgeben (Vergleichsgrundlage) |
 | `--channel N` | bei mehrkanaligen Dateien (≠ 8 Kanäle) Kanal N als Referenzmikrofon (Standard 0) |
+| `--label` | Label-Modus (Arbeitspaket 3): zwei Anteile mischen, zusätzlich Band-SNR ausgeben (Abschnitt 4a) |
 
 **Eingabe**: WAV mit **48 kHz** (andere Raten werden abgelehnt – vorher umtasten), PCM 16/24/32 Bit
 oder float32, auch WAVE_FORMAT_EXTENSIBLE. Mono bzw. Kanal N wird als Referenzmikrofon
@@ -88,6 +90,38 @@ feat = X[:, 1:170]; t = X[:, 0]; cols = meta["columns"]
 
 ---
 
+## 4a. Label-Modus (`--label`)
+
+Für die Band-SNR-Labels (Trainingskonzept 5.1) nimmt das Werkzeug Drohnen- und Umweltanteil
+getrennt entgegen (je mono bzw. Kanal 0, 48 kHz, gleiche Länge; sonst gilt die kürzere):
+
+1. **Gemisch**: Beide Anteile werden nach der Wandlung als 24-bit-Werte addiert. Samples außerhalb
+   des 24-bit-Bereichs werden begrenzt und gezählt (`clipped_samples`). Das Gemisch läuft
+   unverändert durch die Board-Kette; die **Merkmale** stammen daraus und sind bitgleich mit dem
+   normalen Modus auf dem Gemisch.
+2. **Anteile**: Jeder Anteil läuft durch einen eigenen `Pre_Processor_118`, nur mit Bandpass
+   (NS und AGC aus, also linear). Darauf wird je Hop exakt die Verstärkungsrampe angewendet, die
+   118 im Gemisch berechnet hat: von `frameCenterGain()` (g0) bis `appliedGain()` (g1). Danach
+   folgen je Anteil ein eigener `Frame_Assembler` und eine eigene 122.
+3. **Labels**: `snr_db_b` = 10·log10(P_b(Drohne) / P_b(Umwelt)), berechnet aus den
+   `band_log_power`-Werten beider Anteile und auf ±80 dB begrenzt.
+
+Zusätzliche Spalten: `snr_db_00…63` (64) am Ende, also 234 bzw. mit `--hbd` 303 Spalten.
+Zusätzliche JSON-Felder:
+
+| Feld | Inhalt |
+|---|---|
+| `mode` | `"label"` |
+| `input_drone`, `input_noise` | Eingabedateien |
+| `clipped_samples` | Anzahl der begrenzten Samples |
+| `max_reconstruction_error` | Selbstkontrolle: größter Fehler \|Gemisch − (Drohne + Umwelt)\| nach 118 |
+| `max_abs_mixture_after_118` | Bezugsgröße für diesen Fehler |
+
+Der Rekonstruktionsfehler ist ohne Bandpass exakt 0. Mit Bandpass entsteht er aus der Rundung der
+float32-Biquads (80-Hz-Hochpass); typisch sind etwa 10⁻⁴ relativ.
+
+---
+
 ## 5. Merkmalsversion
 
 `feature_version` = erste 16 Hex-Zeichen des SHA-256 über den Quelltext von
@@ -109,6 +143,10 @@ Stand 26.09.2026: `837ff89cbda34b21`.
 | Gleichheit mit der Board-Kette | Simulator (DroneStatic, 10 dB, 6,4 s) im Prozess durch 114→118→Frame_Assembler→122; Rohwerte des Referenzkanals als 24-bit-WAV → `sds_features` muss **bitgleiche** Merkmale und Zeitstempel liefern | 199 Frames × 170 Spalten, 0 Abweichungen |
 | Plausibilität | 1-kHz-Sinus → Maximum von `band_log_power` in Band 14 | Band 14 |
 | Reproduzierbarkeit | zweiter Lauf auf dieselbe WAV → identische `.npy` | identisch |
+| Label-Modus: Merkmale | Gemisch = Board-WAV + 0; Merkmale bitgleich mit dem normalen Modus | 199 Frames, 0 Abweichungen |
+| Label-Modus: Rekonstruktion | \|Gemisch − (Drohne + Umwelt)\| nach 118 < 10⁻³ · max\|Gemisch\| | 9,2·10⁻⁶ bei 0,136 (6,8·10⁻⁵ relativ) |
+| Label-Modus: Symmetrie | identische Anteile → SNR überall 0 dB | 0 Abweichungen |
+| Label-Modus: Trennung | 1 kHz als Drohne, 2 kHz als Umwelt | Band 14 +80 dB, Band 30 −80 dB |
 
 Zusätzlich auf echten Daten (`ML_Test/data/48kHz`) geprüft: synthetische Drohne, echte
 DDS-Drohne, ESC-50 (5 s) und DDS-Hubschrauber – 155 bzw. 311 Frames, Abstand exakt 32 ms,

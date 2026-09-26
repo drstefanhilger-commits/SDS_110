@@ -6,6 +6,12 @@
  *    sds_features auf diese WAV muss bitgleiche Merkmale und Zeitstempel liefern.
  * 2. Plausibilität: 1-kHz-Sinus -> Maximum von band_log_power in Band 14 ((1000 − 80) / 62,5 = 14,7).
  * 3. Reproduzierbarkeit: zweiter Lauf auf dieselbe WAV ergibt eine identische .npy.
+ * 4. Label-Modus: (a) Merkmale des Gemischs bitgleich mit dem normalen Modus auf der Gemisch-WAV,
+ *    (b) Rekonstruktionsfehler |Gemisch − (Drohne + Umwelt)| nach 118 < 1e-3 · max|Gemisch|. Ohne Bandpass ist
+ *        die Zerlegung exakt; der float32-Biquad (80-Hz-Hochpass, Pole nahe |z| = 1) rundet mit ~1e-4 relativ
+ *        (≈ −80 dB unter der Spitze) – für Band-SNR-Labels ohne Bedeutung,
+ *    (c) identische Anteile -> SNR in allen Bändern exakt 0 dB,
+ *    (d) Drohne = 1-kHz-Sinus, Umwelt = 2-kHz-Sinus -> Band 14 > +40 dB, Band 30 < −40 dB.
  * Aufruf: check_features <pfad-zu-sds_features> <arbeitsordner>
  */
 #include <cstdio>
@@ -49,9 +55,22 @@ static std::vector<float> readNpy(const std::string& path, size_t& rows, size_t&
     return d;
 }
 
-static int run(const std::string& tool, const std::string& wav, const std::string& out)
+static int sh(const std::string& cmd) { return std::system((cmd + " > /dev/null").c_str()); }
+static int run(const std::string& tool, const std::string& wav, const std::string& out) { return sh(tool + " " + wav + " " + out); }
+
+static double jsonNumber(const std::string& path, const std::string& key)
 {
-    return std::system((tool + " " + wav + " " + out + " > /dev/null").c_str());
+    FILE* f = std::fopen(path.c_str(), "r"); if (!f) return NAN;
+    std::string t; char b[4096]; size_t n; while ((n = std::fread(b, 1, sizeof b, f)) > 0) t.append(b, n); std::fclose(f);
+    const size_t p = t.find("\"" + key + "\":"); if (p == std::string::npos) return NAN;
+    return std::atof(t.c_str() + p + key.size() + 3);
+}
+
+static std::vector<int32_t> sineWav(double hz, double amp, size_t n)
+{
+    std::vector<int32_t> v(n);
+    for (size_t i = 0; i < n; ++i) v[i] = static_cast<int32_t>(std::lround(amp * 8388607.0 * std::sin(2 * M_PI * hz * i / SAMPLE_RATE_HZ)));
+    return v;
 }
 
 int main(int argc, char** argv)
@@ -109,6 +128,44 @@ int main(int argc, char** argv)
     std::vector<float> g2 = readNpy(dir + "/sim_ref2.npy", r, c);
     ok = g2 == got && !got.empty();
     std::printf("Zweiter Lauf identisch: %s\n", ok ? "OK" : "FEHLER");
+    fail += !ok;
+
+    // --- 4. Label-Modus
+    const size_t nFeatCols = 1 + 2 * NUM_BANDS + MEL_BANDS + 1;
+    std::vector<int32_t> noiseSine = sineWav(2000.0, 0.05, ref.size());
+    std::vector<int32_t> mix(ref.size());
+    for (size_t i = 0; i < ref.size(); ++i) mix[i] = ref[i] + noiseSine[i];
+    writeWav24(dir + "/lab_d.wav", ref); writeWav24(dir + "/lab_n.wav", noiseSine); writeWav24(dir + "/lab_mix.wav", mix);
+    int rcl = sh(tool + " --label " + dir + "/lab_d.wav " + dir + "/lab_n.wav " + dir + "/lab");
+    run(tool, dir + "/lab_mix.wav", dir + "/lab_mix");
+    size_t rl, cl, rm, cm;
+    std::vector<float> L = readNpy(dir + "/lab.npy", rl, cl), M = readNpy(dir + "/lab_mix.npy", rm, cm);
+    size_t d4 = 0;
+    if (rl == rm && cl == nFeatCols + NUM_BANDS && cm == nFeatCols)
+        for (size_t i = 0; i < rl; ++i) for (size_t k = 0; k < nFeatCols; ++k) d4 += L[i * cl + k] != M[i * cm + k];
+    ok = rcl == 0 && rl == rm && rl > 0 && cl == nFeatCols + NUM_BANDS && d4 == 0;
+    std::printf("Label-Modus: Merkmale des Gemischs = normaler Modus (%zu Frames, %zu Abweichungen)  %s\n", rl, d4, ok ? "OK" : "FEHLER");
+    fail += !ok;
+    const double rec = jsonNumber(dir + "/lab.json", "max_reconstruction_error");
+    const double amax = jsonNumber(dir + "/lab.json", "max_abs_mixture_after_118");
+    ok = rec >= 0 && amax > 0 && rec < 1e-3 * amax;
+    std::printf("Label-Modus: Rekonstruktionsfehler nach 118 %.3g bei max|Gemisch| %.3g (relativ %.2g < 1e-3)  %s\n", rec, amax, rec / amax, ok ? "OK" : "FEHLER");
+    fail += !ok;
+
+    rcl = sh(tool + " --label " + dir + "/lab_d.wav " + dir + "/lab_d.wav " + dir + "/lab_same");
+    std::vector<float> S = readNpy(dir + "/lab_same.npy", rl, cl);
+    size_t nz = 0;
+    for (size_t i = 0; i < rl; ++i) for (uint32_t b = 0; b < NUM_BANDS; ++b) nz += S[i * cl + nFeatCols + b] != 0.0f;
+    ok = rcl == 0 && rl > 0 && nz == 0;
+    std::printf("Label-Modus: identische Anteile -> SNR überall 0 dB (%zu Werte ≠ 0)  %s\n", nz, ok ? "OK" : "FEHLER");
+    fail += !ok;
+
+    writeWav24(dir + "/tone1k.wav", sineWav(1000.0, 0.05, SAMPLE_RATE_HZ * 3)); writeWav24(dir + "/tone2k.wav", sineWav(2000.0, 0.05, SAMPLE_RATE_HZ * 3));
+    rcl = sh(tool + " --label " + dir + "/tone1k.wav " + dir + "/tone2k.wav " + dir + "/lab_tones");
+    std::vector<float> T = readNpy(dir + "/lab_tones.npy", rl, cl);
+    const float s14 = rl ? T[(rl - 1) * cl + nFeatCols + 14] : NAN, s30 = rl ? T[(rl - 1) * cl + nFeatCols + 30] : NAN;
+    ok = rcl == 0 && s14 > 40 && s30 < -40;
+    std::printf("Label-Modus: 1 kHz (Drohne) / 2 kHz (Umwelt): Band 14 %+.1f dB, Band 30 %+.1f dB  %s\n", s14, s30, ok ? "OK" : "FEHLER");
     fail += !ok;
     return fail;
 }
