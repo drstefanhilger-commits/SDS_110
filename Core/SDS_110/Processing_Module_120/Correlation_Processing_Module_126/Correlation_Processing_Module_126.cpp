@@ -11,6 +11,7 @@ namespace sds110 {
 // ---------------------------------------------------------------- init
 float Correlation_Processing_Module_126::spec_[N_FFT];
 float Correlation_Processing_Module_126::corr_[N_FFT];
+float Correlation_Processing_Module_126::win_[2 * WIN_HALF + 1];
 
 void Correlation_Processing_Module_126::init(const Microphone_Array_114& array)
 {
@@ -84,31 +85,91 @@ void Correlation_Processing_Module_126::deriveSelection(const AcousticState& s, 
 }
 
 // ---------------------------------------------------------------- Abschnitt 5
+int Correlation_Processing_Module_126::maxLagFor(float maxDelay_s)
+{
+    int maxLag = static_cast<int>(maxDelay_s * SAMPLE_RATE_HZ);
+    if (maxLag < 1) maxLag = 1;
+    if (maxLag > static_cast<int>(N_FFT / 2 - 1)) maxLag = N_FFT / 2 - 1;
+    return maxLag;
+}
+
+bool Correlation_Processing_Module_126::prepareBins(const ComponentSelection& sel, int maxLag)
+{
+    direct_ = false;
+    if (directMaxBins_ == 0 || sel.num_bins == 0 || sel.num_bins > directMaxBins_ || maxLag + 1 > WIN_HALF)
+        return false;
+    nBins_ = 0;
+    for (uint32_t k = 1; k < NUM_BINS - 1 && nBins_ < directMaxBins_; ++k) {
+        if (!sel.selected[k]) continue;
+        const float th = 2.0f * PI * static_cast<float>(k) / static_cast<float>(N_FFT);
+        binK_[nBins_] = static_cast<uint16_t>(k);
+        binW_[nBins_] = sel.weight[k];
+        binCos_[nBins_] = std::cos(th); binSin_[nBins_] = std::sin(th);
+        ++nBins_;
+    }
+    direct_ = true;
+    return true;
+}
+
 bool Correlation_Processing_Module_126::crossCorrelate(const Spectrum& X, const Spectrum& Y,
                                                         const ComponentSelection& sel,
                                                         float maxDelay_s, TdoaMeasurement& out)
 {
+    const int maxLag = maxLagFor(maxDelay_s);
+    prepareBins(sel, maxLag);
+    return correlatePair(X, Y, sel, maxLag, out);
+}
+
+bool Correlation_Processing_Module_126::correlatePair(const Spectrum& X, const Spectrum& Y,
+                                                       const ComponentSelection& sel,
+                                                       int maxLag, TdoaMeasurement& out)
+{
     out.valid = false;
     if (sel.num_bins == 0) return false;
 
-    // R(k) = w(k) · X Y* / |X Y*| auf S(t), sonst 0  -> CMSIS-Packing [Re0, ReN/2, Re1, Im1, ...]
-    std::memset(spec_, 0, sizeof(spec_));
-    for (uint32_t k = 1; k < NUM_BINS - 1; ++k) {
-        if (!sel.selected[k]) continue;
-        const float cr = X.re[k] * Y.re[k] + X.im[k] * Y.im[k];
-        const float ci = X.im[k] * Y.re[k] - X.re[k] * Y.im[k];
-        float mag = std::sqrt(cr * cr + ci * ci);
-        if (mag < 1e-9f) continue;
-        spec_[2 * k]     = sel.weight[k] * cr / mag;
-        spec_[2 * k + 1] = sel.weight[k] * ci / mag;
+    if (direct_) {
+        // Schnellpfad: IFFT von R(k) nur für |Lag| <= WIN_HALF, wie arm_rfft_fast_f32 (inv., 1/N):
+        // r[n] = (2/N) · Σ_k Re(R(k) · e^{+i2πkn/N}); Drehzeiger je Bin von Lag 0 aus nach beiden Seiten
+        std::memset(win_, 0, sizeof(win_));
+        constexpr float scale = 2.0f / static_cast<float>(N_FFT);
+        float* const w0 = win_ + WIN_HALF;
+        for (uint32_t b = 0; b < nBins_; ++b) {
+            const uint32_t k = binK_[b];
+            const float cr = X.re[k] * Y.re[k] + X.im[k] * Y.im[k];
+            const float ci = X.im[k] * Y.re[k] - X.re[k] * Y.im[k];
+            const float mag = std::sqrt(cr * cr + ci * ci);
+            if (mag < 1e-9f) continue;
+            const float g = binW_[b] * scale / mag;
+            const float ar = g * cr, ai = g * ci;
+            const float c = binCos_[b], s = binSin_[b];
+            float zr = 1.0f, zi = 0.0f;                        // e^{iθn}, n = 0 … +WIN_HALF
+            for (int n = 0; n <= WIN_HALF; ++n) {
+                w0[n] += ar * zr - ai * zi;
+                const float t = zr * c - zi * s; zi = zr * s + zi * c; zr = t;
+            }
+            zr = c; zi = -s;                                   // n = -1 … -WIN_HALF
+            for (int n = 1; n <= WIN_HALF; ++n) {
+                w0[-n] += ar * zr - ai * zi;
+                const float t = zr * c + zi * s; zi = zi * c - zr * s; zr = t;
+            }
+        }
+    } else {
+        // R(k) = w(k) · X Y* / |X Y*| auf S(t), sonst 0  -> CMSIS-Packing [Re0, ReN/2, Re1, Im1, ...]
+        std::memset(spec_, 0, sizeof(spec_));
+        for (uint32_t k = 1; k < NUM_BINS - 1; ++k) {
+            if (!sel.selected[k]) continue;
+            const float cr = X.re[k] * Y.re[k] + X.im[k] * Y.im[k];
+            const float ci = X.im[k] * Y.re[k] - X.re[k] * Y.im[k];
+            float mag = std::sqrt(cr * cr + ci * ci);
+            if (mag < 1e-9f) continue;
+            spec_[2 * k]     = sel.weight[k] * cr / mag;
+            spec_[2 * k + 1] = sel.weight[k] * ci / mag;
+        }
+        arm_rfft_fast_f32(&ifft_, spec_, corr_, 1);      // reelle Kreuzkorrelation, zirkulär
     }
-    arm_rfft_fast_f32(&ifft_, spec_, corr_, 1);      // reelle Kreuzkorrelation, zirkulär
 
-    // Peak in ±maxDelay (negative Lags liegen am Ende des Puffers)
-    int maxLag = static_cast<int>(maxDelay_s * SAMPLE_RATE_HZ);
-    if (maxLag < 1) maxLag = 1;
-    if (maxLag > static_cast<int>(N_FFT / 2 - 1)) maxLag = N_FFT / 2 - 1;
-    auto at = [&](int lag) { return corr_[(lag + static_cast<int>(N_FFT)) % N_FFT]; };
+    // Peak in ±maxLag (IFFT: negative Lags liegen am Ende des Puffers)
+    auto at = [this](int lag) { return lagValue(lag); };
 
     int bestLag = 0; float best = -1e30f;
     for (int lag = -maxLag; lag <= maxLag; ++lag) { const float v = at(lag); if (v > best) { best = v; bestLag = lag; } }
@@ -155,15 +216,17 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
     out = Bearing{};
     float sxx = 0, sxy = 0, syy = 0, bx = 0, by = 0, peakSum = 0;
     uint32_t idx = 0, valid = 0;
+    const int maxLag = maxLagFor(maxIntraDelay_s_);
+    prepareBins(sel, maxLag);                                  // einmal je Frame für alle 28 Paare
     for (uint32_t i = 0; i < NUM_MICS; ++i) {
         for (uint32_t j = i + 1; j < NUM_MICS; ++j, ++idx) {
             TdoaMeasurement& m = pairTdoa_[idx];
             m.i = i; m.j = j;
-            const bool ok = crossCorrelate(S[i], S[j], sel, maxIntraDelay_s_, m);
+            const bool ok = correlatePair(S[i], S[j], sel, maxLag, m);
             if (SRP_REFERENCE_ENABLED) {
-                // Korrelationsfenster für den SRP-Scan sichern (corr_ ist zirkulär, negative Lags am Ende)
+                // Korrelationsfenster für den SRP-Scan sichern
                 for (int lag = -static_cast<int>(SRP_MAX_LAG); lag <= static_cast<int>(SRP_MAX_LAG); ++lag)
-                    pairCorr_[idx][lag + SRP_MAX_LAG] = (sel.num_bins == 0) ? 0.0f : corr_[(lag + static_cast<int>(N_FFT)) % N_FFT];
+                    pairCorr_[idx][lag + SRP_MAX_LAG] = (sel.num_bins == 0) ? 0.0f : lagValue(lag);
             }
             if (!ok) continue;
             ++valid; peakSum += m.peak;

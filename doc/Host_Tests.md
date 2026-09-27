@@ -5,6 +5,10 @@ Sammlung aller Tests, die bei der Code-Analyse und der Bearbeitung der Befunde
 ohne Board, ohne HAL, ohne RTOS.
 
 Referenzergebnisse: Stand 25.09.2026, Code-Stand Commit `0dc8150`.
+Seit 27.09.2026 erzeugt der Simulator Rauschen und Oszillatoren anders (Irwin-Hall statt
+Box-Muller, Zeiger in float statt `sin()` in double – Rechenzeit auf dem Board). Die Messwerte
+weichen dadurch leicht ab; neu gemessen und eingetragen sind `t_bearing_broadband`,
+`m_bearing_drone` und `m_selection`, die übrigen liegen innerhalb weniger Prozent der Tabellen.
 
 ---
 
@@ -21,6 +25,7 @@ Referenzergebnisse: Stand 25.09.2026, Code-Stand Commit `0dc8150`.
 | Prüfung | `t_bearing_broadband` | 23, 8 | Peilung einer breitbandigen Quelle, 24 Richtungen |
 | Prüfung | `t_ml124` | 20, 36 | MLP in 124: Merkmalsversion, C++ ↔ Keras, Kontextstapel, Stufen |
 | Prüfung | `t_hopclock` | 28 | Hop-Takt der Simulation im ProcessingTask (31,25 Hops/s) |
+| Prüfung | `t_gcc_direct` | – | Schnellpfad der GCC-PHAT in 126 gleich IFFT, Zeit je Frame |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
 | Messung | `m_bearing_drone` | 8, 17, 23, 24 | Peilung eines Drohnensignals über die volle Kette |
@@ -152,7 +157,8 @@ als Leser), 0 defekt, 0 vertauscht.
 ### t_bearing_broadband – Befunde 23, 8
 Breitbandige Quelle (Wind-Szenario als Punktquelle), alle Bänder selektiert, 24 Richtungen
 0…345°; TDOA-LS-Peilung (`estimateBearing`) und SRP-Scan.
-Kriterium: 24/24 gültig, max. Fehler < 0,5°. Referenz: max. 0,09° (TDOA-LS), 0,07° (SRP).
+Kriterium: 24/24 gültig, max. Fehler < 0,5°. Referenz: max. 0,12° (TDOA-LS), 0,10° (SRP); vor dem
+Simulator-Umbau 0,09° / 0,07°.
 
 ### t_ml124 – Befunde 20, 36 (AP6 Trainingskonzept ML124)
 Modell aus `ML124_Model_Data.hpp`, Referenzvektoren aus `common/ML124_Model_Ref.hpp` (beide von
@@ -176,6 +182,18 @@ Kriterium: nach 60 s genau 1875 Hops (31,25 /s) ohne übersprungene; 100 ms Vers
 einmal; 1 s Verspätung → 4 nachgeholt, 27 übersprungen und gezählt; Tick-Überlauf und 1024 Hz
 (32,768 Ticks je Hop) über 10 min: 18 750 Hops.
 Vorher (`osDelay(40)` plus Rechenzeit): höchstens 25 Hops/s.
+
+### t_gcc_direct – Schnellpfad der GCC-PHAT (126)
+Bei höchstens `DIRECT_MAX_BINS` (128) selektierten Bins berechnet 126 die Korrelation nur für die
+Lags ±64 direkt aus den Bins statt per IFFT über 4096 Werte. Geprüft gegen die IFFT
+(`setDirectMaxBins(0)`):
+1. 400 verzögerte Spektrenpaare (τ −50…+50 Samples, 3–24 Bänder, Rauschen): gleiche Gültigkeit,
+   |Δτ| ≤ 1e-3 Samples, Peak und Ratio relativ ≤ 1e-3.
+2. Volle Kette, DroneStatic 10 dB, 12 Richtungen: Schnellpfad in jedem Frame, Peilung und SRP
+   gleich (|Δaz| ≤ 0,01°).
+
+Referenz: |Δτ| 1,1·10⁻⁵ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0,0001°);
+`estimateBearing()` je Frame 0,40 ms (Schnellpfad) gegenüber 1,33 ms (IFFT), x86 `-O2`.
 
 ---
 
@@ -218,12 +236,12 @@ Referenz DroneStatic:
 
 | SNR | gültig | Paare | Ratio-Median | Fehler Median | Fehler 95 % |
 |---|---|---|---|---|---|
-| 30 dB | 100 % | 28,0 | 15,9 | 0,19° | 0,67° |
-| 20 dB | 100 % | 28,0 | 15,2 | 0,43° | 1,28° |
-| 10 dB | 100 % | 27,3 | 14,5 | 0,88° | 3,14° |
-| 6 dB | 100 % | 27,2 | 15,1 | 1,17° | 4,17° |
-| 3 dB | 99 % | 26,8 | 16,5 | 1,55° | 5,31° |
-| 0 dB | 90 % | 23,7 | 13,4 | 2,21° | 7,52° |
+| 30 dB | 100 % | 28,0 | 15,8 | 0,19° | 0,73° |
+| 20 dB | 100 % | 28,0 | 15,2 | 0,44° | 1,31° |
+| 10 dB | 100 % | 27,4 | 14,6 | 0,91° | 3,06° |
+| 6 dB | 100 % | 27,2 | 15,0 | 1,16° | 3,89° |
+| 3 dB | 99 % | 27,1 | 17,2 | 1,62° | 5,45° |
+| 0 dB | 90 % | 23,9 | 13,7 | 2,07° | 6,66° |
 
 DroneSweep (1° je Hop): Median 0,7–2,2°, 95 % 1,7–7,4° (der Sweep dreht innerhalb eines Frames).
 Vor Befund 8 waren bei Drohnensignal 0 % der Peilungen gültig (Ratio-Median ≈ 1,17).
@@ -235,10 +253,10 @@ Referenz:
 | Szenario | detected | HBD | Bänder | davon Harmonische | Report |
 |---|---|---|---|---|---|
 | Drohne 20 dB | 100 % | 100 % | 8,0 | 87 % | 100 % |
-| Drohne 10 dB | 100 % | 94 % | 8,0 | 87 % | 100 % |
+| Drohne 10 dB | 100 % | 95 % | 8,0 | 87 % | 100 % |
 | Drohne 3 dB | 100 % | 52 % | 5,0 | 94 % | 100 % |
-| Drohne 0 dB | 57 % | 13 % | 2,8 | 99 % | 56 % |
-| Einzelton | 1 % | 0,5 % | 0,1 | – | 0 % |
+| Drohne 0 dB | 64 % | 14 % | 3,0 | 99 % | 63 % |
+| Einzelton | 0 % | 0 % | 0 | – | 0 % |
 | Wind | 0 % | 0 % | 0 | – | 0 % |
 | Stille | 0 % | 0 % | 0 | – | 0 % |
 

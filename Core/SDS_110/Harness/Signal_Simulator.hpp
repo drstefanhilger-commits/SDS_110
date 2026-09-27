@@ -54,8 +54,14 @@ private:
     SimParams p_{};
     Microphone_Array_114& array_ = Microphone_Array_114::instance();
     float    delaySamples_[NUM_MICS] = {};
-    double   phase_[16] = {};
-    double   amPhase_ = 0.0;
+    // Oszillatoren als Zeiger (Re, Im) in float, je Sample um den Schritt gedreht: auf dem Board
+    // (FPU nur einfache Genauigkeit) war sin() in double je Harmonische und Sample der Großteil
+    // der Rechenzeit des ProcessingTask. Im entspricht dem bisherigen sin(Phase).
+    static constexpr uint32_t MAX_HARM = 16;
+    float    oscRe_[MAX_HARM] = {}, oscIm_[MAX_HARM] = {};
+    float    stepRe_[MAX_HARM] = {}, stepIm_[MAX_HARM] = {};
+    float    amRe_ = 1.0f, amIm_ = 0.0f, amStepRe_ = 1.0f, amStepIm_ = 0.0f;
+    void     updateOscillators();        // Schritte aus f0/bpf_mod_hz, Zeiger normieren (je Hop)
     uint32_t rng_ = 0x12345678;
     float    pinkState_[3] = {};
     // Quellsignal: [GUARD Vergangenheit][HOP_SAMPLES aktuell][GUARD Vorlauf]; zwischen zwei
