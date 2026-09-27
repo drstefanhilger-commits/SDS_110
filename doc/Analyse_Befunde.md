@@ -26,6 +26,8 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 19 | Logger: threadsicher, Überlaufschutz, max. 255 Zeichen | 25.09.2026 | 7da4097 |
 | 21 | SRAM1 gecacht, DMA-Puffer in nicht cachebarem SRAM2 (Normal statt Strongly-ordered) | 25.09.2026 | 0621e76 |
 | 22 | Migrationsnotizen und READMEs auf aktuellen Stand | 25.09.2026 | 9941759 |
+| 36 | Veraltetes HBD_ML_Model_Data.hpp ersetzt (mit 20) | 27.09.2026 | 5017f27 |
+| 28 | Task-Takt an den 32-ms-Hop gekoppelt (HopClock, Warten auf Hop) | 27.09.2026 | 84897b2 |
 | 39 | LTDC-Pins GPIO_SPEED_FREQ_HIGH (Bild zitterte) | 27.09.2026 | 604b34d |
 
 ## Blocker (Hardware-Pfad)
@@ -158,10 +160,43 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 25. **Modus-Werte in `PC_Monitor_Test.ptp` vertauscht** – Die Test-Makros senden „Calibrate“ = 3 und „Read“ = 2; die Firmware verwendet seit dem ersten Commit `DETECT = 1, CALIBRATE = 2, READ = 3` (`SDS_Mode`). Entweder sind die Makros falsch beschriftet oder der PC-Monitor nutzt eine andere Zuordnung. Gegen den PC-Monitor prüfen, dann `.ptp` oder `SDS_Mode` angleichen.
     Status: offen
 
+## Neu aus der Analyse vom 27.09.2026 (26–38)
+
+Quelle mit Messungen und Begründungen: `doc/Analyse_27_09_2026.md` (Abschnitte 3 und 4). Hier nur
+Befund, Folge und Status. „Gemessen“ = im Host-Test nachgewiesen, „Code“ = am Quelltext
+nachvollzogen, „plausibel“ = nicht nachgewiesen.
+
+26. **TDOA-LS-Peilung mehrdeutig bei f0 über ca. 400 Hz** (126 `crossCorrelate()`, `estimateBearing()`; hoch, gemessen) – Ist 1/f0 kürzer als das Lag-Fenster ±61 Samples, hat jedes Paar zwei fast gleich hohe Spitzen; die falsche Peilung wird als gültig gemeldet. 95-%-Fehler bei 420 Hz 25°, bei 650 Hz Median 105°; SRP bleibt unter 4°. Echte Drohnen (Bebop) haben ihre stärksten Linien bei 390–530 Hz.
+    Status: offen – Abhilfen: TDOA aus der SRP-Richtung vorbelegen, Ausreißer-Paare per Konsistenz verwerfen oder Lag-Fenster über `TDOA_WINDOW_S` einengen; Host-Test über f0 = 120…650 Hz ergänzen.
+27. **Lücken im Hop-Strom werden nicht erkannt** (114 `pushBlock()`, `acquireFree()`; hoch, Code) – Im Verwerf-Pfad wird keine `frame_id` verbraucht; nach verworfenen Blöcken bleibt die Folge lückenlos, der Frame_Assembler setzt Frames aus zeitlich getrennten Hälften zusammen (z. B. nach CALIBRATE → DETECT). Zusätzlich wird der Block verworfen, auch wenn `acquireFree()` gerade einen Puffer geliefert hat.
+    Status: offen – Abhilfe: im Verwerf-Pfad `nextId_` erhöhen oder Zeitabstand im Assembler prüfen; Host-Test über `pushBlock()` mit vollem Puffer. Achtung: 114 geht in die Merkmalsversion ein (neu exportieren).
+28. **Task-Takt 40 ms passt nicht zu 32-ms-Hops** (`ProcessingTask`; mittel, Code) – Simulation ≤ 25 statt 31,25 Hops/s, Halte- und Anlaufzeiten gedehnt; READ verwirft Hops.
+    Status: **bearbeitet (27.09.2026, Commit 84897b2)** – Host-Test `t_hopclock`, auf dem Board läuft der Task, Rate nicht gemessen. `HopClock` + `osDelayUntil` in der Simulation (höchstens 4 Hops nachholen, bei Überlast 1), mit Hardware Warten auf den Hop (Thread-Flag aus dem 116-Interrupt), READ sendet alle bereiten Hops. Überlastschutz: Commit 1bd9924.
+29. **Getter von `SDS_Data` liefern bei Sperr-Timeout (2 ms) den Wert 0** (`SDS_Data.hpp`; hoch, plausibel → am Board beobachtet) – `getSimulation()` = 0 schaltete auf SAI-DMA (HardFault-Pfad Blocker 2); Setter verwerfen Werte. Am Board bei CPU-Überlast als springende Anzeigewerte gesehen.
+    Status: **teilweise bearbeitet (27.09.2026, Commit 4b93f70)** – `tryGetValue()`/`tryGetSimulation()`, der ProcessingTask behält bei Timeout den letzten Simulationswert; SAI-Start ohne DMA abgefangen. Übrige Getter (LCD, USB) unverändert.
+30. **Start trotz fehlgeschlagener Initialisierung** (116, `SDS110_Init`, `ProcessingTask`; mittel, Code) – Nach Codec-Fehler bleibt die SAI mit CubeMX-Takt (53,6 kHz) aktiv.
+    Status: offen
+31. **Wechsel Simulation ↔ Hardware mitten im Hop** (`ProcessingTask`; mittel, Code) – Ein Hop enthält echte und simulierte Daten.
+    Status: offen – seit Commit 84897b2 erzeugt die Simulation immer ganze Hops; beim Wechsel Hardware → Simulation bleibt der angefangene DMA-Hop in 114 aber stehen und wird mit simulierten Blöcken aufgefüllt.
+32. **Nur ein Kommando je USB-Paket** (`USBTask`; mittel, Code) – Zusammengefasste Kommandos gehen still verloren, geteilte lösen Fehler aus.
+    Status: offen
+33. **UnitReport-Zeitstempel nur in ms (uint32)** (`Output_Interface_130.cpp`; mittel, Code) – Die µs-Zeit aus Befund 16 erreicht den PC nicht; Inter-Unit-TDOA (10 µs) damit unmöglich.
+    Status: offen
+34. **Sammelpunkt Kleinigkeiten** (niedrig, Code) – Feedback 150 → 126 wird nie zurückgesetzt (`clearFeedback()` nur in `init()`), `pred_azimuth_deg`/`TDOA_WINDOW_S` ungenutzt; TX-Ring sendet nach USB-Trennung alte Daten zuerst; `sendLogging()` Id in Byte 4 statt 7; `SPEED_OF_SOUND` fest trotz Kommentar „temperaturkorrigiert“; SAI-Taktflanke `FALLINGEDGE` am Board prüfen (mit 4 und 6); SAI-Fehlercallback zählt teils doppelt.
+    Status: offen
+35. **READ-Modus liefert keine Rohdaten und verwirft Hops** (112/`USBDriver`; hoch für AP 8) – Gesendet wird nach Bandpass, NS und AGC (`sds_features` würde 118 doppelt anwenden); AGC bis 32-fach läuft beim PC über; Hop-Verluste ohne Kennung.
+    Status: offen – der Hop-Verlust durch den Task-Takt ist mit 28 behoben (alle bereiten Hops werden gesendet); Rohdaten vor 118 und Hop-Nummer im Nachrichtenkopf fehlen.
+36. **`HBD_ML_Model_Data.hpp` veraltet** (ML-Kette; mittel) – Aus einer externen Sitzung, trainiert ohne Überlappung, 171 Eingänge mit Cepstrum.
+    Status: **bearbeitet (27.09.2026, Commit 5017f27)** – gelöscht und durch `ML124_Model_Data.hpp` (ML_Test `export.py`, `k5_h48_d3`) ersetzt; siehe Befund 20 und `doc/Vergleich_HBD_ML124.md`.
+37. **HBD-Vergleich schließt die HBD-Anlaufzeit nicht aus** (ML_Test `ml124_data.py`; mittel) – Verworfen werden 31 Frames, der HBD entscheidet erst nach 94; die HBD-Werte in `Training_ML124.md` § 3 fallen zu niedrig aus.
+    Status: offen – Vergleich ab Frame 94 wiederholen.
+38. **Prüfbereich f0 und Validierungstrennung** (ML_Test; mittel) – Synthetische Drohnen nur BPF 80–350 Hz, echte teils darüber (vgl. 26); Umwelt-Clips der Validierung aus demselben Pool wie im Training.
+    Status: offen – BPF bis ca. 700 Hz trainieren, `m_bearing_drone`/`m_selection` bis 650 Hz messen.
+
 ## Neu vom Board (27.09.2026)
 
 Testaufbau: STM32F746G-DISCO mit dessen Display RK043FN48H, bis die Platine mit den 8 Mikrofonen
-vorhanden ist. Die Befunde 26–38 stehen in `doc/Analyse_27_09_2026.md`.
+vorhanden ist.
 
 39. **Bild zittert in allen Modi (LTDC-Pins zu langsam)** – Alle 28 LTDC-Pins (R/G/B-Daten, HSYNC, VSYNC, DE, CLK) waren aus dem CubeMX-Preset mit `GPIO_SPEED_FREQ_LOW` konfiguriert (`HAL_LTDC_MspInit`, `SDS.ioc` ohne `GPIO_Speed`). Bei 9,6 MHz Pixeltakt sind die Flanken damit zu flach, das Panel tastet Takt und Daten unsicher ab: Das Bild zitterte, als würde der Speicher überschrieben. Das ST-BSP für das DISCO nutzt eine hohe Geschwindigkeitsstufe; die FMC-Pins zum SDRAM standen bereits auf `VERY_HIGH`.
     Status: **bearbeitet (27.09.2026, Commit 604b34d)** – auf dem Board geprüft: Das Bild flackert nicht mehr.
