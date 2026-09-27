@@ -24,6 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "SDS110_Fatal.h"
 
 /* USER CODE END Includes */
 
@@ -77,10 +78,8 @@ void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName)
 {
    /* Stacküberlauf (configCHECK_FOR_STACK_OVERFLOW = 2): anhalten, damit der Fehler im
    Debugger sichtbar ist; pcTaskName nennt den betroffenen Task. */
-   volatile signed char *name = pcTaskName;
-   (void)xTask; (void)name;
-   taskDISABLE_INTERRUPTS();
-   for (;;) {}
+   (void)xTask;
+   SDS110_FatalStackOverflow((const char*)pcTaskName);   /* LCD-Meldung, dann anhalten */
 }
 /* USER CODE END 4 */
 
@@ -89,8 +88,7 @@ void vApplicationMallocFailedHook(void)
 {
    /* pvPortMalloc() fehlgeschlagen: FreeRTOS-Heap (configTOTAL_HEAP_SIZE) reicht nicht
    für Task, Queue oder Mutex. Anhalten statt mit NULL-Handle weiterzulaufen. */
-   taskDISABLE_INTERRUPTS();
-   for (;;) {}
+   SDS110_FatalMallocFailed();                           /* LCD-Meldung, dann anhalten */
 }
 /* USER CODE END 5 */
 
