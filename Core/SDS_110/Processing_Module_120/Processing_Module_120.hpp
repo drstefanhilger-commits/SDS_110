@@ -43,8 +43,13 @@ private:
     Processing_Module_120() : unit_(0) {}
 
     Sensor_Unit_112                   unit_;
-    Feature_Extraction_Module_122     feat_;
-    Machine_Learning_Module_124       ml_;
+    // 122 und 124 im internen RAM (statisch) statt in dieser Instanz im SDRAM: die FFT in 122
+    // arbeitet in-place auf 16-kB-Puffern und verfehlte im SDRAM fast immer den 4-kB-D-Cache
+    // (Board: 122 ~36 ms je Frame). 122/124 selbst bleiben unverändert (Merkmalsversion).
+    static Feature_Extraction_Module_122 featInst_;
+    static Machine_Learning_Module_124   mlInst_;
+    Feature_Extraction_Module_122&    feat_ = featInst_;
+    Machine_Learning_Module_124&      ml_   = mlInst_;
     Correlation_Processing_Module_126 corr_;
     Localisation_Module_128           loc_;
     Output_Interface_130              out_;
