@@ -205,3 +205,15 @@ vorhanden ist.
     - Nebenbei geändert (Commit 24b3c7b): Puffertausch in der vertikalen Austastlücke statt `RELOAD_IMMEDIATE`, DMA2D-Pausen je Burst.
     - Diagnose bleibt im Code: LCD-Zeile y = 160 `FB <Zyklen> x<Streifen>` (Prüfsumme des angezeigten Puffers, Commit 1d36970), y = 180 `LTDC U.. T.. D2D ../.. VB..`, Testbild mit `LCDTask::kTestPattern`.
     - Für die eigene Platine: siehe Hinweis bei Blocker 3.
+
+## Neu aus der FSL9-Prüfung (27.09.2026)
+
+Quelle: `doc/Traceability_FSL9.md`.
+
+40. **Arraydurchmesser 400 mm statt 200 mm** (FSL9 §1, A3; hoch, Code) – `MIC_RADIUS_M = 0.20` war als Durchmesser gelesen worden, ist aber der Radius; das Array hatte damit 400 mm Durchmesser. Sollwert laut Rückfrage: Radius 100 mm, Durchmesser 200 mm.
+    Status: **bearbeitet (27.09.2026, Commit 28a7279)** – Host-Tests bestanden, am Board nicht gemessen.
+    - `SDS_110_Config.hpp`: `MIC_RADIUS_M = 0.10`; `SRP_MAX_LAG` 64 → 32 (größte Verzögerung 0,2 m / c · fs · 1,1 = 30,8 Samples), `static_assert` gegen ein zu kleines Fenster. 126: Schnellpfad rechnet ±32 statt ±64 Lags (`WIN_HALF = SRP_MAX_LAG`), `estimateBearing()` am Host 0,13 statt 0,28 ms; am Board wird „K GCC“ etwa halbiert erwartet (bisher 8,5 ms).
+    - Peilung (`m_bearing_drone`, DroneStatic): Fehler etwa doppelt so groß, Median 30 dB 0,37° (vorher 0,19°), 10 dB 1,85° (0,91°), 0 dB 4,36° (2,07°); gültig bei 0 dB 98 % (90 %). Werte in `doc/Host_Tests.md`.
+    - Merkmalsversion 837ff89cbda34b21 → cadc6552b54a4a01 (Config geht in den Hash ein). Die Merkmale hängen nicht von der Geometrie ab (122 rechnet auf dem Referenzmikrofon): altes und neues `sds_features` liefern auf den Referenzsignalen bitgleiche Merkmale. Modell `k5_h48_d3` daher ohne neues Training neu exportiert (ML_Test `export.py --same-as`).
+    - Zu Befund 26: Mit dem halben Lag-Fenster sollte die Mehrdeutigkeit erst bei etwa doppelter f0 (ca. 800 Hz) auftreten – nicht gemessen.
+    - Host-Makefile: Objekte hingen nicht von den Headern ab; nach der Änderung an `SDS_110_Config.hpp` lief `t_gcc_direct` zunächst mit veralteten Objekten (±61 statt ±31 Samples). Jetzt `-MMD -MP`.
