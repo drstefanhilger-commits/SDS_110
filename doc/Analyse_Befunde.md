@@ -26,6 +26,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 | 19 | Logger: threadsicher, Überlaufschutz, max. 255 Zeichen | 25.09.2026 | 7da4097 |
 | 21 | SRAM1 gecacht, DMA-Puffer in nicht cachebarem SRAM2 (Normal statt Strongly-ordered) | 25.09.2026 | 0621e76 |
 | 22 | Migrationsnotizen und READMEs auf aktuellen Stand | 25.09.2026 | 9941759 |
+| 39 | LTDC-Pins GPIO_SPEED_FREQ_HIGH (Bild zitterte) | 27.09.2026 | 604b34d |
 
 ## Blocker (Hardware-Pfad)
 
@@ -35,6 +36,7 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
    Status: **nicht bearbeiten** (DMA fehlt weiter). Seit 27.09.2026 abgefangen: `Sampling_Circuitry_116::start()` startet ohne `hdmarx` nicht (`dmaReady()`), `ProcessingTask` meldet „116: SAI ohne DMA“ auf dem LCD statt HardFault.
 3. **CubeMX-Konfiguration passt nicht zur eigenen Platine** – `.ioc` ist das Preset STM32F746G-DISCO (ETH, LTDC, DCMI, ULPI). Laut `STM32F746_PINS.txt` nutzt die Platine SAI1 (PE4/PE5), I2C2 (PB10/PB11), PE3 als Enable; der Code nutzt SAI2_A und I2C1. Auf dem DISCO ist PE3 der FAULT-Ausgang des STMPS2151 (`OTG_HS_OverCurrent`) und wird von `Sampling_Circuitry_116.cpp:37` als Push-Pull auf High getrieben.
    Status: **nicht bearbeiten**
+   - Hinweis (Befund 39): Bei der neuen CubeMX-Konfiguration für die eigene Platine die LTDC-Pins wieder auf `GPIO_SPEED_FREQ_HIGH` setzen; die CubeMX-Vorgabe `LOW` lässt das Bild zittern.
 4. **ADAU7118-Registertabelle vermutlich falsch** – `ADAU7118_Registers.hpp` (POWER, PLL_CTRL, MODE_CTRL …) passt weder zur Tabelle in `ADUA_Design.md` noch zur Registerbelegung des Linux-Treibers (0x00–0x03 IDs nur lesbar, 0x04 ENABLES, 0x05 DEC_RATIO_CLK_MAP, 0x06 HPF, 0x07/0x08 SPT_CTRL1/2, 0x11 DRIVE, 0x12 RESET). Schreibzugriffe auf nur lesbare Register werden per ACK bestätigt → `init()` meldet Erfolg ohne Wirkung. I2C-Adresse (0x4B oder 0x3A) offen. Designdoku §5 falsch: der ADAU7118 ist an der seriellen Schnittstelle Slave (SAI als Master ist korrekt).
    Status: **nicht bearbeiten**
 5. **Abtastrate vermutlich ≈ 53,6 kHz statt 48 kHz** – SAI2 bekommt 192 MHz aus PLLSAI, nach HAL-Formel MCKDIV = 7. Nur berechnet, am FSYNC messen. Abhilfe: SAI2 aus PLLI2S takten (≈ 49,152 MHz), da PLLSAI auch USB (48 MHz) und LTDC versorgt.
@@ -155,3 +157,16 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
     - Hinweis: Eine gültige Peilung allein ist kein Detektionskriterium – Wind (Punktquelle) wird zu 77 % gültig gepeilt, gesendet wird nur bei `detected`.
 25. **Modus-Werte in `PC_Monitor_Test.ptp` vertauscht** – Die Test-Makros senden „Calibrate“ = 3 und „Read“ = 2; die Firmware verwendet seit dem ersten Commit `DETECT = 1, CALIBRATE = 2, READ = 3` (`SDS_Mode`). Entweder sind die Makros falsch beschriftet oder der PC-Monitor nutzt eine andere Zuordnung. Gegen den PC-Monitor prüfen, dann `.ptp` oder `SDS_Mode` angleichen.
     Status: offen
+
+## Neu vom Board (27.09.2026)
+
+Testaufbau: STM32F746G-DISCO mit dessen Display RK043FN48H, bis die Platine mit den 8 Mikrofonen
+vorhanden ist. Die Befunde 26–38 stehen in `doc/Analyse_27_09_2026.md`.
+
+39. **Bild zittert in allen Modi (LTDC-Pins zu langsam)** – Alle 28 LTDC-Pins (R/G/B-Daten, HSYNC, VSYNC, DE, CLK) waren aus dem CubeMX-Preset mit `GPIO_SPEED_FREQ_LOW` konfiguriert (`HAL_LTDC_MspInit`, `SDS.ioc` ohne `GPIO_Speed`). Bei 9,6 MHz Pixeltakt sind die Flanken damit zu flach, das Panel tastet Takt und Daten unsicher ab: Das Bild zitterte, als würde der Speicher überschrieben. Das ST-BSP für das DISCO nutzt eine hohe Geschwindigkeitsstufe; die FMC-Pins zum SDRAM standen bereits auf `VERY_HIGH`.
+    Status: **bearbeitet (27.09.2026, Commit 604b34d)** – auf dem Board geprüft: Das Bild flackert nicht mehr.
+    - `stm32f7xx_hal_msp.c`, `HAL_LTDC_MspInit`: `GPIO_SPEED_FREQ_LOW` → `GPIO_SPEED_FREQ_HIGH` (5 Pin-Gruppen). `SDS.ioc`: `GPIO_Speed=GPIO_SPEED_FREQ_HIGH` für alle LTDC-Pins, damit CubeMX die Einstellung beim Neugenerieren behält.
+    - Vorher ausgeschlossen, am Board: CPU-Überlast (LCD-Zyklus 3 s → 9 ms nach Commit 1bd9924, Flackern blieb); LTDC-FIFO-Unterlauf und DMA2D-Fehler (Zähler nach Commit 24b3c7b alle 0). Per Code-Prüfung: Linkerskript (`STM32F746NGHX_FLASH.ld`, Framebuffer-Bereich frei), SDRAM-Timing und Modusregister (CAS 3), LTDC-Timing und -Takt (9,6 MHz, 59,3 Hz, passend zum DISCO-Display).
+    - Nebenbei geändert (Commit 24b3c7b): Puffertausch in der vertikalen Austastlücke statt `RELOAD_IMMEDIATE`, DMA2D-Pausen je Burst.
+    - Diagnose bleibt im Code: LCD-Zeile y = 160 `FB <Zyklen> x<Streifen>` (Prüfsumme des angezeigten Puffers, Commit 1d36970), y = 180 `LTDC U.. T.. D2D ../.. VB..`, Testbild mit `LCDTask::kTestPattern`.
+    - Für die eigene Platine: siehe Hinweis bei Blocker 3.
