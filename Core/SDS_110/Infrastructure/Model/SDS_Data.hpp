@@ -63,9 +63,12 @@ public:
     MlStatus getMl() const { return getValue(ml_); }
 
     // --- Rechenzeit je Stufe (ms, geglättet) – LCD-Zeile "ms S.. P.. F.. M.. K.. R.." ----
-    struct StageTimes { float sim = 0, pre = 0, feat = 0, ml = 0, corr = 0, rest = 0; };
+    struct StageTimes { float sim = 0, pre = 0, feat = 0, ml = 0, corr = 0, rest = 0;
+                        float corrSel = 0, corrGcc = 0, corrSrp = 0; };   // corr = Sel + Gcc + Srp
     void setStageTimes(float pre, float feat, float ml, float corr, float rest)
     { if (!lock()) return; st_.pre = pre; st_.feat = feat; st_.ml = ml; st_.corr = corr; st_.rest = rest; unlock(); }
+    void setCorrTimes(float sel, float gcc, float srp)
+    { if (!lock()) return; st_.corrSel = sel; st_.corrGcc = gcc; st_.corrSrp = srp; unlock(); }
     void setSimTime(float ms) { if (!lock()) return; st_.sim = ms; unlock(); }
     StageTimes getStageTimes() const { return getValue(st_); }
 

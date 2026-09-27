@@ -12,6 +12,7 @@ namespace sds110 {
 SDS110_SDRAM_SECTION Spectrum Processing_Module_120::spectra_[NUM_MICS];
 Feature_Extraction_Module_122 Processing_Module_120::featInst_;   // .bss, internes RAM
 Machine_Learning_Module_124   Processing_Module_120::mlInst_;
+Correlation_Processing_Module_126 Processing_Module_120::corrInst_;
 
 Processing_Module_120& Processing_Module_120::instance()
 {
@@ -82,13 +83,18 @@ bool Processing_Module_120::processFrame()
     // (d)(e) 126: Selektion, Gewichtung, quellkonditionierte GCC-PHAT, Peilung
     const uint32_t c4 = dwt.cycles();
     corr_.deriveSelection(state_, selection_);
+    const uint32_t c4a = dwt.cycles();
     corr_.estimateBearing(spectra_, selection_, bearing_);
+    const uint32_t c4b = dwt.cycles();
     if (SRP_REFERENCE_ENABLED) {                       // Vergleich TDOA-LS (Patent) vs. SRP-PHAT (alt)
         float srpAz = 0.0f, srpPow = 0.0f, srpRatio = 0.0f;
         if (corr_.srpScan(srpAz, srpPow, srpRatio)) { dm.setDebugValue(0, srpAz); dm.setDebugValue(1, srpRatio); }
     }
     const uint32_t c5 = dwt.cycles();
     smoothMs(tCorr_, c5 - c4);
+    smoothMs(tSel_, c4a - c4);                         // Selektion S(t), Gewichte
+    smoothMs(tGcc_, c4b - c4a);                        // 28 Paar-Korrelationen + LS-Peilung
+    smoothMs(tSrp_, c5 - c4b);                         // SRP-Referenzscan
 
     // (f) 128: Kandidatenposition (Einzel-Unit: Peilung + Pegel-Fallback)
     // levelA aus dem Referenzspektrum nach 118; durch die dort angewendete Verstärkung
@@ -109,6 +115,7 @@ bool Processing_Module_120::processFrame()
     // Rest: SDS_Data-Aufrufe zwischen den Stufen, 128, 130
     smoothMs(tRest_, (dwt.cycles() - c1) - (c2 - c1) - (c3 - c2) - (c5 - c4));
     dm.setStageTimes(tPre_, tFeat_, tMl_, tCorr_, tRest_);
+    dm.setCorrTimes(tSel_, tGcc_, tSrp_);
     return true;
 }
 
