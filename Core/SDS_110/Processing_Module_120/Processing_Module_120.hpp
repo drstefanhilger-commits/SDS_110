@@ -50,7 +50,8 @@ private:
     static Machine_Learning_Module_124   mlInst_;
     Feature_Extraction_Module_122&    feat_ = featInst_;
     Machine_Learning_Module_124&      ml_   = mlInst_;
-    Correlation_Processing_Module_126 corr_;
+    static Correlation_Processing_Module_126 corrInst_;   // ebenfalls internes RAM (18 kB)
+    Correlation_Processing_Module_126& corr_ = corrInst_;
     Localisation_Module_128           loc_;
     Output_Interface_130              out_;
 
@@ -63,6 +64,7 @@ private:
     TrackingFeedback   feedback_{};
 
     float tPre_ = 0, tFeat_ = 0, tMl_ = 0, tCorr_ = 0, tRest_ = 0;   // ms je Stufe, geglättet
+    float tSel_ = 0, tGcc_ = 0, tSrp_ = 0;                          // 126 aufgeteilt
 
     static Spectrum spectra_[NUM_MICS];   // SDRAM: 8 x 16 kB
 };

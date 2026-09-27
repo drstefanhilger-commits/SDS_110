@@ -158,8 +158,10 @@ void LCDTask::showSystemData()
     }
     // Rechenzeit je Hop in ms (geglättet), Budget 32 ms:
     //   y = 240: Sim = Signal_Simulator, Proc = Processing Module 120 (Summe der Stufen)
-    //   y = 260: Stufen von Proc – P 118+Fenster, F 122 (8 FFT + Merkmale), M 124,
-    //            K 126 (Selektion, 28 Paar-Korrelationen, SRP), R Rest (128, 130, SDS_Data)
+    //   y = 250: Stufen von Proc – P 118+Fenster, F 122 (8 FFT + Merkmale), M 124,
+    //            K 126, R Rest (128, 130, SDS_Data)
+    //   y = 260: K aufgeteilt – Sel deriveSelection, GCC 28 Paar-Korrelationen + LS-Peilung,
+    //            SRP Referenzscan (die Fehleranzeige nach einem USB-Fehler überdeckt y = 250 kurz)
     const SDS_Data::StageTimes st = dm_.getStageTimes();
     const float proc = st.pre + st.feat + st.ml + st.corr + st.rest;
     snprintf(buf_, sizeof(buf_), "Sim %.1f  Proc %.1f ms", static_cast<double>(st.sim), static_cast<double>(proc));
@@ -167,6 +169,9 @@ void LCDTask::showSystemData()
     snprintf(buf_, sizeof(buf_), "  P%.0f F%.0f M%.0f K%.0f R%.0f", static_cast<double>(st.pre),
              static_cast<double>(st.feat), static_cast<double>(st.ml), static_cast<double>(st.corr),
              static_cast<double>(st.rest));
+    gfx_->text8x12(10, 250, buf_, Color::White);
+    snprintf(buf_, sizeof(buf_), "  K Sel%.1f GCC%.1f SRP%.1f", static_cast<double>(st.corrSel),
+             static_cast<double>(st.corrGcc), static_cast<double>(st.corrSrp));
     gfx_->text8x12(10, 260, buf_, Color::White);
     snprintf(buf_, sizeof(buf_), "USB timeSync   %lu", static_cast<unsigned long>(usb_debug_counter));
     gfx_->text8x12(10, 230, buf_, Color::White);
