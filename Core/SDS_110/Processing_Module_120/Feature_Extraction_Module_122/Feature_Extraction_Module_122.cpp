@@ -1,6 +1,7 @@
 /*
  * Feature_Extraction_Module_122.cpp
  */
+#include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board
 #include "Feature_Extraction_Module_122.hpp"
 #include <cmath>
 #include <cstring>

@@ -1,6 +1,7 @@
 /*
  * Signal_Simulator.cpp
  */
+#include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board
 #include "Signal_Simulator.hpp"
 #include <cmath>
 #include <cstring>

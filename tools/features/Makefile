@@ -20,7 +20,8 @@ FEATURE_SRCS := $(S)/SDS_110_Config.hpp \
                 $(S)/Sensor_Unit_112/Frame_Assembler.hpp $(S)/Sensor_Unit_112/Frame_Assembler.cpp \
                 $(S)/Processing_Module_120/Feature_Extraction_Module_122/Feature_Extraction_Module_122.hpp \
                 $(S)/Processing_Module_120/Feature_Extraction_Module_122/Feature_Extraction_Module_122.cpp
-FEATURE_VERSION := $(shell cat $(FEATURE_SRCS) | sha256sum | cut -c1-16)
+# Die Zeile #include "…DspOptimize.hpp" (Optimierungsstufe auf dem Board) ändert keine Merkmale -> herausgefiltert
+FEATURE_VERSION := $(shell cat $(FEATURE_SRCS) | grep -v DspOptimize.hpp | sha256sum | cut -c1-16)
 SDS110_GIT      := $(shell git -C $(PROJ) describe --always --dirty 2>/dev/null || echo unbekannt)
 
 CXXFLAGS := -std=gnu++17 -O2 -Wall -I$(PROJ)/test/host/shim -I$(S) -I$(PROJ)/Core/Lib -I$(HERE)

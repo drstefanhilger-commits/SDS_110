@@ -53,6 +53,7 @@ private:
     bool simOn_      = true;       // zuletzt gelesener Wert von SDS_Data::simulation (Standard 1)
     bool hwTimeout_  = false;      // Meldung "keine Hops" nur einmal je Ausfall
     uint32_t runStartTick_ = 0, runEndTick_ = 0;
+    float    simMs_ = 0;           // Simulator je Hop (ms, geglättet) -> LCD "ms S.."
     SDS_Data& dm_ = SDS_Data::instance();
 };
 

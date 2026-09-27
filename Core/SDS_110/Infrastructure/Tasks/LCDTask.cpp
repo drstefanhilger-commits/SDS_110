@@ -156,6 +156,13 @@ void LCDTask::showSystemData()
                  static_cast<double>(ml.bandOverlap), static_cast<double>(ml.meanAbsDiff));
         gfx_->text8x12(10, 220, buf_, Color::White);
     }
+    // Rechenzeit je Stufe in ms (geglättet): S Simulator/Hop, P 118+Fenster/Hop,
+    // F 122 (8 FFT + Merkmale), M 124, K 126 (Selektion, 28 Paar-Korrelationen, SRP), R Rest
+    const SDS_Data::StageTimes st = dm_.getStageTimes();
+    snprintf(buf_, sizeof(buf_), "ms S%.0f P%.0f F%.0f M%.0f K%.0f R%.0f", static_cast<double>(st.sim),
+             static_cast<double>(st.pre), static_cast<double>(st.feat), static_cast<double>(st.ml),
+             static_cast<double>(st.corr), static_cast<double>(st.rest));
+    gfx_->text8x12(10, 240, buf_, Color::White);
     snprintf(buf_, sizeof(buf_), "USB timeSync   %lu", static_cast<unsigned long>(usb_debug_counter));
     gfx_->text8x12(10, 230, buf_, Color::White);
 }

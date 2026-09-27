@@ -1,6 +1,7 @@
 /*
  * Machine_Learning_Module_124.cpp – HBD / MLP -> s(t)
  */
+#include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board
 #include "Machine_Learning_Module_124.hpp"
 #include "arm_math.h"
 #include <cmath>

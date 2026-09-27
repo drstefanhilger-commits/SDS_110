@@ -4,6 +4,7 @@
 #include "Processing_Module_120.hpp"
 #include "Infrastructure/Model/SDS_Data.hpp"
 #include "Infrastructure/Driver/USBDriver.hpp"
+#include "Infrastructure/Utils/DWT.hpp"
 #include <cmath>
 
 namespace sds110 {
@@ -37,21 +38,36 @@ bool Processing_Module_120::init(SAI_HandleTypeDef* hsai, I2C_HandleTypeDef* hi2
 
 bool Processing_Module_120::start() { return unit_.start(); }
 
+// Rechenzeit je Stufe (DWT-Zyklen -> ms), gleitend geglättet (~10 Frames)
+static inline void smoothMs(float& acc, uint32_t cycles)
+{
+    const float ms = DWTTimer::instance().cyclesToUs(cycles) / 1000.0f;
+    acc += 0.1f * (ms - acc);
+}
+
 bool Processing_Module_120::processFrame()
 {
     SDS_Data& dm = SDS_Data::instance();
+    DWTTimer& dwt = DWTTimer::instance();
+    const uint32_t c0 = dwt.cycles();
     const AnalysisFrame* frame = nullptr;
     if (!unit_.nextFrame(frame)) return false;   // 112: Hop + 118 + Analysefenster
+    smoothMs(tPre_, dwt.cycles() - c0);
     if (!frame) return true;                     // Hop verbraucht, Fenster füllt noch
+    const uint32_t c1 = dwt.cycles();
 
     // (b) 122: STFT Referenzkanal + Merkmale, dann übrige Kanäle für 126
     feat_.process(*frame, spectra_[REF_MIC], features_);
     for (uint32_t m = 0; m < NUM_MICS; ++m)
         if (m != REF_MIC) feat_.computeSpectrum(frame->data[m], FRAME_SAMPLES, spectra_[m]);
     const uint64_t t = frame->time_utc_us;
+    const uint32_t c2 = dwt.cycles();
+    smoothMs(tFeat_, c2 - c1);
 
     // (c) 124: Acoustic State s(t)
     if (!ml_.infer(feat_.magnitude(), features_, state_)) { dm.setMlRunError(true); return true; }
+    const uint32_t c3 = dwt.cycles();
+    smoothMs(tMl_, c3 - c2);
     dm.setMlRunError(false);
     dm.setAcousticState(state_);
     dm.setHbd(ml_.hbd().f0Hz, ml_.hbd().score, ml_.hbd().globalSnrAvgDb, ml_.hbd().consistentBands, ml_.hbd().droneDetected);
@@ -62,12 +78,15 @@ bool Processing_Module_120::processFrame()
     if (out_.pollFeedback(feedback_)) corr_.applyFeedback(feedback_);
 
     // (d)(e) 126: Selektion, Gewichtung, quellkonditionierte GCC-PHAT, Peilung
+    const uint32_t c4 = dwt.cycles();
     corr_.deriveSelection(state_, selection_);
     corr_.estimateBearing(spectra_, selection_, bearing_);
     if (SRP_REFERENCE_ENABLED) {                       // Vergleich TDOA-LS (Patent) vs. SRP-PHAT (alt)
         float srpAz = 0.0f, srpPow = 0.0f, srpRatio = 0.0f;
         if (corr_.srpScan(srpAz, srpPow, srpRatio)) { dm.setDebugValue(0, srpAz); dm.setDebugValue(1, srpRatio); }
     }
+    const uint32_t c5 = dwt.cycles();
+    smoothMs(tCorr_, c5 - c4);
 
     // (f) 128: Kandidatenposition (Einzel-Unit: Peilung + Pegel-Fallback)
     // levelA aus dem Referenzspektrum nach 118; durch die dort angewendete Verstärkung
@@ -85,6 +104,9 @@ bool Processing_Module_120::processFrame()
         out_.send(report_);
     }
     dm.pushEvent(SDS_DataEventType::REPORT_UPDATE, 0.0f);
+    // Rest: SDS_Data-Aufrufe zwischen den Stufen, 128, 130
+    smoothMs(tRest_, (dwt.cycles() - c1) - (c2 - c1) - (c3 - c2) - (c5 - c4));
+    dm.setStageTimes(tPre_, tFeat_, tMl_, tCorr_, tRest_);
     return true;
 }
 

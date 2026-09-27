@@ -1,6 +1,7 @@
 /*
  * Correlation_Processing_Module_126.cpp
  */
+#include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board
 #include "Correlation_Processing_Module_126.hpp"
 #include <cmath>
 #include <cstring>
@@ -8,6 +9,9 @@
 namespace sds110 {
 
 // ---------------------------------------------------------------- init
+float Correlation_Processing_Module_126::spec_[N_FFT];
+float Correlation_Processing_Module_126::corr_[N_FFT];
+
 void Correlation_Processing_Module_126::init(const Microphone_Array_114& array)
 {
     arm_rfft_fast_init_f32(&ifft_, N_FFT);

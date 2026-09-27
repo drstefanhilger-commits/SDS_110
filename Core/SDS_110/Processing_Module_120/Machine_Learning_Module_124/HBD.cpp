@@ -1,6 +1,7 @@
 /*
  * HBD.cpp – Harmonic Band Detector
  */
+#include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board
 #include "HBD.hpp"
 #include <cmath>
 
