@@ -81,8 +81,10 @@ private:
     Vec3  micPos_[NUM_MICS];
     float maxIntraDelay_s_ = 0.0f;   // Arraydurchmesser / c
     arm_rfft_fast_instance_f32 ifft_;
-    float spec_[N_FFT];              // gepacktes Spektrum für die IFFT
-    float corr_[N_FFT];              // Kreuzkorrelation (zeitlich)
+    // Arbeitspuffer der 28 Paar-Korrelationen je Frame (je 16 kB, bei jedem Paar komplett
+    // geschrieben/gelesen): statisch im internen RAM statt in der 120-Instanz im SDRAM
+    static float spec_[N_FFT];       // gepacktes Spektrum für die IFFT
+    static float corr_[N_FFT];       // Kreuzkorrelation (zeitlich)
     TdoaMeasurement pairTdoa_[NUM_MIC_PAIRS];
     // Fenster ±SRP_MAX_LAG jeder Paarkorrelation für srpScan()
     float pairCorr_[NUM_MIC_PAIRS][2 * SRP_MAX_LAG + 1];

@@ -62,6 +62,13 @@ public:
     void setMl(const MlStatus& v) { setValue(ml_, v); }
     MlStatus getMl() const { return getValue(ml_); }
 
+    // --- Rechenzeit je Stufe (ms, geglättet) – LCD-Zeile "ms S.. P.. F.. M.. K.. R.." ----
+    struct StageTimes { float sim = 0, pre = 0, feat = 0, ml = 0, corr = 0, rest = 0; };
+    void setStageTimes(float pre, float feat, float ml, float corr, float rest)
+    { if (!lock()) return; st_.pre = pre; st_.feat = feat; st_.ml = ml; st_.corr = corr; st_.rest = rest; unlock(); }
+    void setSimTime(float ms) { if (!lock()) return; st_.sim = ms; unlock(); }
+    StageTimes getStageTimes() const { return getValue(st_); }
+
     // --- System Status ------------------------------------------------------
     /// Unit-ID: Standard aus STM32-UID (siehe SDS110_Init), per USB-Kommando Typ 5 überschreibbar
     void setId(uint16_t v) { setValue(id, v); }
@@ -142,6 +149,7 @@ private:
     bool     mlInitError = false, mlRunError = false;
     HbdStatus hbd_{};
     MlStatus  ml_{};
+    StageTimes st_{};
 
     // System
     uint16_t id = 0;

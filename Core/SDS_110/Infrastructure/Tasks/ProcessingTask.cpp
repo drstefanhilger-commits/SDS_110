@@ -89,9 +89,12 @@ void ProcessingTask::runOnce()
         // Überlast: nicht nachholen – jeder weitere Hop verlängert den Durchlauf nur
         const uint32_t n = clock_.due(osKernelGetTickCount(), overloaded() ? 1 : SIM_MAX_CATCH_UP);
         for (uint32_t i = 0; i < n; ++i) {
+            const uint32_t c0 = DWTTimer::instance().cycles();
             sim_.generateHop(TimeBase::nowUs());     // gleiche Zeitbasis wie 116
+            simMs_ += 0.1f * (DWTTimer::instance().cyclesToUs(DWTTimer::instance().cycles() - c0) / 1000.0f - simMs_);
             process();
         }
+        dm_.setSimTime(simMs_);
         dm_.setDebugValue(2, sim_.trueAzimuth());     // LCD: "True Azimuth"
         dm_.setDebugValue(3, sim_.trueDistance());    // LCD: "True Distance"
     } else {
