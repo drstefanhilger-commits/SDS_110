@@ -14,7 +14,8 @@
  *
  * Ereignisgetrieben: waitForWork() blockiert auf rxQueue_, bis ein Kommando
  * kommt (kein Polling, keine Latenz). Stats "USB": Bearbeitungszeit je
- * Aufwachen, Zähler = Anzahl Aufwachvorgänge.
+ * Aufwachen, Zähler = Anzahl Aufwachvorgänge. Kommt 2 s (IDLE_RESET_MS)
+ * kein Kommando, wird die Bearbeitungszeit einmalig auf 0 gesetzt.
  *
  * Migration aus SDS/Tasks/USBTask: SDS_Data-API angepasst
  * (setMode(SDS_Mode), setTaskStats, setErrorBuffer statt getErrorBuffer()+memcpy).
@@ -55,7 +56,8 @@ private:
     static uint32_t payloadU32(const uint8_t* rx)  { return (rx[8] << 24) | (rx[9] << 16) | (rx[10] << 8) | rx[11]; }
     void resetCounters();
 
-    static constexpr size_t MAX_LENGTH = 64;
+    static constexpr size_t   MAX_LENGTH    = 64;
+    static constexpr uint32_t IDLE_RESET_MS = 2000;  // danach Zeit-Anzeige = 0
     SDS_Data&     dm_ = SDS_Data::instance();
     QueueHandle_t rxQueue_ = nullptr;
     uint8_t       rx_[MAX_LENGTH] = {};          // von waitForWork() empfangen
