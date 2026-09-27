@@ -90,7 +90,7 @@ Board-Messung STM32F746G-DISCO, LCD-Zeitzeilen, 27.09.2026 (master `aa4d463`, Ar
 | M – 124 (HBD + MLP im Schatten) | 4 |
 | K – 126 Selektion | 0,1 |
 | K – 126 GCC (28 Paar-Korrelationen, ±32 Lags) | 5,0 (vorher 8,5 bei ±64) |
-| K – 126 SRP-Referenzscan | 2,3 |
+| K – 126 SRP-Referenzscan (nur Vergleich, seit 27.09.2026 standardmäßig aus) | 2,3 |
 | **Processing Module gesamt** | **33,3** (Summe der Stufen 33,4) |
 | Simulator (nur Testbetrieb) | 13,4 |
 | **mit Simulator** | **46,7** |
@@ -111,7 +111,7 @@ Zuerst anzugehen ist die Rechenzeit. Der Arraydurchmesser ist seit 27.09.2026 au
 
 | Prio | IDs | Abweichung | Maßnahme | Bezug |
 | --- | --- | --- | --- | --- |
-| 1 | A31 | Proc 33,3 ms > 32 ms | SRP-Referenzscan abschaltbar machen (2,3 ms); 122 (15 ms) und 118 (7 ms) weiter prüfen; Release-Build bringt nichts (`DspOptimize.hpp`) | Befund 28, `doc/Host_Tests.md` |
+| 1 | A31 | Proc 33,3 ms > 32 ms | SRP-Referenzscan ist seit 27.09.2026 abschaltbar (USB-Kommando Typ 6, Standard aus; −2,3 ms erwartet, am Board noch zu messen); danach 122 (15 ms) und 118 (7 ms) prüfen; Release-Build bringt nichts (`DspOptimize.hpp`) | Befund 28, `doc/Host_Tests.md` |
 | 2 | A18, A35 | TDOA auch bei < 3 Bändern | bei weniger als B_min Bändern keine Korrelation rechnen, wie FSL9 §4 | `Correlation_Processing_Module_126.cpp:70` |
 | 3 | A29, A6 | Zeit in ms, kein UTC, kein PTP | Zeitstempel in µs übertragen; UTC-Bezug über PTP oder GNSS-PPS | Befunde 16, 33 |
 | 4 | A1, A7, A27 | eine Einheit, Pegel-Distanz | Multilateration mit N ≥ 3 Einheiten, wenn die Hardware vorliegt; Positionen der Einheiten konfigurieren | Blocker 1–4 |

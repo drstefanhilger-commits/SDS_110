@@ -80,10 +80,18 @@ struct SDS_SetUnitId {
     uint8_t unit[4]  = {0x00, 0x00, 0x00, 0x01};   // Unit-ID (u32, nur untere 16 Bit genutzt)
     uint8_t crc[4]   = {0x00, 0x00, 0x00, 0x00};
 };
+struct SDS_SrpReference {
+    uint8_t magic[4] = {0xDE, 0xAD, 0xBE, 0xEF};
+    uint8_t id       =  0x06;
+    uint8_t size[3]  = {0x00, 0x00, SDS_CMD_LENGTH};
+    uint8_t on[4]    = {0x00, 0x00, 0x00, 0x00};   // SRP-Referenzscan: 0 = aus, 1 = ein
+    uint8_t crc[4]   = {0x00, 0x00, 0x00, 0x00};
+};
 static_assert(sizeof(SDS_UnixTimeSync)   == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
 static_assert(sizeof(SDS_ModeChange)     == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
 static_assert(sizeof(SDS_ModeSimulation) == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
 static_assert(sizeof(SDS_SetUnitId)      == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
+static_assert(sizeof(SDS_SrpReference)   == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
 
 struct SDS_MsgDetect {
     uint32_t magic     = 0xDEADBEEF;

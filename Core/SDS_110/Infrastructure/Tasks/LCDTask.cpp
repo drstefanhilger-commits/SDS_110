@@ -193,7 +193,9 @@ void LCDTask::showDetection()
     gfx_->text8x12(10, 20, buf_, colorDis);
     snprintf(buf_, sizeof(buf_), "Confidence     %.2f", static_cast<double>(dm_.getConfidence()));
     gfx_->text8x12(10, 30, buf_, Color::White);
-    if (SRP_REFERENCE_ENABLED) {
+    if (SRP_REFERENCE_ENABLED && !dm_.getSrpReference()) {
+        gfx_->text8x12(10, 60, "SRP-PHAT az    aus", Color::White);
+    } else if (SRP_REFERENCE_ENABLED) {
         const float srpAz = dm_.getDebugValue(0);
         const Color c = (fabsf(srpAz - trueAz) < errorAz_) ? Color::Green : Color::Yellow;
         snprintf(buf_, sizeof(buf_), "SRP-PHAT az    %.3f", static_cast<double>(srpAz));

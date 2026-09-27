@@ -76,6 +76,7 @@ void USBTask::handle(const uint8_t* rx)
         case 2:  handleModeChange(rx); break;
         case 3:  handleSimulation(rx); break;
         case 5:  handleSetUnitId(rx);  break;
+        case 6:  handleSrpReference(rx); break;
         default: handleError(rx);      break;
     }
 }
@@ -116,6 +117,12 @@ void USBTask::handleSetUnitId(const uint8_t* rx)
 {
     if (msgLen(rx) != SDS_CMD_LENGTH) { handleError(rx); return; }
     dm_.setId(static_cast<uint16_t>(payloadU32(rx) & 0xFFFF));
+}
+
+void USBTask::handleSrpReference(const uint8_t* rx)
+{
+    if (msgLen(rx) != SDS_CMD_LENGTH) { handleError(rx); return; }
+    dm_.setSrpReference(payloadU32(rx) != 0);
 }
 
 void USBTask::handleError(const uint8_t* rx)

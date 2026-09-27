@@ -83,6 +83,10 @@ public:
     /// wie getSimulation(), aber false bei Sperr-Timeout (out bleibt dann unverändert).
     /// getSimulation() liefert dann 0 = Hardware -> SAI-Start (Befund 29).
     bool tryGetSimulation(uint32_t& out) const { return tryGetValue(simulation, out); }
+    /// SRP-Referenzscan in 126 (USB-Kommando Typ 6), Standard aus
+    void setSrpReference(bool v) { setValue(srpReference, v); }
+    bool getSrpReference() const { return getValue(srpReference); }
+    bool tryGetSrpReference(bool& out) const { return tryGetValue(srpReference, out); }
     void setSyncTimeDifference(uint32_t v) { setValue(syncTimeDifference, v); }
     uint32_t getSyncTimeDifference() const { return getValue(syncTimeDifference); }
 
@@ -158,6 +162,10 @@ private:
     uint16_t id = 0;
     SDS_Mode mode = SDS_Mode::DETECT;
     uint32_t simulation = 1;
+    // SRP-Referenzscan (USB Typ 6), Standard aus: spart am Board ~2,3 ms je Frame; die Peilung
+    // (TDOA-LS) hängt nicht davon ab. Hier statt in SDS_110_Config.hpp, weil die Config in die
+    // Merkmalsversion eingeht (jede Änderung dort erzwingt einen Neuexport des Modells).
+    bool     srpReference = false;
     uint32_t syncTimeDifference = 0;
 
     TaskStats tasks_[static_cast<uint8_t>(TaskId::Count)];

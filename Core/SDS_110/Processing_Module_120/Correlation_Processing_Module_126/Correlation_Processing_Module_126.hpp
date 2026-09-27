@@ -68,7 +68,12 @@ public:
 
     /// Referenz: SRP-PHAT-Scan über die in estimateBearing() gespeicherten Paarkorrelationen
     /// (klassisches Verfahren aus SDS/Algorithm/SRPPhat, hier ohne eigene FFTs). Nur Vergleich.
+    /// false, wenn der Referenzscan abgeschaltet ist (setSrpReference(false)).
     bool srpScan(float& azimuth_deg, float& peakPower, float& peakRatio) const;
+    /// Referenzscan zur Laufzeit ein/aus (Standard ein; 120 setzt ihn aus SDS_Data, USB Typ 6).
+    /// Aus: estimateBearing() sichert die Paarkorrelationen nicht, srpScan() liefert false.
+    void setSrpReference(bool on) { srpOn_ = on; srpValid_ = false; }
+    bool srpReference() const { return SRP_REFERENCE_ENABLED && srpOn_; }
 
     /// Abschnitt 10: Feedback der Tracking Unit
     void applyFeedback(const TrackingFeedback& fb);
@@ -97,6 +102,8 @@ private:
     static int maxLagFor(float maxDelay_s);
 
     uint32_t directMaxBins_ = DIRECT_MAX_BINS;
+    bool     srpOn_ = true;
+    bool     srpValid_ = false;          // pairCorr_ stammt aus dem letzten estimateBearing()
     bool     direct_ = false;
     uint32_t nBins_ = 0;
     uint16_t binK_[DIRECT_MAX_BINS];

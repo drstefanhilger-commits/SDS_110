@@ -222,12 +222,13 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
     uint32_t idx = 0, valid = 0;
     const int maxLag = maxLagFor(maxIntraDelay_s_);
     prepareBins(sel, maxLag);                                  // einmal je Frame für alle 28 Paare
+    srpValid_ = srpReference();                                // pairCorr_ nur dann aktuell
     for (uint32_t i = 0; i < NUM_MICS; ++i) {
         for (uint32_t j = i + 1; j < NUM_MICS; ++j, ++idx) {
             TdoaMeasurement& m = pairTdoa_[idx];
             m.i = i; m.j = j;
             const bool ok = correlatePair(S[i], S[j], sel, maxLag, m);
-            if (SRP_REFERENCE_ENABLED) {
+            if (srpReference()) {
                 // Korrelationsfenster für den SRP-Scan sichern
                 for (int lag = -static_cast<int>(SRP_MAX_LAG); lag <= static_cast<int>(SRP_MAX_LAG); ++lag)
                     pairCorr_[idx][lag + SRP_MAX_LAG] = (sel.num_bins == 0) ? 0.0f : lagValue(lag);
@@ -288,6 +289,7 @@ float Correlation_Processing_Module_126::srpAt(uint32_t step) const
 
 bool Correlation_Processing_Module_126::srpScan(float& azimuth_deg, float& peakPower, float& peakRatio) const
 {
+    if (!srpValid_) return false;
     float best = -1e30f, second = -1e30f; uint32_t bestStep = 0;
     for (uint32_t s = 0; s < SRP_AZ_STEPS; ++s) {
         const float acc = srpAt(s);
