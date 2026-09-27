@@ -51,9 +51,16 @@ static inline void SDS110_MPU_Config(void)
     SDS110_MPU_ConfigRegion(MPU_REGION_NUMBER1, 0xC0000000, MPU_REGION_SIZE_8MB,
                             MPU_ACCESS_CACHEABLE, MPU_ACCESS_BUFFERABLE, MPU_TEX_LEVEL1);
 
+    /* 2: erste 2 MB SDRAM – LTDC-Framebuffer, bufferable Device (TEX=0, C=0, B=1).
+     *    Gemessen schneller als Normal non-cacheable (TEX=1) für pixelweises Zeichnen.
+     *    Achtung: Device-Speicher erlaubt nur ausgerichtete Zugriffe – kein memcpy/memset
+     *    mit unausgerichteten Adressen/Längen in den Framebuffer (HardFault). */
     /* 2: erste 2 MB SDRAM uncached – LTDC-Framebuffer (LCDDriver: 2 x 480x272x4 ab 0xC0000000) */
-    SDS110_MPU_ConfigRegion(MPU_REGION_NUMBER2, 0xC0000000, MPU_REGION_SIZE_2MB,
-                            MPU_ACCESS_NOT_CACHEABLE, MPU_ACCESS_BUFFERABLE, MPU_TEX_LEVEL0);
+//    SDS110_MPU_ConfigRegion(MPU_REGION_NUMBER2, 0xC0000000, MPU_REGION_SIZE_2MB,
+//                            MPU_ACCESS_NOT_CACHEABLE, MPU_ACCESS_BUFFERABLE, MPU_TEX_LEVEL0);
+    //    /* 2: erste 2 MB SDRAM – LTDC-Framebuffer, Normal Memory non-cacheable (TEX=1, C=0, B=0) */
+        SDS110_MPU_ConfigRegion(MPU_REGION_NUMBER2, 0xC0000000, MPU_REGION_SIZE_2MB,
+                                MPU_ACCESS_NOT_CACHEABLE, MPU_ACCESS_NOT_BUFFERABLE, MPU_TEX_LEVEL1);
 
     HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 }
