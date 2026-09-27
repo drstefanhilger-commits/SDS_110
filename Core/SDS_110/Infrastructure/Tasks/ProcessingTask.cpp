@@ -23,9 +23,18 @@ void ProcessingTask::onHopReadyISR(void* ctx)
     osThreadFlagsSet(static_cast<ProcessingTask*>(ctx)->handle(), FLAG_HOP);
 }
 
+bool ProcessingTask::overloaded() const
+{
+    return runEndTick_ - runStartTick_ >= HOP_SAMPLES * osKernelGetTickFreq() / SAMPLE_RATE_HZ;
+}
+
 void ProcessingTask::waitForWork()
 {
-    if (runEndTick_ - runStartTick_ >= HOP_SAMPLES * osKernelGetTickFreq() / SAMPLE_RATE_HZ) osDelay(MIN_IDLE_MS);
+    if (overloaded()) {
+        uint32_t idle = (runEndTick_ - runStartTick_) / IDLE_DIVISOR;
+        idle = idle < MIN_IDLE_MS ? MIN_IDLE_MS : (idle > MAX_IDLE_MS ? MAX_IDLE_MS : idle);
+        osDelay(idle);
+    }
     if (simOn_) {
         osDelayUntil(clock_.nextTick());         // bereits fällig: kehrt sofort zurück
         return;
@@ -77,7 +86,8 @@ void ProcessingTask::runOnce()
     updateSource();
     if (simOn_) {
         // alle fälligen Hops, je Hop sofort verarbeiten (114 hat nur NUM_MIC_FRAMES Puffer)
-        const uint32_t n = clock_.due(osKernelGetTickCount(), SIM_MAX_CATCH_UP);
+        // Überlast: nicht nachholen – jeder weitere Hop verlängert den Durchlauf nur
+        const uint32_t n = clock_.due(osKernelGetTickCount(), overloaded() ? 1 : SIM_MAX_CATCH_UP);
         for (uint32_t i = 0; i < n; ++i) {
             sim_.generateHop(TimeBase::nowUs());     // gleiche Zeitbasis wie 116
             process();
