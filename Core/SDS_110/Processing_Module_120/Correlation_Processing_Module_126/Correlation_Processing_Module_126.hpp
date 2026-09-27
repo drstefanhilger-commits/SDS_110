@@ -80,12 +80,13 @@ public:
     static constexpr uint32_t DIRECT_MAX_BINS = 128;
     void     setDirectMaxBins(uint32_t n) { directMaxBins_ = n < DIRECT_MAX_BINS ? n : DIRECT_MAX_BINS; }
     uint32_t directMaxBins() const { return directMaxBins_; }
+    float    maxIntraDelay() const { return maxIntraDelay_s_; }   ///< Intra-Unit-Fenster (s)
     bool     lastWasDirect() const { return direct_; }
 
 private:
-    // Lags, die der Schnellpfad berechnet: Peak-Suche braucht ±(maxLag+1) (Intra-Unit 58),
-    // der SRP-Scan ±SRP_MAX_LAG
-    static constexpr int WIN_HALF = (SRP_MAX_LAG > 64) ? static_cast<int>(SRP_MAX_LAG) : 64;
+    // Lags, die der Schnellpfad berechnet: Peak-Suche braucht ±(maxLag+1) (Intra-Unit 30 bei
+    // 200 mm), der SRP-Scan ±SRP_MAX_LAG; größere maxLag (zwischen Einheiten) -> IFFT
+    static constexpr int WIN_HALF = static_cast<int>(SRP_MAX_LAG);
 
     /// Bins und Drehzeiger für den Schnellpfad vorbereiten (einmal je Frame); false -> IFFT
     bool  prepareBins(const ComponentSelection& sel, int maxLag);

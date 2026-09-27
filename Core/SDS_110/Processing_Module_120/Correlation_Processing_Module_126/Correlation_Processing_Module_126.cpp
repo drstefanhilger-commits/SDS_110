@@ -274,7 +274,7 @@ float Correlation_Processing_Module_126::srpAt(uint32_t step) const
     const float ux = srpCos_[step], uy = srpSin_[step];
     float acc = 0.0f;
     for (uint32_t k = 0; k < NUM_MIC_PAIRS; ++k) {
-        // Lag in Samples + Versatz; |τ| <= Arraydurchmesser/c·fs (≈ 56) < SRP_MAX_LAG -> pos > 0,
+        // Lag in Samples + Versatz; |τ| <= Arraydurchmesser/c·fs (≈ 28) < SRP_MAX_LAG -> pos > 0,
         // die Ganzzahlumwandlung ist dann floor()
         const float pos = pairDx_[k] * ux + pairDy_[k] * uy + static_cast<float>(SRP_MAX_LAG);
         if (pos < 0.0f) continue;
