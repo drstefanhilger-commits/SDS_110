@@ -10,6 +10,8 @@
 namespace sds110 {
 
 SDS110_SDRAM_SECTION Spectrum Processing_Module_120::spectra_[NUM_MICS];
+Feature_Extraction_Module_122 Processing_Module_120::featInst_;   // .bss, internes RAM
+Machine_Learning_Module_124   Processing_Module_120::mlInst_;
 
 Processing_Module_120& Processing_Module_120::instance()
 {
