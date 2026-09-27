@@ -9,6 +9,9 @@ Seit 27.09.2026 erzeugt der Simulator Rauschen und Oszillatoren anders (Irwin-Ha
 Box-Muller, Zeiger in float statt `sin()` in double – Rechenzeit auf dem Board). Die Messwerte
 weichen dadurch leicht ab; neu gemessen und eingetragen sind `t_bearing_broadband`,
 `m_bearing_drone` und `m_selection`, die übrigen liegen innerhalb weniger Prozent der Tabellen.
+Seit 27.09.2026 (FSL9 A3) hat das Array 200 mm Durchmesser (`MIC_RADIUS_M = 0.10`, vorher
+0,20 m). Die Laufzeitunterschiede halbieren sich, die Peilfehler verdoppeln sich etwa; alle
+Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Klammern.
 
 ---
 
@@ -157,8 +160,8 @@ als Leser), 0 defekt, 0 vertauscht.
 ### t_bearing_broadband – Befunde 23, 8
 Breitbandige Quelle (Wind-Szenario als Punktquelle), alle Bänder selektiert, 24 Richtungen
 0…345°; TDOA-LS-Peilung (`estimateBearing`) und SRP-Scan.
-Kriterium: 24/24 gültig, max. Fehler < 0,5°. Referenz: max. 0,12° (TDOA-LS), 0,10° (SRP); vor dem
-Simulator-Umbau 0,09° / 0,07°.
+Kriterium: 24/24 gültig, max. Fehler < 0,5°. Referenz: max. 0,20° (TDOA-LS), 0,13° (SRP)
+(400 mm: 0,12° / 0,10°; vor dem Simulator-Umbau 0,09° / 0,07°).
 
 ### t_ml124 – Befunde 20, 36 (AP6 Trainingskonzept ML124)
 Modell aus `ML124_Model_Data.hpp`, Referenzvektoren aus `common/ML124_Model_Ref.hpp` (beide von
@@ -185,15 +188,17 @@ Vorher (`osDelay(40)` plus Rechenzeit): höchstens 25 Hops/s.
 
 ### t_gcc_direct – Schnellpfad der GCC-PHAT (126)
 Bei höchstens `DIRECT_MAX_BINS` (128) selektierten Bins berechnet 126 die Korrelation nur für die
-Lags ±64 direkt aus den Bins statt per IFFT über 4096 Werte. Geprüft gegen die IFFT
-(`setDirectMaxBins(0)`):
-1. 400 verzögerte Spektrenpaare (τ −50…+50 Samples, 3–24 Bänder, Rauschen): gleiche Gültigkeit,
+Lags ±`SRP_MAX_LAG` (32 bei 200 mm, vorher 64) direkt aus den Bins statt per IFFT über 4096 Werte.
+Geprüft gegen die IFFT (`setDirectMaxBins(0)`):
+1. 400 verzögerte Spektrenpaare (τ innerhalb ±90 % des Intra-Unit-Fensters `maxIntraDelay()`,
+   bei 200 mm ±27 Samples; 3–24 Bänder, Rauschen): gleiche Gültigkeit,
    |Δτ| ≤ 1e-3 Samples, Peak und Ratio relativ ≤ 1e-3.
 2. Volle Kette, DroneStatic 10 dB, 12 Richtungen: Schnellpfad in jedem Frame, Peilung und SRP
    gleich (|Δaz| ≤ 0,01°).
 
-Referenz: |Δτ| 1,1·10⁻⁵ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0,0001°);
-`estimateBearing()` je Frame 0,40 ms (Schnellpfad) gegenüber 1,33 ms (IFFT), x86 `-O2`.
+Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0,0007°);
+`estimateBearing()` je Frame 0,13 ms (Schnellpfad) gegenüber 1,51 ms (IFFT), x86 `-O2`
+(400 mm, ±64 Lags: 0,28 ms).
 
 ---
 
@@ -216,10 +221,10 @@ Referenz (Standardaufruf, Messung ab 1,9 s – enthält die HBD-Anlaufzeit):
 
 | Szenario | HBD DRONE | detected | Peilung | Fehler |
 |---|---|---|---|---|
-| DroneSweep / DroneStatic | 81 % | 81 % | 100 % | 0,8° / 0,6° |
-| SingleTone | 0 % | 0 % | 30 % | – |
-| WindNoise | 0 % | 0 % | 81 % | – |
-| Silence | 0 % | 0 % | 37 % | zufällig |
+| DroneSweep / DroneStatic | 81 % | 81 % | 100 % | 1,3° / 1,0° (0,9° / 0,6°) |
+| SingleTone | 0 % | 0 % | 26 % | – |
+| WindNoise | 0 % | 0 % | 85 % | – |
+| Silence | 0 % | 0 % | 2 % | zufällig |
 
 Empfindlichkeit DroneStatic (HBD DRONE): 30 dB 81 %, 10 dB 78 %, 6 dB 56 %, 3 dB 42 %,
 0 dB 14 %, −3 dB 3 %, −6 dB 1 %. Für eingeschwungene Werte `m_overview 300` verwenden.
@@ -236,12 +241,12 @@ Referenz DroneStatic:
 
 | SNR | gültig | Paare | Ratio-Median | Fehler Median | Fehler 95 % |
 |---|---|---|---|---|---|
-| 30 dB | 100 % | 28,0 | 15,8 | 0,19° | 0,73° |
-| 20 dB | 100 % | 28,0 | 15,2 | 0,44° | 1,31° |
-| 10 dB | 100 % | 27,4 | 14,6 | 0,91° | 3,06° |
-| 6 dB | 100 % | 27,2 | 15,0 | 1,16° | 3,89° |
-| 3 dB | 99 % | 27,1 | 17,2 | 1,62° | 5,45° |
-| 0 dB | 90 % | 23,9 | 13,7 | 2,07° | 6,66° |
+| 30 dB | 100 % | 28,0 | 18,4 | 0,37° (0,19°) | 1,53° (0,73°) |
+| 20 dB | 100 % | 27,9 | 17,7 | 0,92° (0,44°) | 2,76° (1,31°) |
+| 10 dB | 100 % | 27,3 | 17,9 | 1,85° (0,91°) | 6,00° (3,06°) |
+| 6 dB | 100 % | 26,9 | 18,7 | 2,46° (1,16°) | 8,26° (3,89°) |
+| 3 dB | 99 % | 26,6 | 18,9 | 3,41° (1,62°) | 10,22° (5,45°) |
+| 0 dB | 98 % | 24,8 | 16,2 | 4,36° (2,07°) | 16,15° (6,66°) |
 
 DroneSweep (1° je Hop): Median 0,7–2,2°, 95 % 1,7–7,4° (der Sweep dreht innerhalb eines Frames).
 Vor Befund 8 waren bei Drohnensignal 0 % der Peilungen gültig (Ratio-Median ≈ 1,17).
@@ -271,8 +276,9 @@ Der absolute Wert hängt an `LEVEL_DIST_K_REF` (unkalibriert).
 
 ### m_confidence – Konfidenz (Aufruf: `m_confidence`)
 Verteilung von `candidateConfidence()` und Residuum (Samples), 6 Richtungen, ab 3,2 s.
-Referenz (Median): Drohne 30/20/10/3/0/−3 dB 0,96/0,86/0,68/0,53/0,49/0,29 (Residuum
-0,85…5,5 Samples); Einzelton 0,13 (9,1); Stille 0,01 (32); Wind 0,99 (0,32).
+Referenz (Median): Drohne 30/20/10/3/0/−3 dB 0,95/0,86/0,69/0,56/0,48/0,27 (Residuum
+0,86…5,4 Samples, Peilfehler 0,56…5,5°); Einzelton 0,13 (8,2); Wind 0,99 (0,34); Stille ohne
+gültige Peilung (400 mm: 0,01, Residuum 32 Samples).
 Die Konfidenz bewertet die Peilung, nicht die Drohnen-Detektion.
 
 ### m_longrun – Langzeitverhalten (Aufruf: `m_longrun [maxRise, −1 = Projektwert] [SNR]`)

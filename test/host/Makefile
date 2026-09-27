@@ -20,6 +20,7 @@ CXX   ?= g++
 CC    ?= gcc
 
 CXXFLAGS := -std=gnu++17 -O2 -Wall
+DEPFLAGS := -MMD -MP                 # Header-Abhängigkeiten der Objekte (.d neben .o)
 INC_CHAIN := -I$(HERE)/shim -I$(HERE)/common -I$(S) -I$(CODE)/Core/Lib
 
 # Portable Module der Signalkette (für t_bearing_broadband, t_unit_report und alle m_*)
@@ -45,13 +46,14 @@ all: $(addprefix $(BUILD)/,$(ALL))
 
 $(BUILD)/obj/code/%.o: $(CODE)/%.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(INC_CHAIN) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INC_CHAIN) -c $< -o $@
 $(BUILD)/obj/test/%.o: $(HERE)/%.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(INC_CHAIN) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INC_CHAIN) -c $< -o $@
 $(BUILD)/obj/kiss_fft.o: $(CODE)/Core/Lib/kiss_fft.c
 	@mkdir -p $(dir $@)
-	$(CC) -O2 -I$(CODE)/Core/Lib -c $< -o $@
+	$(CC) -O2 $(DEPFLAGS) -I$(CODE)/Core/Lib -c $< -o $@
+-include $(MOD_OBJS:.o=.d)
 
 # Tests auf der ganzen Signalkette
 CHAIN_TESTS := t_bearing_broadband t_gcc_direct $(MEASURES) m_longrun

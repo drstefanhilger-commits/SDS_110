@@ -3,7 +3,8 @@
  *
  * Bezug: Rechenzeit ProcessingTask (Board ~270 ms je 32-ms-Hop, 126 größter Anteil im Host-Profil)
  * Prüft, dass der Schnellpfad dieselben Ergebnisse liefert wie die IFFT (setDirectMaxBins(0)):
- *   1. crossCorrelate() auf verzögerten Spektren (τ −50 … +50 Samples, 3–24 Bänder, Rauschen):
+ *   1. crossCorrelate() auf verzögerten Spektren (τ innerhalb ±90 % des Intra-Unit-Fensters,
+ *      bei 200 mm ±27 Samples; 3–24 Bänder, Rauschen):
  *      gleiche Gültigkeit, |Δτ| ≤ 1e-3 Samples, |Δpeak|, |Δratio| relativ ≤ 1e-3
  *   2. volle Kette (DroneStatic 10 dB, 12 Richtungen): estimateBearing() und srpScan() gleich
  *      (|Δaz| ≤ 0,01°), der Schnellpfad wird tatsächlich benutzt
@@ -37,8 +38,12 @@ int main()
     std::mt19937 rng(7); std::normal_distribution<float> nd(0.0f, 1.0f); std::uniform_real_distribution<float> ud(0.0f, 1.0f);
     int agree = 0, direct = 0, validN = 0; float dTau = 0, dPeak = 0, dRatio = 0;
     constexpr int TRIALS = 400;
+    const float maxDelay = fast.maxIntraDelay();                      // wie estimateBearing()
+    const float tauMax = 0.9f * maxDelay * SAMPLE_RATE_HZ;
+    std::printf("Intra-Unit-Fenster ±%.1f Samples (Radius %.0f mm), Schnellpfad ±%u Lags\n",
+                maxDelay * SAMPLE_RATE_HZ, 1e3f * MIC_RADIUS_M, SRP_MAX_LAG);
     for (int t = 0; t < TRIALS; ++t) {
-        const float tau = -50.0f + 100.0f * ud(rng);
+        const float tau = tauMax * (2.0f * ud(rng) - 1.0f);
         for (uint32_t k = 0; k < NUM_BINS; ++k) {
             const float a = nd(rng), b = nd(rng), ph = -2.0f * 3.14159265f * k * tau / N_FFT;
             X.re[k] = a; X.im[k] = b;
@@ -54,8 +59,8 @@ int main()
             for (uint32_t k = k0; k < k1; ++k) if (!sel.selected[k]) { sel.selected[k] = true; sel.weight[k] = 0.3f + 0.7f * ud(rng); ++sel.num_bins; }
         }
         TdoaMeasurement mf, mr;
-        const bool vf = fast.crossCorrelate(X, Y, sel, 1.2e-3f, mf);
-        const bool vr = ref.crossCorrelate(X, Y, sel, 1.2e-3f, mr);
+        const bool vf = fast.crossCorrelate(X, Y, sel, maxDelay, mf);
+        const bool vr = ref.crossCorrelate(X, Y, sel, maxDelay, mr);
         direct += fast.lastWasDirect();
         if (vf == vr) ++agree;
         if (vf && vr) {

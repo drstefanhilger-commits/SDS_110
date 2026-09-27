@@ -35,7 +35,7 @@ constexpr float    HOP_S            = static_cast<float>(HOP_SAMPLES) / SAMPLE_R
 constexpr uint32_t framesFor(float seconds) { return static_cast<uint32_t>(seconds / HOP_S + 0.5f); }
 
 // --- 114 / 116 Hardware ---------------------------------------------
-constexpr float    MIC_RADIUS_M     = 0.20f;  // Oktagon-Radius (aus SDS_Params)
+constexpr float    MIC_RADIUS_M     = 0.10f;  // Oktagon-Radius 100 mm, Durchmesser 200 mm (FSL9 §1)
 constexpr uint32_t DMA_BLOCK_SAMPLES = 128;   // Samples pro Mic je DMA-Halbpuffer
 static_assert(HOP_SAMPLES % DMA_BLOCK_SAMPLES == 0, "114: DMA-Block darf nicht über eine Hop-Grenze reichen");
 constexpr uint32_t NUM_MIC_FRAMES   = 3;      // Triple-Buffering
@@ -93,7 +93,10 @@ constexpr float    SPEED_OF_SOUND   = 343.0f; // wird temperaturkorrigiert
 constexpr uint32_t NUM_MIC_PAIRS    = NUM_MICS * (NUM_MICS - 1) / 2;   // 28
 constexpr float    BEARING_MIN_PAIRS_FRACTION = 0.5f;                  // min. Anteil gültiger Paare
 // Referenz-Peilung SRP-PHAT (Harness/Vergleich): Scan über die gespeicherten Paarkorrelationen
-constexpr uint32_t SRP_MAX_LAG      = 64;     // Samples, >= Arraydurchmesser/c*fs*1.1 (0.4 m -> 62)
+constexpr uint32_t SRP_MAX_LAG      = 32;     // Samples, > Arraydurchmesser/c*fs*1.1 (0,2 m -> 30,8)
+// 126: Peak-Suche braucht ±(maxLag+1), maxLag = ⌊Durchmesser/c·fs·1,1⌋; der Schnellpfad rechnet ±SRP_MAX_LAG
+static_assert(2.0f * MIC_RADIUS_M / SPEED_OF_SOUND * SAMPLE_RATE_HZ * 1.1f + 1.0f <= SRP_MAX_LAG,
+              "SRP_MAX_LAG zu klein für den Arraydurchmesser");
 constexpr uint32_t SRP_AZ_STEPS     = 360;    // 1° Raster
 constexpr bool     SRP_REFERENCE_ENABLED = true;
 
