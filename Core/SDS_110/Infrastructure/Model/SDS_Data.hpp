@@ -57,6 +57,10 @@ public:
     bool getMlInitError() const { return getValue(mlInitError); }
     void setMlRunError(bool v)  { setValue(mlRunError, v); }
     bool getMlRunError() const  { return getValue(mlRunError); }
+    /// Stufe von 124 (0 HBD, 1 Schatten, 2 ML) und Abgleich HBD ↔ ML in der Stufe Schatten
+    struct MlStatus { uint8_t mode = 0; float detectAgree = 1, bandOverlap = 1, meanAbsDiff = 0; uint32_t frames = 0; };
+    void setMl(const MlStatus& v) { setValue(ml_, v); }
+    MlStatus getMl() const { return getValue(ml_); }
 
     // --- System Status ------------------------------------------------------
     /// Unit-ID: Standard aus STM32-UID (siehe SDS110_Init), per USB-Kommando Typ 5 überschreibbar
@@ -127,6 +131,7 @@ private:
     uint32_t reportCount = 0;
     bool     mlInitError = false, mlRunError = false;
     HbdStatus hbd_{};
+    MlStatus  ml_{};
 
     // System
     uint16_t id = 0;

@@ -55,6 +55,8 @@ bool Processing_Module_120::processFrame()
     dm.setMlRunError(false);
     dm.setAcousticState(state_);
     dm.setHbd(ml_.hbd().f0Hz, ml_.hbd().score, ml_.hbd().globalSnrAvgDb, ml_.hbd().consistentBands, ml_.hbd().droneDetected);
+    const auto& sh = ml_.shadow();
+    dm.setMl({ static_cast<uint8_t>(ml_.mode()), sh.detectAgreement(), sh.bandOverlap(), sh.meanAbsDiff(), sh.frames });
 
     // Feedback der Tracking Unit (Abschnitt 10), falls vorhanden
     if (out_.pollFeedback(feedback_)) corr_.applyFeedback(feedback_);
