@@ -26,6 +26,10 @@ public:
     static LCDTask& instance() { static LCDTask inst; return inst; }
 
     static constexpr float kRateHz = 20.0f;   // 50 ms, wie bisher osDelay(50)
+    /// Diagnose Flackern: true = festes Testbild statt der Seiten (keine wechselnden Inhalte).
+    /// Flackert es dann weiter, liegt es nicht am Inhalt; Zeile "FB" zeigt, ob der angezeigte
+    /// Puffer überschrieben wird.
+    static constexpr bool kTestPattern = false;
 
 protected:
     void onTask() override;
@@ -39,6 +43,8 @@ private:
     void showRadar();
     void showSystemData();
     void showError();
+    void showTestPattern();
+    void checkShownBuffer();          // vor dem Zeichnen: angezeigter Puffer unverändert?
     void taskLine(int y, const char* name, TaskId id);
 
     SDS_Data&  dm_   = SDS_Data::instance();
@@ -51,6 +57,11 @@ private:
     static constexpr float distFac_ = 120.0f / 100.0f; // px pro m (100 m Vollausschlag)
     static constexpr float deg2rad_ = 3.14159265f / 180.0f;
     char buf_[128];
+
+    uint32_t fbRef_[LCDDriver::kCheckBands] = {};
+    bool     fbRefValid_ = false;
+    uint32_t fbCorrupt_  = 0;         // Zyklen mit überschriebenem Anzeigepuffer
+    uint32_t fbBandMask_ = 0;         // betroffene Streifen (Bit b = Zeilen 16b … 16b+15)
 };
 
 } // namespace sds110
