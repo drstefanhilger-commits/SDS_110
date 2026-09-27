@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include "Harness/Signal_Simulator.hpp"
 #include "chain.hpp"
+#include "ml_mode.hpp"
 #include "Sensor_Unit_112/Pre_Processor_118.hpp"
 #include "Processing_Module_120/Feature_Extraction_Module_122/Feature_Extraction_Module_122.hpp"
 #include "Processing_Module_120/Machine_Learning_Module_124/Machine_Learning_Module_124.hpp"
@@ -55,6 +56,7 @@ static void run(SimScenario sc, float snrDb, float f0, int frames, int settle)
 
 int main(int argc, char** argv)
 {
+    mlModeFromEnv(ml);
     const int frames = 2 * (argc > 1 ? std::atoi(argv[1]) : 120), settle = 60;   // Angaben in alten 64-ms-Frames
     for (int s = 0; s < 5; ++s) run((SimScenario)s, SIM_SNR_DB, SIM_F0_HZ, frames, settle);
     std::printf("-- Empfindlichkeit DroneStatic\n");

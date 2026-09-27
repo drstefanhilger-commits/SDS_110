@@ -13,6 +13,7 @@
 #include <vector>
 #include "Harness/Signal_Simulator.hpp"
 #include "chain.hpp"
+#include "ml_mode.hpp"
 #include "Sensor_Unit_112/Pre_Processor_118.hpp"
 #include "Processing_Module_120/Feature_Extraction_Module_122/Feature_Extraction_Module_122.hpp"
 #include "Processing_Module_120/Machine_Learning_Module_124/Machine_Learning_Module_124.hpp"
@@ -23,6 +24,7 @@ static Correlation_Processing_Module_126 corr; static Spectrum sp[NUM_MICS];
 static float wrap(float e) { while (e > 180) e -= 360; while (e < -180) e += 360; return e; }
 int main(int argc, char** argv)
 {
+    mlModeFromEnv(ml);
     const int scen = argc > 1 ? atoi(argv[1]) : 1;
     auto& sim = Signal_Simulator::instance(); auto& arr = Microphone_Array_114::instance();
     for (float snr : { 30.f, 20.f, 10.f, 6.f, 3.f, 0.f }) {
