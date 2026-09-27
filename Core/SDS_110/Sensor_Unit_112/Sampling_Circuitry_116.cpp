@@ -126,7 +126,7 @@ bool Sampling_Circuitry_116::configureSai()
 // ---------------------------------------------------------------- run
 bool Sampling_Circuitry_116::start()
 {
-    if (!hsai_) return false;
+    if (!dmaReady()) { ++errors_; return false; }   // Blocker 2: kein DMA eingerichtet
     if (HAL_SAI_Receive_DMA(hsai_, reinterpret_cast<uint8_t*>(dmaBuffer_),
                             2 * HALF_WORDS) != HAL_OK) {
         ++errors_;

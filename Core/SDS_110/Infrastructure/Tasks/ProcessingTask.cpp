@@ -20,9 +20,16 @@ void ProcessingTask::feedSimulation()
 {
     // Simulation (USB-Kommando Typ 3, Standard 1): Generator statt SAI/DMA.
     // Ein Hop (32 ms) pro Aufruf; die Verarbeitung im selben Durchlauf hält 114 frei.
-    const bool sim = dm_.getSimulation() != 0;
+    // Sperr-Timeout: letzten Wert behalten, nicht auf Hardware umschalten (Befund 29)
+    uint32_t simFlag = 0;
+    if (dm_.tryGetSimulation(simFlag)) simOn_ = simFlag != 0;
+    const bool sim = simOn_;
     if (sim && !simRunning_)  { proc_.unit().sampling().stop(); simRunning_ = true; }
-    if (!sim && simRunning_)  { if (!proc_.start()) dm_.pushErrorMessage("116 start failed"); simRunning_ = false; }
+    if (!sim && simRunning_) {
+        simRunning_ = false;
+        if (!proc_.unit().sampling().dmaReady()) dm_.pushErrorMessage("116: SAI ohne DMA");
+        else if (!proc_.start())                 dm_.pushErrorMessage("116 start failed");
+    }
     if (!sim) return;
 
     sim_.generateHop(TimeBase::nowUs());     // gleiche Zeitbasis wie 116

@@ -30,9 +30,9 @@ Status: **nicht bearbeiten** = bewusst zurückgestellt, **offen** = zu bearbeite
 ## Blocker (Hardware-Pfad)
 
 1. **ProcessingTask nicht gestartet** – `SDS110_StartProcessingTask()` ist in `Core/Src/main.c:270` auskommentiert; weder Verarbeitung noch Simulator laufen.
-   Status: **nicht bearbeiten**
+   Status: **bearbeitet (27.09.2026)** – Task eingeschaltet, läuft im Simulationsbetrieb (Standard `simulation = 1`); gebaut, auf dem Board nicht getestet. Vorher abgesichert: Befund 29 (Simulationsflag bei Sperr-Timeout) und der HardFault aus Blocker 2. Der Hardware-Pfad bleibt wegen Blocker 2–4 ohne Funktion.
 2. **SAI2 ohne DMA** – `HAL_SAI_MspInit` richtet keinen DMA ein, es gibt keine DMA-IRQ-Handler. `HAL_SAI_Receive_DMA` dereferenziert `hsai->hdmarx` ohne Prüfung (`stm32f7xx_hal_sai.c:1494`) → HardFault, sobald die Simulation per USB abgeschaltet wird.
-   Status: **nicht bearbeiten**
+   Status: **nicht bearbeiten** (DMA fehlt weiter). Seit 27.09.2026 abgefangen: `Sampling_Circuitry_116::start()` startet ohne `hdmarx` nicht (`dmaReady()`), `ProcessingTask` meldet „116: SAI ohne DMA“ auf dem LCD statt HardFault.
 3. **CubeMX-Konfiguration passt nicht zur eigenen Platine** – `.ioc` ist das Preset STM32F746G-DISCO (ETH, LTDC, DCMI, ULPI). Laut `STM32F746_PINS.txt` nutzt die Platine SAI1 (PE4/PE5), I2C2 (PB10/PB11), PE3 als Enable; der Code nutzt SAI2_A und I2C1. Auf dem DISCO ist PE3 der FAULT-Ausgang des STMPS2151 (`OTG_HS_OverCurrent`) und wird von `Sampling_Circuitry_116.cpp:37` als Push-Pull auf High getrieben.
    Status: **nicht bearbeiten**
 4. **ADAU7118-Registertabelle vermutlich falsch** – `ADAU7118_Registers.hpp` (POWER, PLL_CTRL, MODE_CTRL …) passt weder zur Tabelle in `ADUA_Design.md` noch zur Registerbelegung des Linux-Treibers (0x00–0x03 IDs nur lesbar, 0x04 ENABLES, 0x05 DEC_RATIO_CLK_MAP, 0x06 HPF, 0x07/0x08 SPT_CTRL1/2, 0x11 DRIVE, 0x12 RESET). Schreibzugriffe auf nur lesbare Register werden per ACK bestätigt → `init()` meldet Erfolg ohne Wirkung. I2C-Adresse (0x4B oder 0x3A) offen. Designdoku §5 falsch: der ADAU7118 ist an der seriellen Schnittstelle Slave (SAI als Master ist korrekt).

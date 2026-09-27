@@ -34,6 +34,9 @@ public:
     bool start();
     void stop();
     bool running() const { return running_; }
+    /// SAI hat einen RX-DMA (HAL_SAI_MspInit). Ohne DMA würde HAL_SAI_Receive_DMA
+    /// hdmarx = NULL dereferenzieren -> HardFault (Blocker 2).
+    bool dmaReady() const { return hsai_ && hsai_->hdmarx; }
 
     /// aus HAL_SAI_RxHalfCpltCallback / HAL_SAI_RxCpltCallback
     void onRxHalf();

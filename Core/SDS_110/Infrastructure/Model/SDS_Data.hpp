@@ -70,6 +70,9 @@ public:
     SDS_Mode getMode() const { return getValue(mode); }
     void setSimulation(uint32_t v) { setValue(simulation, v); }
     uint32_t getSimulation() const { return getValue(simulation); }
+    /// wie getSimulation(), aber false bei Sperr-Timeout (out bleibt dann unverändert).
+    /// getSimulation() liefert dann 0 = Hardware -> SAI-Start (Befund 29).
+    bool tryGetSimulation(uint32_t& out) const { return tryGetValue(simulation, out); }
     void setSyncTimeDifference(uint32_t v) { setValue(syncTimeDifference, v); }
     uint32_t getSyncTimeDifference() const { return getValue(syncTimeDifference); }
 
@@ -110,6 +113,13 @@ private:
         if (!lock()) { errorFlag = 999; return; }
         target = value;
         unlock();
+    }
+    template<typename T> bool tryGetValue(const T& target, T& out) const
+    {
+        if (!lock()) return false;
+        out = target;
+        unlock();
+        return true;
     }
     template<typename T> T getValue(const T& target) const
     {

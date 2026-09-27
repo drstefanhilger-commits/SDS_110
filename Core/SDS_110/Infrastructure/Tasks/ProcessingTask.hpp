@@ -22,6 +22,7 @@ private:
     Processing_Module_120& proc_ = Processing_Module_120::instance();
     Signal_Simulator&      sim_  = Signal_Simulator::instance();
     bool simRunning_ = false;
+    bool simOn_      = true;      // zuletzt gelesener Wert von SDS_Data::simulation (Standard 1)
     SDS_Data& dm_ = SDS_Data::instance();
 };
 

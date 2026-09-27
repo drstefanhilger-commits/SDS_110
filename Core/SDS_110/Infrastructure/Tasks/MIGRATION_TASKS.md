@@ -25,7 +25,7 @@ Spätere Änderungen: USBDriver sendet über einen TX-Ringpuffer (Befund 11); `T
 | Driver/LCDDriver.hpp, Font8x12.*, SDRAMDriver.h, PrintfDriver.h, MPUDriver.h | Driver/ | unverändert kopiert |
 
 main.c (Stand 25.09.2026): `SDS110_Init()`, `SDS110_StartDisplayTask()`, `SDS110_StartUSBTask()`,
-`SDS110_StartLoggerTask()` aktiv; `SDS110_StartProcessingTask()` ist auskommentiert (Befund 1, zurückgestellt).
+`SDS110_StartLoggerTask()` und seit 27.09.2026 auch `SDS110_StartProcessingTask()` aktiv (Blocker 1; Simulationsbetrieb, Hardware-Pfad siehe Blocker 2–4).
 
 ~~Hinweis 122: Kopie unter Sensor_Unit_112/ löschen~~ – *erledigt*, 122 liegt nur noch unter
 Processing_Module_120/Feature_Extraction_Module_122/.
