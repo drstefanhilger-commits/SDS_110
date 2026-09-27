@@ -117,7 +117,8 @@ int main(int argc, char** argv)
     const size_t nSamples = w.pcm24.empty() ? 0 : w.pcm24[0].size();
 
     auto& arr = Microphone_Array_114::instance();
-    pre.init(); fa.reset(); feat.init(); if (withHbd) ml.init();
+    pre.init(); fa.reset(); feat.init();
+    if (withHbd) { ml.setMode(Ml124Mode::Hbd); ml.init(); }   // --hbd: s(t) des HBD (Vergleichsgrundlage), ohne MLP
     if (label) {
         preD.init(); preN.init();
         for (Pre_Processor_118* p : { &preD, &preN }) { p->enableNoiseSuppression(false); p->enableAgc(false); }   // nur Bandpass

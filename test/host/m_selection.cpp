@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include "Harness/Signal_Simulator.hpp"
 #include "chain.hpp"
+#include "ml_mode.hpp"
 #include "Sensor_Unit_112/Pre_Processor_118.hpp"
 #include "Processing_Module_120/Feature_Extraction_Module_122/Feature_Extraction_Module_122.hpp"
 #include "Processing_Module_120/Machine_Learning_Module_124/Machine_Learning_Module_124.hpp"
@@ -55,6 +56,7 @@ static void run(SimScenario sc, float snr)
 }
 int main(int argc, char** argv)
 {
+    mlModeFromEnv(ml);
     if (argc > 1) g_frames = 2 * atoi(argv[1]);   // Angabe in alten 64-ms-Frames
     if (argc > 2) { for (int s = 2; s < 5; ++s) run((SimScenario)s, 20.f); return 0; }
     for (int s = 0; s < 5; ++s) run((SimScenario)s, 20.f);

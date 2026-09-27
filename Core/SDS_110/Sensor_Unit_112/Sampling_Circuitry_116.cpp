@@ -126,7 +126,7 @@ bool Sampling_Circuitry_116::configureSai()
 // ---------------------------------------------------------------- run
 bool Sampling_Circuitry_116::start()
 {
-    if (!hsai_) return false;
+    if (!dmaReady()) { ++errors_; return false; }   // Blocker 2: kein DMA eingerichtet
     if (HAL_SAI_Receive_DMA(hsai_, reinterpret_cast<uint8_t*>(dmaBuffer_),
                             2 * HALF_WORDS) != HAL_OK) {
         ++errors_;
@@ -153,12 +153,22 @@ void Sampling_Circuitry_116::onRxHalf()
 {
     SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(dmaBuffer_), sizeof(int32_t) * HALF_WORDS);
     array_.pushBlock(&dmaBuffer_[0], DMA_BLOCK_SAMPLES, firstSampleUs());
+    notifyIfHopReady();
 }
 
 void Sampling_Circuitry_116::onRxComplete()
 {
     SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(&dmaBuffer_[HALF_WORDS]), sizeof(int32_t) * HALF_WORDS);
     array_.pushBlock(&dmaBuffer_[HALF_WORDS], DMA_BLOCK_SAMPLES, firstSampleUs());
+    notifyIfHopReady();
+}
+
+void Sampling_Circuitry_116::notifyIfHopReady()
+{
+    const MicFrame* f = array_.latestFrame();
+    if (!f || (f == lastHop_ && f->frame_id == lastHopId_)) return;
+    lastHop_ = f; lastHopId_ = f->frame_id;
+    if (hook_) hook_(hookCtx_);
 }
 
 void Sampling_Circuitry_116::onError()

@@ -133,6 +133,22 @@ public:
         fill(drawFB + y * W + x, w, h, W - w, static_cast<uint32_t>(color));
     }
 
+    // Notbild für Assert/HardFault (SDS110_Fatal.h): CPU schreibt direkt in den Puffer, den
+    // der LTDC gerade anzeigt (CFBAR) – ohne DMA2D, Semaphore und Interrupts. Der LTDC liest
+    // den Framebuffer (SDRAM, uncached: MPU-Region 2) selbstständig weiter.
+    bool ready() const { return W > 0 && fb0 != nullptr; }
+    inline void fatalScreen(const char* title, const char* detail) {
+        uint32_t* shown = reinterpret_cast<uint32_t*>(__HAL_LTDC_LAYER(&hltdc, 0)->CFBAR);
+        if (shown != fb0 && shown != fb1) shown = activeFB;
+        drawFB = fb = shown;                                   // pixel()/text8x12() zeichnen dorthin
+        constexpr int y0 = 100, h = 44;
+        for (int y = y0; y < y0 + h && y < H; ++y)
+            for (int x = 0; x < W; ++x) drawFB[y * W + x] = static_cast<uint32_t>(Color::Red);
+        text8x12(10, y0 + 8, title, Color::White);
+        text8x12(10, y0 + 24, detail, Color::White);
+        __DSB();
+    }
+
     // Diagnose
     uint32_t dmaErrors()   const { return dmaErrors_; }
     uint32_t dmaTimeouts() const { return dmaTimeouts_; }

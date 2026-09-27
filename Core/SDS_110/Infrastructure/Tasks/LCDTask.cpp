@@ -3,6 +3,7 @@
  */
 #include "LCDTask.hpp"
 #include "Infrastructure/Timer/HardwareTimer.hpp"
+#include "Processing_Module_120/Machine_Learning_Module_124/ML124_Config.hpp"
 #include "cmsis_os2.h"
 #include <cmath>
 #include <cstdio>
@@ -96,6 +97,17 @@ void LCDTask::showSystemData()
     gfx_->text8x12(10, 190, buf_, Color::White);
     snprintf(buf_, sizeof(buf_), "Sel. bands     %lu", static_cast<unsigned long>(dm_.getSelectedBands()));
     gfx_->text8x12(10, 200, buf_, Color::White);
+    // Stufe 124 (ML124_Config.hpp); im Schatten Abgleich HBD <-> ML seit dem Start:
+    // Detektion gleich (%), Jaccard der selektierten Bänder, mittlere |p_hbd - p_ml|
+    const SDS_Data::MlStatus ml = dm_.getMl();
+    static const char* const kMode[] = { "HBD", "Schatten", "ML" };
+    snprintf(buf_, sizeof(buf_), "124 Stufe      %s", kMode[ml.mode < 3 ? ml.mode : 0]);
+    gfx_->text8x12(10, 210, buf_, Color::White);
+    if (ml.mode == static_cast<uint8_t>(Ml124Mode::Shadow)) {
+        snprintf(buf_, sizeof(buf_), "ML Det%4.0f%% B%.2f dp%.2f", static_cast<double>(100 * ml.detectAgree),
+                 static_cast<double>(ml.bandOverlap), static_cast<double>(ml.meanAbsDiff));
+        gfx_->text8x12(10, 220, buf_, Color::White);
+    }
     snprintf(buf_, sizeof(buf_), "USB timeSync   %lu", static_cast<unsigned long>(usb_debug_counter));
     gfx_->text8x12(10, 230, buf_, Color::White);
 }

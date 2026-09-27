@@ -19,6 +19,8 @@ Referenzergebnisse: Stand 25.09.2026, Code-Stand Commit `0dc8150`.
 | Prüfung | `t_timebase` | 16 | 64-bit-Erweiterung des DWT-Zählers |
 | Prüfung | `t_logger` | 19 | Logger-Ringpuffer mit mehreren Schreibern |
 | Prüfung | `t_bearing_broadband` | 23, 8 | Peilung einer breitbandigen Quelle, 24 Richtungen |
+| Prüfung | `t_ml124` | 20, 36 | MLP in 124: Merkmalsversion, C++ ↔ Keras, Kontextstapel, Stufen |
+| Prüfung | `t_hopclock` | 28 | Hop-Takt der Simulation im ProcessingTask (31,25 Hops/s) |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
 | Messung | `m_bearing_drone` | 8, 17, 23, 24 | Peilung eines Drohnensignals über die volle Kette |
@@ -152,6 +154,29 @@ Breitbandige Quelle (Wind-Szenario als Punktquelle), alle Bänder selektiert, 24
 0…345°; TDOA-LS-Peilung (`estimateBearing`) und SRP-Scan.
 Kriterium: 24/24 gültig, max. Fehler < 0,5°. Referenz: max. 0,09° (TDOA-LS), 0,07° (SRP).
 
+### t_ml124 – Befunde 20, 36 (AP6 Trainingskonzept ML124)
+Modell aus `ML124_Model_Data.hpp`, Referenzvektoren aus `common/ML124_Model_Ref.hpp` (beide von
+ML_Test `app/train_ml124/export.py`). Prüft:
+
+1. Die Merkmalsversion des Modells ist gleich der dieses Code-Stands. Das Makefile berechnet sie
+   wie `tools/features`; bei Abweichung bricht die Übersetzung mit `static_assert` ab.
+2. C++-Inferenz gegen Keras, max. Abweichung ≤ 1e-5.
+3. Kontextstapel in `infer()` bitgenau wie `stack_context()` in ML_Test.
+4. Die Stufe Schatten liefert bitgenau dasselbe s(t) wie die Stufe HBD; die Stufe ML liefert
+   endliche Werte in [0, 1].
+
+Referenz (`k5_h48_d3`): max. |C++ − Keras| = 5,4·10⁻⁷. DroneStatic 10 dB in der Stufe Schatten:
+Detektion gleich 100 %, Band-Überlappung 0,12, mittleres |Δp| 0,43 (Bewertung siehe
+`doc/Vergleich_HBD_ML124.md`).
+
+### t_hopclock – Befund 28
+`HopClock` (Infrastructure/Utils) gibt den Takt der Simulation im ProcessingTask vor. Die
+Task-Schleife wird nachgebildet: aufwachen zu `nextTick()`, fällige Hops erzeugen, 0–30 ms rechnen.
+Kriterium: nach 60 s genau 1875 Hops (31,25 /s) ohne übersprungene; 100 ms Verspätung → 3 Hops auf
+einmal; 1 s Verspätung → 4 nachgeholt, 27 übersprungen und gezählt; Tick-Überlauf und 1024 Hz
+(32,768 Ticks je Hop) über 10 min: 18 750 Hops.
+Vorher (`osDelay(40)` plus Rechenzeit): höchstens 25 Hops/s.
+
 ---
 
 ## 5. Messungen (`m_*`) und Referenzwerte
@@ -160,6 +185,11 @@ Frame-Angaben in den Messprogrammen: Seit Befund 17 ist ein Analyse-Frame 32 ms;
 von `m_overview` und `m_selection` werden in „alten“ 64-ms-Frames angegeben und intern verdoppelt.
 Der HBD entscheidet nach dem Start 3 s lang nicht (Befund 24) – Messungen, die früher beginnen,
 zeigen deshalb weniger als 100 % Detektion.
+
+`m_overview`, `m_selection`, `m_bearing_drone` und `m_confidence` rechnen in der Stufe aus
+`ML124_Config.hpp` (Standard Schatten, s(t) wie HBD). Die Umgebungsvariable `ML124_MODE`
+(0 HBD, 1 Schatten, 2 ML) wählt eine andere; die erste Ausgabezeile nennt die Stufe. Die folgenden
+Referenzen gelten für HBD bzw. Schatten; für ML siehe `doc/Vergleich_HBD_ML124.md`.
 
 ### m_overview – Übersicht (Aufruf: `m_overview [Frames, Standard 120]`)
 Je Szenario (SNR 20 dB): HBD-DRONE-Anteil, detected (≥ 3 Bänder > θ_sel), Bänder, f0, Score,

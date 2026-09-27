@@ -12,6 +12,7 @@
 #include <algorithm>
 #include "Harness/Signal_Simulator.hpp"
 #include "chain.hpp"
+#include "ml_mode.hpp"
 #include "Processing_Module_120/Feature_Extraction_Module_122/Feature_Extraction_Module_122.hpp"
 #include "Processing_Module_120/Machine_Learning_Module_124/Machine_Learning_Module_124.hpp"
 #include "Processing_Module_120/Correlation_Processing_Module_126/Correlation_Processing_Module_126.hpp"
@@ -44,6 +45,7 @@ static void run(SimScenario sc, float snr, const char* name)
 }
 int main()
 {
+    mlModeFromEnv(ml);
     for (float s : { 30.f, 20.f, 10.f, 3.f, 0.f, -3.f }) run(SimScenario::DroneStatic, s, "Drohne");
     run(SimScenario::WindNoise, 20.f, "Wind"); run(SimScenario::Silence, 20.f, "Stille"); run(SimScenario::SingleTone, 20.f, "Einzelton");
 }
