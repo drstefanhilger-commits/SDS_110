@@ -5,11 +5,11 @@ Stand 27.09.2026. Online-Fassung mit änderbarem Status und Diagramm:
 
 ## Zusammenfassung
 
-Von 36 zugesicherten Werten aus FSL9 sind 17 erfüllt, 8 teilweise erfüllt, 7 nicht erfüllt, 2 offen und 2 nicht im Umfang der Firmware. Die Signalkette 118 → 122 → 126 hält die Parameter der bevorzugten Ausführung weitgehend ein: Frames, FFT, Bänder, Selektion, Gewichtung, GCC-PHAT und Peak-Ratio. Die Abweichungen liegen vor allem im Systemaufbau und in den Zeitvorgaben:
+Von 36 zugesicherten Werten aus FSL9 sind 17 erfüllt, 9 teilweise erfüllt, 6 nicht erfüllt, 2 offen und 2 nicht im Umfang der Firmware. Die Signalkette 118 → 122 → 126 hält die Parameter der bevorzugten Ausführung weitgehend ein: Frames, FFT, Bänder, Selektion, Gewichtung, GCC-PHAT und Peak-Ratio. Die Abweichungen liegen vor allem im Systemaufbau und in den Zeitvorgaben:
 
 - **Eine statt mindestens zwei Sensoreinheiten** (`NUM_UNITS = 1`). Die Distanz kommt deshalb aus einem Pegelmodell, das FSL9 nicht vorsieht; Multilateration und der Zwei-Unit-Modus werden nicht genutzt.
 - **Keine Synchronisation nach IEEE 1588 und keine UTC-Zeit.** Der Report überträgt die Zeit in ms statt µs.
-- **Rechenzeit:** Das Processing Module braucht am Board 33,3 ms je Frame, der Frame-Takt ist 32 ms. Die zugesicherten ~30 Reports/s werden deshalb nicht erreicht.
+- **Rechenzeit:** Das Processing Module braucht am Board 31,3 ms je Frame und liegt damit knapp unter dem Frame-Takt von 32 ms (0,7 ms Reserve). Ob ~30 Reports/s mit echten Mikrofonen durchlaufen, ist erst mit der 8-Mikrofon-Platine nachweisbar; im Simulationsbetrieb reicht die Zeit nicht (Simulator 13,4 ms).
 - **ML-Modul:** s(t) kommt vom HBD. Das trainierte MLP läuft nur im Schatten und ist kein CNN. Die Labels folgen dem Band-SNR statt der Harmonischen aus Telemetrie.
 
 Die Tracking-Einheit (Abschnitte 8–9, Ansprüche 6–8 und 11) ist nicht Teil von SDS_110.
@@ -70,7 +70,7 @@ Je Zeile ein zugesicherter Wert aus FSL9 mit Ist-Wert, Code-Referenz (relativ zu
 | A28 | §6, FIG. 5 | Referenzpunkt, Azimut | Zentroid der Einheiten, Azimut ab Nord | Arraymitte; Azimut = atan2(uy, ux), also ab x-Achse | `Correlation_Processing_Module_126.cpp:263, Processing_Module_120.cpp:37` | Offen |
 | A29 | §7, Anspr. 1(g) | Zeitstempel im Report | UTC, µs | intern µs (uint64), gesendet ms (uint32), kein UTC (Befund 33) | `Data_Interface_140/Candidate_Report_140.hpp:32, Output_Interface_130.cpp:37` | Nicht erfüllt |
 | A30 | §7, Anspr. 1(g) | Inhalt des Reports | φ, r, Qualität (Paare, Residuum), ausgewählte Bänder + p_b | UnitReport: Peilung, Residuum, Paare, Pegel, Bänder + p_b; φ/r im CandidateReport auf dem PC | `Data_Interface_140/Candidate_Report_140.hpp:30–41` | Teilweise |
-| A31 | §7 | Report-Rate, Format | ≈ 30 Reports/s, feste Binärstruktur | Binärstruktur 128 Byte (t_unit_report); Proc 33,3 ms > 32-ms-Frame-Takt | `Output_Interface_130.cpp, LCDTask.cpp (Zeitanzeige)` | Nicht erfüllt |
+| A31 | §7 | Report-Rate, Format | ≈ 30 Reports/s, feste Binärstruktur | Binärstruktur 128 Byte (t_unit_report); Proc 31,3 ms < 32-ms-Frame-Takt (0,7 ms Reserve), mit echten Mikrofonen nicht nachgewiesen | `Output_Interface_130.cpp, LCDTask.cpp (Zeitanzeige)` | Teilweise |
 | A32 | §7, Anspr. 10 | Keine Trajektorie im SDS | SDS bildet keine Trajektorie | keine Tracking-Funktion in der Firmware | – | Erfüllt |
 | A33 | §10 | Feedback Schwelle/Gewicht | ŝ_b > 0,6: θ = 0,3, Gewicht × (1 + ŝ_b) | wie gefordert; wird nie zurückgesetzt (Befund 34) | `SDS_110_Config.hpp:129–130, Correlation_Processing_Module_126.cpp:49–55` | Erfüllt |
 | A34 | §10 | Feedback Suchfenster | TDOA-Fenster ±2 ms um die Vorhersage | TDOA_WINDOW_S definiert, ungenutzt | `SDS_110_Config.hpp:131` | Nicht erfüllt |
@@ -79,9 +79,9 @@ Je Zeile ein zugesicherter Wert aus FSL9 mit Ist-Wert, Code-Referenz (relativ zu
 
 ## Rechenzeit und Ressourcen am Board
 
-FSL9 sichert ≈ 30 Reports/s zu, also einen Frame je 32 ms (Hop 1536 Samples bei 48 kHz). Das Processing Module braucht dazu noch 1,3 ms zu viel; mit dem Simulator sind es rund 15 ms. Seit dem Array mit 200 mm rechnet GCC-PHAT nur ±32 statt ±64 Lags: K GCC sank von 8,5 auf 5,0 ms, Proc von 37 auf 33,3 ms.
+FSL9 sichert ≈ 30 Reports/s zu, also einen Frame je 32 ms (Hop 1536 Samples bei 48 kHz). Das Processing Module hält das mit 31,3 ms knapp ein (0,7 ms Reserve); mit dem Simulator sind es rund 45 ms. Beiträge: Array 200 mm (GCC-PHAT ±32 statt ±64 Lags, K GCC 8,5 → 4,9 ms) und SRP-Referenzscan standardmäßig aus (2,3 → 0 ms); zusammen Proc 37 → 31,3 ms.
 
-Board-Messung STM32F746G-DISCO, LCD-Zeitzeilen, 27.09.2026 (master `aa4d463`, Array 200 mm, Simulationsbetrieb; Debug und Release gleich). Simulator aus der Messung davor (`d046577`):
+Board-Messung STM32F746G-DISCO, LCD-Zeitzeilen, 27.09.2026 (master `1786e2a`, Array 200 mm, SRP-Referenzscan aus, Simulationsbetrieb; Debug und Release gleich). Simulator aus einer früheren Messung (`d046577`):
 
 | Stufe | ms je Frame |
 | --- | --- |
@@ -89,11 +89,11 @@ Board-Messung STM32F746G-DISCO, LCD-Zeitzeilen, 27.09.2026 (master `aa4d463`, Ar
 | F – 122 (8 FFT + Merkmale) | 15 |
 | M – 124 (HBD + MLP im Schatten) | 4 |
 | K – 126 Selektion | 0,1 |
-| K – 126 GCC (28 Paar-Korrelationen, ±32 Lags) | 5,0 (vorher 8,5 bei ±64) |
-| K – 126 SRP-Referenzscan (nur Vergleich, seit 27.09.2026 standardmäßig aus) | 2,3 |
-| **Processing Module gesamt** | **33,3** (Summe der Stufen 33,4) |
+| K – 126 GCC (28 Paar-Korrelationen, ±32 Lags) | 4,9 (vorher 8,5 bei ±64) |
+| K – 126 SRP-Referenzscan (nur Vergleich, standardmäßig aus; ein: 2,3) | 0,0 |
+| **Processing Module gesamt** | **31,3** (Summe der Stufen 31,0) |
 | Simulator (nur Testbetrieb) | 13,4 |
-| **mit Simulator** | **46,7** |
+| **mit Simulator** | **44,7** |
 
 Mit echten Mikrofonen fällt der Simulator weg, das Budget muss also das Processing Module allein einhalten. Ausgangswert vor der Optimierung war 380 ms je Hop. Der Release-Build (`-Os`) ist nicht schneller als der Debug-Build (`-O0`): Alle rechenintensiven Dateien (118, 122, 124 mit HBD, 126, Simulator) binden `Infrastructure/Utils/DspOptimize.hpp` ein, das auf dem Board `-O2` erzwingt. Die Build-Wahl ist für die Rechenzeit damit ohne Belang.
 
@@ -111,7 +111,7 @@ Zuerst anzugehen ist die Rechenzeit. Der Arraydurchmesser ist seit 27.09.2026 au
 
 | Prio | IDs | Abweichung | Maßnahme | Bezug |
 | --- | --- | --- | --- | --- |
-| 1 | A31 | Proc 33,3 ms > 32 ms | SRP-Referenzscan ist seit 27.09.2026 abschaltbar (USB-Kommando Typ 6, Standard aus; −2,3 ms erwartet, am Board noch zu messen); danach 122 (15 ms) und 118 (7 ms) prüfen; Release-Build bringt nichts (`DspOptimize.hpp`) | Befund 28, `doc/Host_Tests.md` |
+| 1 | A31 | Proc 31,3 ms, nur 0,7 ms Reserve; Rate mit echten Mikrofonen nicht nachgewiesen | mit der 8-Mikrofon-Platine übersprungene Hops zählen; für Reserve 122 (15 ms, 8 FFT) und 118 (7 ms) prüfen; SRP-Referenzscan bleibt aus (USB Typ 6), Release-Build bringt nichts (`DspOptimize.hpp`) | Befund 28, `doc/Host_Tests.md` |
 | 2 | A18, A35 | TDOA auch bei < 3 Bändern | bei weniger als B_min Bändern keine Korrelation rechnen, wie FSL9 §4 | `Correlation_Processing_Module_126.cpp:70` |
 | 3 | A29, A6 | Zeit in ms, kein UTC, kein PTP | Zeitstempel in µs übertragen; UTC-Bezug über PTP oder GNSS-PPS | Befunde 16, 33 |
 | 4 | A1, A7, A27 | eine Einheit, Pegel-Distanz | Multilateration mit N ≥ 3 Einheiten, wenn die Hardware vorliegt; Positionen der Einheiten konfigurieren | Blocker 1–4 |
