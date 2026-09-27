@@ -36,10 +36,34 @@ LCDTask::LCDTask()
     setStatsId(TaskId::Lcd);                  // Laufzeit -> SDS_Data -> Zeile "LCD"
 }
 
+void LCDTask::checkShownBuffer()
+{
+    if (!fbRefValid_) return;
+    uint32_t now[LCDDriver::kCheckBands];
+    gfx_->shownBandSums(now);
+    uint32_t mask = 0;
+    for (int b = 0; b < LCDDriver::kCheckBands; ++b) if (now[b] != fbRef_[b]) mask |= 1u << b;
+    if (mask) { ++fbCorrupt_; fbBandMask_ |= mask; }
+}
+
+void LCDTask::showTestPattern()
+{
+    // feste Farbbalken + Gitter + Text; ändert sich nur, wenn sich die Zähler ändern
+    static const Color bars[] = { Color::White, Color::Yellow, Color::Cyan, Color::Green,
+                                  Color::Magenta, Color::Red, Color::Blue, Color::Gray };
+    for (int i = 0; i < 8; ++i) gfx_->fillRect(i * 60, 0, 60, 120, bars[i]);
+    for (int x = 0; x < 480; x += 40) gfx_->line(x, 130, x, 271, Color::DarkGray);
+    for (int y = 130; y < 272; y += 20) gfx_->line(0, y, 479, y, Color::DarkGray);
+    gfx_->text8x12(10, 140, "TESTBILD (LCDTask::kTestPattern)", Color::White);
+}
+
 void LCDTask::onTask()
 {
+    checkShownBuffer();
     gfx_->clear(Color::Black);
-    switch (dm_.getMode()) {
+    if (kTestPattern) {
+        showTestPattern();
+    } else switch (dm_.getMode()) {
         case SDS_Mode::DETECT:
             showRadar(); showSystemData(); showDetection(); break;
         case SDS_Mode::CALIBRATE:
@@ -48,9 +72,23 @@ void LCDTask::onTask()
             showSystemData(); showAcousticState(); break;
         default: break;
     }
-    showError();
+    // Anzeigepuffer-Prüfung (Stand bis zum letzten Zyklus): Zyklen mit Änderung, Streifenmaske
+    snprintf(buf_, sizeof(buf_), "FB %lu x%05lX", static_cast<unsigned long>(fbCorrupt_),
+             static_cast<unsigned long>(fbBandMask_));
+    gfx_->text8x12(10, 160, buf_, fbCorrupt_ ? Color::Yellow : Color::White);
+    if (kTestPattern) {
+        snprintf(buf_, sizeof(buf_), "LTDC U%lu T%lu D2D %lu/%lu VB%lu",
+                 static_cast<unsigned long>(gfx_->ltdcUnderruns()), static_cast<unsigned long>(gfx_->ltdcTransferErrors()),
+                 static_cast<unsigned long>(gfx_->dmaTimeouts()), static_cast<unsigned long>(gfx_->dmaErrors()),
+                 static_cast<unsigned long>(gfx_->vblankTimeouts()));
+        gfx_->text8x12(10, 180, buf_, Color::White);
+    } else {
+        showError();
+    }
     gfx_->activateFrameBuffer();
     gfx_->rearmUnderrunIrq();
+    gfx_->shownBandSums(fbRef_);                // Referenz des jetzt angezeigten Puffers
+    fbRefValid_ = true;
     // Stats meldet TaskTimerBase nach der Messung (setStatsId im Konstruktor)
 }
 

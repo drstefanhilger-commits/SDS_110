@@ -149,7 +149,23 @@ public:
         __DSB();
     }
 
-    // Diagnose
+    // Diagnose: Prüfsumme je Streifen von kCheckRows Zeilen über den angezeigten Puffer.
+    // Niemand darf in den angezeigten Puffer schreiben – ändert sich eine Summe zwischen zwei
+    // Zyklen, wurde der Speicher überschrieben (fremder Schreibzugriff oder SDRAM-Fehler).
+    static constexpr int kCheckRows  = 16;
+    static constexpr int kCheckBands = (272 + kCheckRows - 1) / kCheckRows;   // 17
+    inline void shownBandSums(uint32_t* out) const {
+        for (int b = 0; b < kCheckBands; ++b) {
+            uint32_t s = 0;
+            const int y1 = (b + 1) * kCheckRows < H ? (b + 1) * kCheckRows : H;
+            for (int y = b * kCheckRows; y < y1; ++y) {
+                const uint32_t* row = activeFB + y * W;
+                for (int x = 0; x < W; ++x) s = ((s << 1) | (s >> 31)) ^ row[x];
+            }
+            out[b] = s;
+        }
+    }
+
     uint32_t vblankTimeouts() const { return vblankTimeouts_; }
     /// LTDC-FIFO-Unterlauf (SDRAM-Bandbreite): aus HAL_LTDC_ErrorCallback zählen. Die HAL schaltet
     /// den Interrupt danach ab; rearmUnderrunIrq() einmal je LCD-Zyklus -> höchstens 20 IRQs/s.
