@@ -14,18 +14,37 @@ void Signal_Simulator::init(const SimParams& p)
 {
     p_ = p;
     primed_ = false;
-    for (auto& ph : phase_) ph = 0.0;
-    amPhase_ = 0.0;
+    for (uint32_t h = 0; h < MAX_HARM; ++h) { oscRe_[h] = 1.0f; oscIm_[h] = 0.0f; }   // Phase 0
+    amRe_ = 1.0f; amIm_ = 0.0f;
     std::memset(pinkState_, 0, sizeof(pinkState_));
 }
 
 float Signal_Simulator::noise()
 {
-    rng_ = rng_ * 1664525u + 1013904223u;                 // LCG, uniform
-    const float u1 = (rng_ >> 8) * (1.0f / 16777216.0f);
-    rng_ = rng_ * 1664525u + 1013904223u;
-    const float u2 = (rng_ >> 8) * (1.0f / 16777216.0f);
-    return std::sqrt(-2.0f * std::log(u1 + 1e-9f)) * std::cos(6.2831853f * u2);   // ~N(0,1)
+    // ~N(0,1) als Summe von 4 Gleichverteilten (Irwin-Hall, Varianz 1, Grenzen ±3,46σ).
+    // Vorher Box-Muller (log, sqrt, cos je Sample und Mikrofon, 12 288 Aufrufe je Hop).
+    float sum = 0.0f;
+    for (int i = 0; i < 4; ++i) {
+        rng_ = rng_ * 1664525u + 1013904223u;             // LCG, obere 24 Bit
+        sum += static_cast<float>(rng_ >> 8) * (1.0f / 16777216.0f);
+    }
+    return (sum - 2.0f) * 1.7320508f;                     // sqrt(12/4)
+}
+
+void Signal_Simulator::updateOscillators()
+{
+    constexpr float twoPi = 6.2831853f;
+    const float fs = static_cast<float>(SAMPLE_RATE_HZ);
+    for (uint32_t h = 0; h < MAX_HARM; ++h) {
+        const float d = twoPi * p_.f0_hz * static_cast<float>(h + 1) / fs;
+        stepRe_[h] = std::cos(d); stepIm_[h] = std::sin(d);
+        const float r = 1.0f / std::sqrt(oscRe_[h] * oscRe_[h] + oscIm_[h] * oscIm_[h]);
+        oscRe_[h] *= r; oscIm_[h] *= r;                   // Rundungsdrift je Hop zurücksetzen
+    }
+    const float d = twoPi * p_.bpf_mod_hz / fs;
+    amStepRe_ = std::cos(d); amStepIm_ = std::sin(d);
+    const float r = 1.0f / std::sqrt(amRe_ * amRe_ + amIm_ * amIm_);
+    amRe_ *= r; amIm_ *= r;
 }
 
 void Signal_Simulator::advanceSweep()
@@ -41,26 +60,26 @@ void Signal_Simulator::advanceSweep()
 // Ein Quellsample (phasenkontinuierlich), Amplitude ohne 1/r
 float Signal_Simulator::sourceSample()
 {
-    const double dt = 1.0 / SAMPLE_RATE_HZ;
-    const double twoPi = 6.283185307179586;
+    // Zeiger um einen Schritt drehen; Im = sin(Phase) vor dem Schritt
+    auto rotate = [](float& re, float& im, float sr, float si) {
+        const float r = re * sr - im * si; im = re * si + im * sr; re = r;
+    };
     float s = 0.0f;
     switch (p_.scenario) {
     case SimScenario::DroneSweep:
     case SimScenario::DroneStatic: {
         // Harmonische mit fallender Amplitude (1/h) und Blattpass-AM
-        const float am = 1.0f + 0.5f * static_cast<float>(std::sin(amPhase_));
-        amPhase_ += twoPi * p_.bpf_mod_hz * dt;
-        for (uint8_t h = 0; h < p_.harmonics && h < 16; ++h) {
-            s += static_cast<float>(std::sin(phase_[h])) / (h + 1);
-            phase_[h] += twoPi * p_.f0_hz * (h + 1) * dt;
-            if (phase_[h] > twoPi) phase_[h] -= twoPi;
+        const float am = 1.0f + 0.5f * amIm_;
+        rotate(amRe_, amIm_, amStepRe_, amStepIm_);
+        for (uint8_t h = 0; h < p_.harmonics && h < MAX_HARM; ++h) {
+            s += oscIm_[h] / static_cast<float>(h + 1);
+            rotate(oscRe_[h], oscIm_[h], stepRe_[h], stepIm_[h]);
         }
         s *= am * 0.5f;
         break; }
     case SimScenario::SingleTone:
-        s = static_cast<float>(std::sin(phase_[0]));
-        phase_[0] += twoPi * p_.f0_hz * dt;
-        if (phase_[0] > twoPi) phase_[0] -= twoPi;
+        s = oscIm_[0];
+        rotate(oscRe_[0], oscIm_[0], stepRe_[0], stepIm_[0]);
         break;
     case SimScenario::WindNoise: {
         // 1/f-Näherung (Paul-Kellet-Filter, 3 Pole)
@@ -95,6 +114,7 @@ void Signal_Simulator::generateHop(uint64_t time_utc_us)
     const float noiseAmp = amp * std::pow(10.0f, -p_.snr_db / 20.0f);
 
     // Nur neue Samples erzeugen: beim ersten Aufruf das ganze Fenster, danach um HOP_SAMPLES schieben
+    updateOscillators();
     uint32_t first = 0;
     if (primed_) { std::memmove(src_, src_ + HOP_SAMPLES, sizeof(float) * 2 * GUARD); first = 2 * GUARD; }
     for (uint32_t n = first; n < HOP_SAMPLES + 2 * GUARD; ++n) src_[n] = sourceSample() * amp;

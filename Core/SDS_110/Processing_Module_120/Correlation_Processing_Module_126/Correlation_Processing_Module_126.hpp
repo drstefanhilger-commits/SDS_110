@@ -6,6 +6,9 @@
  *  (d)(ii) Gewichtung w(t,k) = g(p_b(t)) = p^γ
  *  (e)     Quellkonditionierte GCC-PHAT: R_ij(k) = w(k) · X_i X_j* / |X_i X_j*| nur auf S(t),
  *          IFFT -> Kreuzkorrelation, Peak im Fenster ±τ_max, Peak-Ratio-Test -> TDOA τ_ij
+ *          Schnellpfad: bei höchstens directMaxBins() selektierten Bins wird die Korrelation
+ *          nur für die Lags ±WIN_HALF direkt aus den Bins berechnet (identisch zur IFFT bis auf
+ *          Rundung, t_gcc_direct) – statt 28 inverser FFTs über N_FFT Werte je Frame.
  *  Feedback (Abschnitt 10): ŝ senkt θ_sel für Referenzbänder, x̂ verengt das Suchfenster.
  *
  *  Inter-Unit (N ≥ 3): crossCorrelate() auf den Referenzkanal-Spektren zweier Units.
@@ -73,7 +76,32 @@ public:
 
     const TdoaMeasurement* lastPairTdoa() const { return pairTdoa_; }
 
+    /// Schnellpfad bis zu so vielen selektierten Bins (darüber IFFT); 0 = immer IFFT (Tests)
+    static constexpr uint32_t DIRECT_MAX_BINS = 128;
+    void     setDirectMaxBins(uint32_t n) { directMaxBins_ = n < DIRECT_MAX_BINS ? n : DIRECT_MAX_BINS; }
+    uint32_t directMaxBins() const { return directMaxBins_; }
+    bool     lastWasDirect() const { return direct_; }
+
 private:
+    // Lags, die der Schnellpfad berechnet: Peak-Suche braucht ±(maxLag+1) (Intra-Unit 58),
+    // der SRP-Scan ±SRP_MAX_LAG
+    static constexpr int WIN_HALF = (SRP_MAX_LAG > 64) ? static_cast<int>(SRP_MAX_LAG) : 64;
+
+    /// Bins und Drehzeiger für den Schnellpfad vorbereiten (einmal je Frame); false -> IFFT
+    bool  prepareBins(const ComponentSelection& sel, int maxLag);
+    bool  correlatePair(const Spectrum& X, const Spectrum& Y, const ComponentSelection& sel,
+                        int maxLag, TdoaMeasurement& out);
+    float lagValue(int lag) const
+    { return direct_ ? win_[lag + WIN_HALF] : corr_[(lag + static_cast<int>(N_FFT)) % static_cast<int>(N_FFT)]; }
+    static int maxLagFor(float maxDelay_s);
+
+    uint32_t directMaxBins_ = DIRECT_MAX_BINS;
+    bool     direct_ = false;
+    uint32_t nBins_ = 0;
+    uint16_t binK_[DIRECT_MAX_BINS];
+    float    binW_[DIRECT_MAX_BINS], binCos_[DIRECT_MAX_BINS], binSin_[DIRECT_MAX_BINS];
+    static float win_[2 * WIN_HALF + 1];  // Korrelation für Lag -WIN_HALF … +WIN_HALF
+
     float thetaSel_[NUM_BANDS];
     float weightBoost_[NUM_BANDS];
     TrackingFeedback feedback_{};
