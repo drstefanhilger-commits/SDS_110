@@ -14,6 +14,9 @@ namespace {
 sds110::HardwareTimer lcdTimer(TIM4, TIM4_IRQn, 7);
 }
 
+// LTDC-Fehler (FIFO-Unterlauf, Transferfehler) aus HAL_LTDC_IRQHandler zählen (LCD-Zeile "LTDC")
+extern "C" void HAL_LTDC_ErrorCallback(LTDC_HandleTypeDef*) { LCDDriver::instance().countLtdcError(); }
+
 extern "C" void TIM4_IRQHandler(void)
 {
     lcdTimer.handleInterrupt();
@@ -47,6 +50,7 @@ void LCDTask::onTask()
     }
     showError();
     gfx_->activateFrameBuffer();
+    gfx_->rearmUnderrunIrq();
     // Stats meldet TaskTimerBase nach der Messung (setStatsId im Konstruktor)
 }
 
@@ -87,6 +91,12 @@ void LCDTask::showSystemData()
     }
     gfx_->text8x12(10, 170, modeTxt, Color::White);
     gfx_->text8x12(145, 170, dm_.getSimulation() == 0 ? "Real" : "Simulated", Color::White);
+    // Anzeige-Diagnose: LTDC-FIFO-Unterlauf / Transferfehler, DMA2D Timeout / Fehler, VBlank-Timeout
+    snprintf(buf_, sizeof(buf_), "LTDC U%lu T%lu D2D %lu/%lu VB%lu",
+             static_cast<unsigned long>(gfx_->ltdcUnderruns()), static_cast<unsigned long>(gfx_->ltdcTransferErrors()),
+             static_cast<unsigned long>(gfx_->dmaTimeouts()), static_cast<unsigned long>(gfx_->dmaErrors()),
+             static_cast<unsigned long>(gfx_->vblankTimeouts()));
+    gfx_->text8x12(10, 180, buf_, (gfx_->ltdcUnderruns() | gfx_->ltdcTransferErrors()) ? Color::Yellow : Color::White);
 
     taskLine(120, "120", TaskId::Proc120);
     taskLine(130, "LCD", TaskId::Lcd);
