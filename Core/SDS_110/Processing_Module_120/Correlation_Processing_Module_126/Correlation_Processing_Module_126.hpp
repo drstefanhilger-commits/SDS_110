@@ -117,6 +117,8 @@ private:
     // Fenster ±SRP_MAX_LAG jeder Paarkorrelation für srpScan()
     float pairCorr_[NUM_MIC_PAIRS][2 * SRP_MAX_LAG + 1];
     float pairDx_[NUM_MIC_PAIRS], pairDy_[NUM_MIC_PAIRS];   // (p_j - p_i)/c * fs
+    float srpCos_[SRP_AZ_STEPS], srpSin_[SRP_AZ_STEPS];     // Richtungen des SRP-Rasters (init)
+    float srpAt(uint32_t step) const;                       // SRP-Leistung einer Rasterrichtung
 };
 
 } // namespace sds110
