@@ -33,6 +33,10 @@ void Correlation_Processing_Module_126::init(const Microphone_Array_114& array)
             pairDy_[idx] = (micPos_[j].y - micPos_[i].y) / SPEED_OF_SOUND * SAMPLE_RATE_HZ;
         }
     std::memset(pairCorr_, 0, sizeof(pairCorr_));
+    for (uint32_t s = 0; s < SRP_AZ_STEPS; ++s) {
+        const float phi = static_cast<float>(s) * (2.0f * PI / SRP_AZ_STEPS);
+        srpCos_[s] = std::cos(phi); srpSin_[s] = std::sin(phi);
+    }
     clearFeedback();
 }
 
@@ -129,7 +133,7 @@ bool Correlation_Processing_Module_126::correlatePair(const Spectrum& X, const S
 
     if (direct_) {
         // Schnellpfad: IFFT von R(k) nur für |Lag| <= WIN_HALF, wie arm_rfft_fast_f32 (inv., 1/N):
-        // r[n] = (2/N) · Σ_k Re(R(k) · e^{+i2πkn/N}); Drehzeiger je Bin von Lag 0 aus nach beiden Seiten
+        // r[n] = (2/N) · Σ_k Re(R(k) · e^{+i2πkn/N}); ein Drehzeiger je Bin für ±n
         std::memset(win_, 0, sizeof(win_));
         constexpr float scale = 2.0f / static_cast<float>(N_FFT);
         float* const w0 = win_ + WIN_HALF;
@@ -142,15 +146,15 @@ bool Correlation_Processing_Module_126::correlatePair(const Spectrum& X, const S
             const float g = binW_[b] * scale / mag;
             const float ar = g * cr, ai = g * ci;
             const float c = binCos_[b], s = binSin_[b];
-            float zr = 1.0f, zi = 0.0f;                        // e^{iθn}, n = 0 … +WIN_HALF
-            for (int n = 0; n <= WIN_HALF; ++n) {
-                w0[n] += ar * zr - ai * zi;
-                const float t = zr * c - zi * s; zi = zr * s + zi * c; zr = t;
-            }
-            zr = c; zi = -s;                                   // n = -1 … -WIN_HALF
+            // Lag +n und −n gemeinsam: e^{∓iθn} = (zr, ∓zi) ->
+            //   r[+n] += ar·zr − ai·zi,  r[−n] += ar·zr + ai·zi  (ein Drehzeiger für beide)
+            w0[0] += ar;
+            float zr = c, zi = s;                              // e^{iθ·1}
             for (int n = 1; n <= WIN_HALF; ++n) {
-                w0[-n] += ar * zr - ai * zi;
-                const float t = zr * c + zi * s; zi = zi * c - zr * s; zr = t;
+                const float re = ar * zr, im = ai * zi;
+                w0[n]  += re - im;
+                w0[-n] += re + im;
+                const float t = zr * c - zi * s; zi = zr * s + zi * c; zr = t;
             }
         }
     } else {
@@ -265,39 +269,34 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
 
 // ---------------------------------------------------------------- SRP-PHAT-Referenz
 // SRP(φ) = Σ_pairs C_ij(τ_ij(φ)), τ_ij(φ) = ((p_j - p_i)·u(φ)) / c · fs, linear interpoliert.
+float Correlation_Processing_Module_126::srpAt(uint32_t step) const
+{
+    const float ux = srpCos_[step], uy = srpSin_[step];
+    float acc = 0.0f;
+    for (uint32_t k = 0; k < NUM_MIC_PAIRS; ++k) {
+        // Lag in Samples + Versatz; |τ| <= Arraydurchmesser/c·fs (≈ 56) < SRP_MAX_LAG -> pos > 0,
+        // die Ganzzahlumwandlung ist dann floor()
+        const float pos = pairDx_[k] * ux + pairDy_[k] * uy + static_cast<float>(SRP_MAX_LAG);
+        if (pos < 0.0f) continue;
+        const int i0 = static_cast<int>(pos);
+        if (i0 + 1 > static_cast<int>(2 * SRP_MAX_LAG)) continue;
+        const float fr = pos - static_cast<float>(i0);
+        acc += pairCorr_[k][i0] * (1.0f - fr) + pairCorr_[k][i0 + 1] * fr;
+    }
+    return acc;
+}
+
 bool Correlation_Processing_Module_126::srpScan(float& azimuth_deg, float& peakPower, float& peakRatio) const
 {
     float best = -1e30f, second = -1e30f; uint32_t bestStep = 0;
     for (uint32_t s = 0; s < SRP_AZ_STEPS; ++s) {
-        const float phi = static_cast<float>(s) * (2.0f * PI / SRP_AZ_STEPS);
-        const float ux = std::cos(phi), uy = std::sin(phi);
-        float acc = 0.0f;
-        for (uint32_t k = 0; k < NUM_MIC_PAIRS; ++k) {
-            const float tau = pairDx_[k] * ux + pairDy_[k] * uy;            // Lag in Samples
-            const float pos = tau + static_cast<float>(SRP_MAX_LAG);
-            const int   i0  = static_cast<int>(std::floor(pos));
-            if (i0 < 0 || i0 + 1 > static_cast<int>(2 * SRP_MAX_LAG)) continue;
-            const float fr = pos - static_cast<float>(i0);
-            acc += pairCorr_[k][i0] * (1.0f - fr) + pairCorr_[k][i0 + 1] * fr;
-        }
+        const float acc = srpAt(s);
         if (acc > best) { second = best; best = acc; bestStep = s; }
         else if (acc > second) second = acc;
     }
     if (best <= 0.0f) return false;
     // Parabel-Interpolation um das Maximum (1°-Raster)
-    auto at = [&](int s) {
-        s = (s + static_cast<int>(SRP_AZ_STEPS)) % static_cast<int>(SRP_AZ_STEPS);
-        const float phi = static_cast<float>(s) * (2.0f * PI / SRP_AZ_STEPS);
-        const float ux = std::cos(phi), uy = std::sin(phi); float acc = 0.0f;
-        for (uint32_t k = 0; k < NUM_MIC_PAIRS; ++k) {
-            const float pos = pairDx_[k] * ux + pairDy_[k] * uy + static_cast<float>(SRP_MAX_LAG);
-            const int i0 = static_cast<int>(std::floor(pos));
-            if (i0 < 0 || i0 + 1 > static_cast<int>(2 * SRP_MAX_LAG)) continue;
-            const float fr = pos - static_cast<float>(i0);
-            acc += pairCorr_[k][i0] * (1.0f - fr) + pairCorr_[k][i0 + 1] * fr;
-        }
-        return acc;
-    };
+    auto at = [&](int s) { return srpAt(static_cast<uint32_t>((s + static_cast<int>(SRP_AZ_STEPS)) % static_cast<int>(SRP_AZ_STEPS))); };
     const float ym = at(static_cast<int>(bestStep) - 1), y0 = best, yp = at(static_cast<int>(bestStep) + 1);
     const float den = ym - 2.0f * y0 + yp;
     const float delta = (std::fabs(den) > 1e-12f) ? 0.5f * (ym - yp) / den : 0.0f;
