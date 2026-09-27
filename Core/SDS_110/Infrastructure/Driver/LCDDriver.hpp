@@ -150,6 +150,18 @@ public:
     }
 
     // Diagnose
+    uint32_t vblankTimeouts() const { return vblankTimeouts_; }
+    /// LTDC-FIFO-Unterlauf (SDRAM-Bandbreite): aus HAL_LTDC_ErrorCallback zählen. Die HAL schaltet
+    /// den Interrupt danach ab; rearmUnderrunIrq() einmal je LCD-Zyklus -> höchstens 20 IRQs/s.
+    void     countLtdcError() {
+        if (hltdc.ErrorCode & HAL_LTDC_ERROR_FU) ++ltdcUnderruns_;
+        if (hltdc.ErrorCode & HAL_LTDC_ERROR_TE) ++ltdcTransferErrors_;
+        hltdc.ErrorCode = HAL_LTDC_ERROR_NONE;
+        hltdc.State = HAL_LTDC_STATE_READY;
+    }
+    void     rearmUnderrunIrq() { __HAL_LTDC_ENABLE_IT(&hltdc, LTDC_IT_FU | LTDC_IT_TE); }
+    uint32_t ltdcUnderruns() const { return ltdcUnderruns_; }
+    uint32_t ltdcTransferErrors() const { return ltdcTransferErrors_; }
     uint32_t dmaErrors()   const { return dmaErrors_; }
     uint32_t dmaTimeouts() const { return dmaTimeouts_; }
 
@@ -182,10 +194,22 @@ public:
     }
 
     // Swap active framebuffer (LTDC) with draw framebuffer
+    // Umschalten in der vertikalen Austastlücke (SRCR.VBR) und warten, bis der LTDC den neuen
+    // Puffer übernommen hat: kein Riss mitten im Bild, und der nächste Zyklus löscht den alten
+    // Puffer erst, wenn er nicht mehr ausgelesen wird. Vorher RELOAD_IMMEDIATE (Flackern).
     inline void activateFrameBuffer() {
-        // Switch LTDC to new buffer
         __HAL_LTDC_LAYER(&hltdc, 0)->CFBAR = (uint32_t)drawFB;
-        __HAL_LTDC_RELOAD_IMMEDIATE_CONFIG(&hltdc);
+        hltdc.Instance->SRCR = LTDC_SRCR_VBR;
+        const bool rtos = xTaskGetSchedulerState() == taskSCHEDULER_RUNNING;
+        const uint32_t t0 = HAL_GetTick();
+        while (hltdc.Instance->SRCR & LTDC_SRCR_VBR) {         // Hardware löscht VBR nach dem Reload
+            if (HAL_GetTick() - t0 > kVblankTimeoutMs) {       // kein Bildtakt? sofort übernehmen
+                ++vblankTimeouts_;
+                __HAL_LTDC_RELOAD_IMMEDIATE_CONFIG(&hltdc);
+                break;
+            }
+            if (rtos) vTaskDelay(1);
+        }
 
         // Swap buffers
         uint32_t* tmp = activeFB;
@@ -280,12 +304,17 @@ private:
           activeFB(nullptr), drawFB(nullptr),
           W(0), H(0) {}
 
-    static constexpr uint32_t kDmaTimeoutMs = 20;   // 480x272x4 B ≈ 0,5 MB, typ. wenige ms
+    static constexpr uint32_t kDmaTimeoutMs = 40;   // 480x272x4 B ≈ 0,5 MB, typ. wenige ms (mit Pausen)
+    static constexpr uint32_t kVblankTimeoutMs = 40; // > 2 Bilder bei ~60 Hz
+    // DMA2D-Pause nach jedem AHB-Burst (Takte): lässt dem LTDC SDRAM-Bandbreite, sonst läuft
+    // sein FIFO beim Löschen leer (Unterlauf -> Flackern)
+    static constexpr uint32_t kDma2dDeadTime = 16;
 
     // ---------------------------------------------------------------- DMA2D
     inline void initDma2d() {
         if (dmaSem_ == nullptr)
             dmaSem_ = xSemaphoreCreateBinary();          // nach osKernelInitialize erlaubt
+        DMA2D->AMTCR = (kDma2dDeadTime << DMA2D_AMTCR_DT_Pos) | DMA2D_AMTCR_EN;
         hdma2d.XferCpltCallback  = &LCDDriver::dmaCplt;  // aus HAL_DMA2D_IRQHandler (ISR)
         hdma2d.XferErrorCallback = &LCDDriver::dmaError;
     }
@@ -345,6 +374,8 @@ private:
     volatile bool     dmaOk_       = true;
     uint32_t          dmaErrors_   = 0;
     uint32_t          dmaTimeouts_ = 0;
+    uint32_t          vblankTimeouts_ = 0;
+    volatile uint32_t ltdcUnderruns_ = 0, ltdcTransferErrors_ = 0;
 
     uint32_t* fb;        // current drawing buffer
     uint32_t* fb0;       // framebuffer 0 (LTDC)
