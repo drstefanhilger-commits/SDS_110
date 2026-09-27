@@ -44,6 +44,11 @@ public:
     void onError();
 
     uint32_t errorCount() const { return errors_; }
+
+    /// Aufruf aus dem DMA-Interrupt, sobald 114 einen Hop fertiggestellt hat (weckt den
+    /// ProcessingTask). Hier statt in 114, weil 114 in die Merkmalsversion eingeht.
+    using HopReadyHook = void (*)(void* ctx);
+    void setHopReadyHook(HopReadyHook h, void* ctx) { hookCtx_ = ctx; hook_ = h; }
     /// Ist-Abtastrate aus SAI-Kerneltakt und MCKDIV (nach init(), sonst 0)
     float sampleRateHz() const { return fsHz_; }
 
@@ -55,6 +60,7 @@ private:
     bool configureSai();
     void enablePin(bool on);
     uint64_t firstSampleUs() const;   // Zeit des ersten Samples des gerade fertigen Blocks
+    void     notifyIfHopReady();       // nach pushBlock(): neuer Hop in 114 -> hook_
 
     SAI_HandleTypeDef* hsai_ = nullptr;
     I2C_HandleTypeDef* hi2c_ = nullptr;
@@ -63,6 +69,10 @@ private:
     float    fsHz_    = 0.0f;
     uint32_t blockUs_ = DMA_BLOCK_SAMPLES * 1000000U / SAMPLE_RATE_HZ;   // nach init() aus Ist-Fs
     Microphone_Array_114& array_ = Microphone_Array_114::instance();
+    HopReadyHook   hook_    = nullptr;
+    void*          hookCtx_ = nullptr;
+    const MicFrame* lastHop_ = nullptr;
+    uint32_t       lastHopId_ = 0;
 
     static constexpr uint32_t HALF_WORDS = DMA_BLOCK_SAMPLES * NUM_MICS;
     static int32_t dmaBuffer_[2 * HALF_WORDS];   // Ping-Pong, interleaved TDM

@@ -153,12 +153,22 @@ void Sampling_Circuitry_116::onRxHalf()
 {
     SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(dmaBuffer_), sizeof(int32_t) * HALF_WORDS);
     array_.pushBlock(&dmaBuffer_[0], DMA_BLOCK_SAMPLES, firstSampleUs());
+    notifyIfHopReady();
 }
 
 void Sampling_Circuitry_116::onRxComplete()
 {
     SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(&dmaBuffer_[HALF_WORDS]), sizeof(int32_t) * HALF_WORDS);
     array_.pushBlock(&dmaBuffer_[HALF_WORDS], DMA_BLOCK_SAMPLES, firstSampleUs());
+    notifyIfHopReady();
+}
+
+void Sampling_Circuitry_116::notifyIfHopReady()
+{
+    const MicFrame* f = array_.latestFrame();
+    if (!f || (f == lastHop_ && f->frame_id == lastHopId_)) return;
+    lastHop_ = f; lastHopId_ = f->frame_id;
+    if (hook_) hook_(hookCtx_);
 }
 
 void Sampling_Circuitry_116::onError()

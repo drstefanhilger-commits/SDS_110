@@ -20,6 +20,7 @@ Referenzergebnisse: Stand 25.09.2026, Code-Stand Commit `0dc8150`.
 | Prüfung | `t_logger` | 19 | Logger-Ringpuffer mit mehreren Schreibern |
 | Prüfung | `t_bearing_broadband` | 23, 8 | Peilung einer breitbandigen Quelle, 24 Richtungen |
 | Prüfung | `t_ml124` | 20, 36 | MLP in 124: Merkmalsversion, C++ ↔ Keras, Kontextstapel, Stufen |
+| Prüfung | `t_hopclock` | 28 | Hop-Takt der Simulation im ProcessingTask (31,25 Hops/s) |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
 | Messung | `m_bearing_drone` | 8, 17, 23, 24 | Peilung eines Drohnensignals über die volle Kette |
@@ -167,6 +168,14 @@ ML_Test `app/train_ml124/export.py`). Prüft:
 Referenz (`k5_h48_d3`): max. |C++ − Keras| = 5,4·10⁻⁷. DroneStatic 10 dB in der Stufe Schatten:
 Detektion gleich 100 %, Band-Überlappung 0,12, mittleres |Δp| 0,43 (Bewertung siehe
 `doc/Vergleich_HBD_ML124.md`).
+
+### t_hopclock – Befund 28
+`HopClock` (Infrastructure/Utils) gibt den Takt der Simulation im ProcessingTask vor. Die
+Task-Schleife wird nachgebildet: aufwachen zu `nextTick()`, fällige Hops erzeugen, 0–30 ms rechnen.
+Kriterium: nach 60 s genau 1875 Hops (31,25 /s) ohne übersprungene; 100 ms Verspätung → 3 Hops auf
+einmal; 1 s Verspätung → 4 nachgeholt, 27 übersprungen und gezählt; Tick-Überlauf und 1024 Hz
+(32,768 Ticks je Hop) über 10 min: 18 750 Hops.
+Vorher (`osDelay(40)` plus Rechenzeit): höchstens 25 Hops/s.
 
 ---
 
