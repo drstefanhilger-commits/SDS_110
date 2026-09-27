@@ -17,6 +17,7 @@
 #pragma once
 #include <cstdint>
 #include "SDS_110_Config.hpp"
+#include "Infrastructure/Utils/UtcClock.hpp"
 
 namespace sds110 {
 
@@ -29,7 +30,8 @@ struct AcousticState {
 /// Bericht einer Sensoreinheit an das Processing Module (Board -> PC)
 struct UnitReport {
     uint16_t unit_id        = 0;   // eindeutige Kennung der Sensoreinheit 112-n
-    uint64_t time_utc_us    = 0;   // Zeitreferenz des Frames
+    uint64_t time_utc_us    = 0;   // Frame-Beginn: UTC in µs, ohne Abgleich Laufzeit (time_source)
+    TimeSource time_source  = TimeSource::Uptime;
     float    bearing_deg    = 0;   // Intra-Unit-Peilung (126, Fernfeld)
     float    bearing_residual = 0; // LS-Residuum der Peilung (s)
     float    confidence     = 0;   // 0..1 aus 128 (nur Legacy-Frame, nicht im UnitReport-Wire-Format)

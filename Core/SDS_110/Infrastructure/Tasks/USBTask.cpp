@@ -2,6 +2,8 @@
  * USBTask.cpp  (Infrastructure/Tasks)
  */
 #include "USBTask.hpp"
+#include "Infrastructure/Utils/TimeBase.hpp"
+#include "Infrastructure/Utils/UtcClock.hpp"
 #include <cstring>
 #include <initializer_list>
 
@@ -33,8 +35,10 @@ void USBTask::onUsbReceiveISR(const uint8_t* buf, uint32_t len)
     if (self == nullptr) return;                     // USBTask nicht gestartet
 
     uint8_t local[MAX_LENGTH] = {};
-    const size_t n = (len > MAX_LENGTH) ? MAX_LENGTH : len;
+    const uint64_t rxUs = TimeBase::nowUs();          // Empfangszeit für Typ 7 (UTC)
+    const size_t n = (len > RX_TIME_OFFSET) ? RX_TIME_OFFSET : len;   // Kommandos <= 56 Byte
     memcpy(local, buf, n);
+    memcpy(local + RX_TIME_OFFSET, &rxUs, sizeof(rxUs));
     BaseType_t hpw = pdFALSE;
     if (xQueueSendFromISR(self->rxQueue_, local, &hpw) != pdPASS)
         ++self->rxDropped_;
@@ -77,6 +81,7 @@ void USBTask::handle(const uint8_t* rx)
         case 3:  handleSimulation(rx); break;
         case 5:  handleSetUnitId(rx);  break;
         case 6:  handleSrpReference(rx); break;
+        case 7:  handleUtcTime(rx);    break;
         default: handleError(rx);      break;
     }
 }
@@ -123,6 +128,14 @@ void USBTask::handleSrpReference(const uint8_t* rx)
 {
     if (msgLen(rx) != SDS_CMD_LENGTH) { handleError(rx); return; }
     dm_.setSrpReference(payloadU32(rx) != 0);
+}
+
+void USBTask::handleUtcTime(const uint8_t* rx)
+{
+    if (msgLen(rx) != SDS_UTC_CMD_LENGTH) { handleError(rx); return; }
+    UtcOffset o;
+    if (!UtcClock::fromSync(payloadU64(rx), rxTimeUs(rx), TimeSource::PcUtc, o)) { handleError(rx); return; }
+    dm_.setUtcOffset(o);
 }
 
 void USBTask::handleError(const uint8_t* rx)

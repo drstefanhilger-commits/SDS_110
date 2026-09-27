@@ -21,7 +21,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 |---|---|---|---|
 | Prüfung | `t_scaling` | 6 | Rohdaten-Skalierung in 114 (24 Bit linksbündig) |
 | Prüfung | `t_frame_assembler` | 17 | Analysefenster mit 50 % Überlappung |
-| Prüfung | `t_unit_report` | 10 | Serialisierung des UnitReport (128 Byte) |
+| Prüfung | `t_unit_report` | 10, 33 | Serialisierung des UnitReport (128 Byte), µs-Zeitstempel und UTC-Abgleich |
 | Prüfung | `t_sdram_selftest` | 14 | Logik des SDRAM-Selbsttests |
 | Prüfung | `t_timebase` | 16 | 64-bit-Erweiterung des DWT-Zählers |
 | Prüfung | `t_logger` | 19 | Logger-Ringpuffer mit mehreren Schreibern |
@@ -130,11 +130,13 @@ Kriterium: nach Hop 5 nicht voll; nach Hop 6 Frame [5|6] mit Zeitstempel von Hop
 [6|7], `frame_id` fortlaufend; Hop 9 nach Lücke → Neubeginn; Hop 10 → [9|10]; `reset()`.
 Referenz: 7/7 OK.
 
-### t_unit_report – Befund 10
-Serialisiert UnitReports mit 0, 3, 8, 56, 57, 64 Bändern über `Output_Interface_130::send()`
-(USB abgefangen).
-Kriterium: nsel = min(Bänder, 56), Bandindizes und -wahrscheinlichkeiten innerhalb 128 Byte.
-Referenz: 6/6 OK.
+### t_unit_report – Befunde 10, 33
+Serialisiert UnitReports (Message id 5, Kopf 25 Byte) mit 0, 3, 8, 51, 52, 64 Bändern über
+`Output_Interface_130::send()` (USB abgefangen).
+Kriterium: nsel = min(Bänder, 51), Bandindizes und -wahrscheinlichkeiten innerhalb 128 Byte.
+Zeitstempel: ohne Abgleich Laufzeit in µs (Quelle 0); nach `UtcClock::fromSync` (USB-Kommando
+Typ 7) UTC = Laufzeit + Versatz auf die µs genau (Quelle 1); Zeiten vor 2020 werden verworfen.
+Referenz: 6/6 OK, 5 Prüfungen ok. (id 4 bis 27.09.2026: 16 Byte Kopf, max. 56 Bänder, Zeit nur ms.)
 
 ### t_sdram_selftest – Befund 14
 `sdramSelfTest()` mit HAL-Stub auf einem Speicherfeld von 591 kB + Wächterwörtern.
