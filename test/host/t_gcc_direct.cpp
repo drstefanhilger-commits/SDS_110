@@ -8,6 +8,8 @@
  *      gleiche Gültigkeit, |Δτ| ≤ 1e-3 Samples, |Δpeak|, |Δratio| relativ ≤ 1e-3
  *   2. volle Kette (DroneStatic 10 dB, 12 Richtungen): estimateBearing() und srpScan() gleich
  *      (|Δaz| ≤ 0,01°), der Schnellpfad wird tatsächlich benutzt
+ *   3. SRP-Referenzscan abgeschaltet (setSrpReference(false), USB Typ 6): Peilung bitgleich,
+ *      srpScan() liefert false; wieder eingeschaltet erst nach dem nächsten estimateBearing() gültig
  * und misst die Zeit von estimateBearing() je Frame in beiden Pfaden.
  * Aufruf: build/test_host/t_gcc_direct
  */
@@ -108,5 +110,21 @@ int main()
                 frames, directFrames, same, dAz, dSrp, 1e3 * tFast / frames, 1e3 * tRef / frames);
     check(directFrames == frames, "Kette: Schnellpfad in jedem Frame");
     check(same == frames && cmp > 0 && dAz <= 0.01f && dSrp <= 0.01f, "Kette: Peilung und SRP wie IFFT");
+
+    // 3) SRP-Referenzscan aus: gleiche Peilung, kein Scan
+    Correlation_Processing_Module_126 off; off.init(arr);
+    Bearing bOn{}, bOff{}; float a, pw, r;
+    const bool okOn = fast.estimateBearing(sp, sel, bOn);
+    off.setSrpReference(false);
+    const bool okOff = off.estimateBearing(sp, sel, bOff);
+    const bool scanOff = off.srpScan(a, pw, r);
+    off.setSrpReference(true);
+    const bool scanStale = off.srpScan(a, pw, r);
+    off.estimateBearing(sp, sel, bOff);
+    const bool scanAgain = off.srpScan(a, pw, r);
+    std::printf("SRP aus: Peilung %.4f° / %.4f° (ein), srpScan aus %d, nach Einschalten %d, nach Peilung %d\n",
+                bOff.azimuth_deg, bOn.azimuth_deg, scanOff, scanStale, scanAgain);
+    check(okOn == okOff && bOn.azimuth_deg == bOff.azimuth_deg, "SRP aus: Peilung bitgleich");
+    check(!scanOff && !scanStale && scanAgain, "SRP aus: srpScan() erst nach neuer Peilung wieder gültig");
     return g_fail;
 }

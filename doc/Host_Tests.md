@@ -195,6 +195,8 @@ Geprüft gegen die IFFT (`setDirectMaxBins(0)`):
    |Δτ| ≤ 1e-3 Samples, Peak und Ratio relativ ≤ 1e-3.
 2. Volle Kette, DroneStatic 10 dB, 12 Richtungen: Schnellpfad in jedem Frame, Peilung und SRP
    gleich (|Δaz| ≤ 0,01°).
+3. SRP-Referenzscan abgeschaltet (`setSrpReference(false)`, am Board USB-Kommando Typ 6): Peilung
+   bitgleich, `srpScan()` liefert false; nach dem Einschalten erst mit der nächsten Peilung gültig.
 
 Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0,0007°);
 `estimateBearing()` je Frame 0,13 ms (Schnellpfad) gegenüber 1,51 ms (IFFT), x86 `-O2`

@@ -82,11 +82,13 @@ bool Processing_Module_120::processFrame()
 
     // (d)(e) 126: Selektion, Gewichtung, quellkonditionierte GCC-PHAT, Peilung
     const uint32_t c4 = dwt.cycles();
+    bool srpOn = corr_.srpReference();                 // USB Typ 6; bei Sperr-Timeout alter Wert
+    if (dm.tryGetSrpReference(srpOn)) corr_.setSrpReference(srpOn);
     corr_.deriveSelection(state_, selection_);
     const uint32_t c4a = dwt.cycles();
     corr_.estimateBearing(spectra_, selection_, bearing_);
     const uint32_t c4b = dwt.cycles();
-    if (SRP_REFERENCE_ENABLED) {                       // Vergleich TDOA-LS (Patent) vs. SRP-PHAT (alt)
+    if (corr_.srpReference()) {                        // Vergleich TDOA-LS (Patent) vs. SRP-PHAT (alt)
         float srpAz = 0.0f, srpPow = 0.0f, srpRatio = 0.0f;
         if (corr_.srpScan(srpAz, srpPow, srpRatio)) { dm.setDebugValue(0, srpAz); dm.setDebugValue(1, srpRatio); }
     }
