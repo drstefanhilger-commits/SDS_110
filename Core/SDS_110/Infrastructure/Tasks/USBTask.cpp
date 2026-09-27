@@ -44,17 +44,28 @@ void USBTask::onUsbReceiveISR(const uint8_t* buf, uint32_t len)
 void USBTask::waitForWork()
 {
     // schläft, bis ein Kommando kommt – keine CPU-Last im Leerlauf
+    if (xQueueReceive(rxQueue_, rx_, pdMS_TO_TICKS(IDLE_RESET_MS)) == pdTRUE) {
+        rxValid_ = true;
+        return;
+    }
+    // IDLE_RESET_MS ohne Kommando: angezeigte Bearbeitungszeit auf 0,
+    // danach wieder ohne Timeout warten (Zähler bleibt = Aufwachvorgänge)
+    dm_.setTaskStats(TaskId::Usb, freeStackBytes_, 0.0f, loopNr_);
     rxValid_ = (xQueueReceive(rxQueue_, rx_, portMAX_DELAY) == pdTRUE);
 }
 
 void USBTask::runOnce()
 {
+    DWTTimer& dwt = DWTTimer::instance();
+    const uint32_t t0 = dwt.cycles();
     if (rxValid_) handle(rx_);
     // weitere, inzwischen eingetroffene Kommandos gleich mit abarbeiten
     uint8_t rx[MAX_LENGTH];
     while (xQueueReceive(rxQueue_, rx, 0) == pdTRUE)
         handle(rx);
-    reportStats(TaskId::Usb);
+    // eigene Messung statt reportStats(): execTimeCycles_/loopNr_ setzt TaskBase
+    // erst nach runOnce(), das wäre die Zeit des vorigen Kommandos
+    dm_.setTaskStats(TaskId::Usb, freeStackBytes_, cyclesToMs(dwt.cycles() - t0), loopNr_ + 1);
 }
 
 void USBTask::handle(const uint8_t* rx)
