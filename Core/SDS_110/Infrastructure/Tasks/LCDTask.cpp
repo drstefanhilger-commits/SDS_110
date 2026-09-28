@@ -173,8 +173,15 @@ void LCDTask::showSystemData()
     snprintf(buf_, sizeof(buf_), "  K Sel%.1f GCC%.1f SRP%.1f", static_cast<double>(st.corrSel),
              static_cast<double>(st.corrGcc), static_cast<double>(st.corrSrp));
     gfx_->text8x12(10, 260, buf_, Color::White);
-    snprintf(buf_, sizeof(buf_), "USB timeSync   %lu", static_cast<unsigned long>(usb_debug_counter));
-    gfx_->text8x12(10, 230, buf_, Color::White);
+    // Sync (USB Typ 7): Lufttemperatur, daraus c; Zeitquelle der Reports (Lauf = ohne Abgleich)
+    const SDS_Data::Air air = dm_.getAir();
+    const bool utc = dm_.getUtcOffset().source != TimeSource::Uptime;
+    if (air.valid)
+        snprintf(buf_, sizeof(buf_), "T %.1fC c %.1f %s", static_cast<double>(air.tempC),
+                 static_cast<double>(air.soundSpeed), utc ? "UTC" : "Lauf");
+    else
+        snprintf(buf_, sizeof(buf_), "T --  c %.1f %s", static_cast<double>(air.soundSpeed), utc ? "UTC" : "Lauf");
+    gfx_->text8x12(10, 230, buf_, air.valid ? Color::White : Color::Yellow);
 }
 
 void LCDTask::showDetection()

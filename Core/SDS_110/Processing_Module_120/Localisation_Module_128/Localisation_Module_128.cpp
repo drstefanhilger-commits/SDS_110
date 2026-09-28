@@ -39,7 +39,7 @@ bool Localisation_Module_128::solve(const TdoaMeasurement* t, uint32_t n, Candid
             const Vec3& ui = units_[t[k].i]; const Vec3& uj = units_[t[k].j];
             const float dix = x - ui.x, diy = y - ui.y, djx = x - uj.x, djy = y - uj.y;
             const float ri = std::sqrt(dix*dix + diy*diy) + 1e-6f, rj = std::sqrt(djx*djx + djy*djy) + 1e-6f;
-            const float f  = (ri - rj) - SPEED_OF_SOUND * t[k].tdoa_s;      // Residuum (m)
+            const float f  = (ri - rj) - c_ * t[k].tdoa_s;      // Residuum (m)
             const float jx = dix / ri - djx / rj, jy = diy / ri - djy / rj;  // Jacobi
             const float w  = t[k].peak_ratio;
             H00 += w * jx * jx; H01 += w * jx * jy; H11 += w * jy * jy;
@@ -58,7 +58,7 @@ bool Localisation_Module_128::solve(const TdoaMeasurement* t, uint32_t n, Candid
     out.distance_m     = std::sqrt(rx * rx + ry * ry);
     out.accepted_pairs = static_cast<uint8_t>(valid);
     // Residuum in m -> Samples: r / c · fs
-    out.confidence     = candidateConfidence(valid, n, out.ls_residual / SPEED_OF_SOUND * SAMPLE_RATE_HZ);
+    out.confidence     = candidateConfidence(valid, n, out.ls_residual / c_ * SAMPLE_RATE_HZ);
     out.valid = true;
     return true;
 }

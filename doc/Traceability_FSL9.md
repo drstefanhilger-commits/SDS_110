@@ -5,7 +5,7 @@ Stand 27.09.2026. Online-Fassung mit änderbarem Status und Diagramm:
 
 ## Zusammenfassung
 
-Von 36 zugesicherten Werten aus FSL9 sind 17 erfüllt, 10 teilweise erfüllt, 5 nicht erfüllt, 2 offen und 2 nicht im Umfang der Firmware. Die Signalkette 118 → 122 → 126 hält die Parameter der bevorzugten Ausführung weitgehend ein: Frames, FFT, Bänder, Selektion, Gewichtung, GCC-PHAT und Peak-Ratio. Die Abweichungen liegen vor allem im Systemaufbau und in den Zeitvorgaben:
+Von 36 zugesicherten Werten aus FSL9 sind 18 erfüllt, 10 teilweise erfüllt, 4 nicht erfüllt, 2 offen und 2 nicht im Umfang der Firmware. Die Signalkette 118 → 122 → 126 hält die Parameter der bevorzugten Ausführung weitgehend ein: Frames, FFT, Bänder, Selektion, Gewichtung, GCC-PHAT und Peak-Ratio. Die Abweichungen liegen vor allem im Systemaufbau und in den Zeitvorgaben:
 
 - **Eine statt mindestens zwei Sensoreinheiten** (`NUM_UNITS = 1`). Die Distanz kommt deshalb aus einem Pegelmodell, das FSL9 nicht vorsieht; Multilateration und der Zwei-Unit-Modus werden nicht genutzt.
 - **Keine Synchronisation der Einheiten auf ≤ 10 µs.** Der Report überträgt jetzt µs und UTC nach Abgleich vom PC über USB (~1 ms genau); die µs-Synchronisation soll GNSS-PPS in HW-Version 2 liefern.
@@ -62,7 +62,7 @@ Je Zeile ein zugesicherter Wert aus FSL9 mit Ist-Wert, Code-Referenz (relativ zu
 | A20 | §4, Anspr. 2 | Gemeinsame Selektion | einmal abgeleitet, für alle Einheiten gleich | eine Selektion für alle 28 Paare je Frame | `Correlation_Processing_Module_126.cpp:218 (prepareBins einmal je Frame)` | Erfüllt |
 | A21 | §5, Anspr. 1(e) | GCC-PHAT | nur ausgewählte Bins, gewichtet, übrige 0 | Schnellpfad ±32 Lags oder IFFT, gleiche Formel (t_gcc_direct) | `Correlation_Processing_Module_126.cpp:118–216` | Erfüllt |
 | A22 | §5 | Lag-Bereich | τ bis ±d_ij / c je Paar | für alle Paare ±(größter Mikrofonabstand / c) × 1,1 | `Correlation_Processing_Module_126.cpp:28` | Teilweise |
-| A23 | §5 | Schallgeschwindigkeit | temperaturkorrigiert | fest 343 m/s | `SDS_110_Config.hpp:90` | Nicht erfüllt |
+| A23 | §5 | Schallgeschwindigkeit | temperaturkorrigiert | c = 331,3 · √(1 + T/273,15) aus der Lufttemperatur im Sync-Kommando (USB Typ 7, −40…+60 °C); ohne Temperatur 343 m/s; wirkt auf 126, 128 und Simulator (t_sound_speed) | `Infrastructure/Utils/SoundSpeed.hpp, Processing_Module_120.cpp:88, Correlation_Processing_Module_126.cpp:98` | Erfüllt |
 | A24 | §5 | Interpolation | Parabel um das Maximum | Parabel | `Correlation_Processing_Module_126.cpp:201` | Erfüllt |
 | A25 | §5 | Peak-Ratio | verwerfen unter 1,5 | PEAK_RATIO_MIN = 1,5 | `SDS_110_Config.hpp:88, Correlation_Processing_Module_126.cpp:209` | Erfüllt |
 | A26 | §5 | Intra-Unit-Peilung | Kreuzkorrelation der Mikrofone, kein Beamforming | TDOA-Least-Squares über 28 Paare | `Correlation_Processing_Module_126.cpp:218–270` | Erfüllt |
@@ -115,7 +115,7 @@ Zuerst anzugehen ist die Rechenzeit. Der Arraydurchmesser ist seit 27.09.2026 au
 | 2 | A18, A35 | TDOA auch bei < 3 Bändern | bei weniger als B_min Bändern keine Korrelation rechnen, wie FSL9 §4 | `Correlation_Processing_Module_126.cpp:70` |
 | 3 | A29, A6 | UTC nur ~1 ms genau (USB), keine µs-Synchronisation der Einheiten | Firmware sendet µs (id 5) und nimmt UTC an (Typ 7): PC-Monitor anpassen; HW-Version 2: GNSS-PPS stellt den µs-Zähler (Zeitquelle 2), WiFi nur für Daten (Software-PTP über WiFi erreicht ≤ 10 µs nicht sicher) | Befunde 16, 33 |
 | 4 | A1, A7, A27 | eine Einheit, Pegel-Distanz | Multilateration mit N ≥ 3 Einheiten, wenn die Hardware vorliegt; Positionen der Einheiten konfigurieren | Blocker 1–4 |
-| 5 | A22, A23, A34 | Lag-Fenster global, c fest, Fenster aus Feedback ungenutzt | Fenster je Paar aus d_ij; c aus Temperatur; `TDOA_WINDOW_S` um die Vorhersage anwenden | Befunde 26, 34 |
+| 5 | A22, A34 | Lag-Fenster global, Fenster aus Feedback ungenutzt | Fenster je Paar aus d_ij; `TDOA_WINDOW_S` um die Vorhersage anwenden (c ist seit 28.09.2026 temperaturkorrigiert, A23) | Befunde 26, 34 |
 | 6 | A33 | Feedback wird nie zurückgesetzt | Feedback nach Zeitablauf (z. B. 2 s ohne Report) löschen | Befund 34 |
 | 7 | A12–A16 | Merkmale, Modell, Labels, Glättung weichen ab | entscheiden, ob die Abweichungen als Variante nach §12 gelten; sonst MFCC 13, CNN und Harmonischen-Labels umsetzen | `doc/Vergleich_HBD_ML124.md` |
 | 8 | A15 | Hold-out-AUC nicht geprüft | Auswertung des Modells ohne 6-Rotor-Drohnen in ML_Test gegen 0,65–0,95 prüfen | ML_Test `docs/Training_ML124.md` |

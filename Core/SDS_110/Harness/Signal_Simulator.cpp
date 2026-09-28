@@ -106,7 +106,7 @@ void Signal_Simulator::generateHop(uint64_t time_utc_us)
     const float ux = std::cos(az), uy = std::sin(az);
     for (uint32_t m = 0; m < NUM_MICS; ++m) {
         const Vec3& pm = array_.position(m);
-        delaySamples_[m] = -(pm.x * ux + pm.y * uy) / SPEED_OF_SOUND * SAMPLE_RATE_HZ;
+        delaySamples_[m] = -(pm.x * ux + pm.y * uy) / c_ * SAMPLE_RATE_HZ;
     }
 
     // --- Quellsignal mit Vorlauf ---

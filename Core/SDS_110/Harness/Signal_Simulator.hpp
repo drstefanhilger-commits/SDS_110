@@ -45,6 +45,8 @@ public:
     void generateHop(uint64_t time_utc_us);
     float trueAzimuth() const { return p_.azimuth_deg; }
     float trueDistance() const { return p_.distance_m; }
+    /// Schallgeschwindigkeit der simulierten Luft (m/s); ProcessingTask setzt sie wie in 126
+    void  setSpeedOfSound(float c) { if (c > 100.0f) c_ = c; }
 
 private:
     Signal_Simulator() = default;
@@ -54,6 +56,7 @@ private:
     SimParams p_{};
     Microphone_Array_114& array_ = Microphone_Array_114::instance();
     float    delaySamples_[NUM_MICS] = {};
+    float    c_ = SPEED_OF_SOUND;
     // Oszillatoren als Zeiger (Re, Im) in float, je Sample um den Schritt gedreht: auf dem Board
     // (FPU nur einfache Genauigkeit) war sin() in double je Harmonische und Sample der Großteil
     // der Rechenzeit des ProcessingTask. Im entspricht dem bisherigen sin(Phase).
@@ -66,7 +69,7 @@ private:
     float    pinkState_[3] = {};
     // Quellsignal: [GUARD Vergangenheit][HOP_SAMPLES aktuell][GUARD Vorlauf]; zwischen zwei
     // Aufrufen wird um HOP_SAMPLES geschoben, jedes Sample wird genau einmal erzeugt
-    static constexpr uint32_t GUARD = 64;   // > max. Verzögerung (Radius 0,2 m -> 28 Samples)
+    static constexpr uint32_t GUARD = 64;   // > max. Verzögerung (Radius 0,1 m, −40 °C -> 16 Samples)
     float src_[HOP_SAMPLES + 2 * GUARD];
     bool  primed_ = false;
     float sourceSample();

@@ -87,18 +87,21 @@ struct SDS_SrpReference {
     uint8_t on[4]    = {0x00, 0x00, 0x00, 0x00};   // SRP-Referenzscan: 0 = aus, 1 = ein
     uint8_t crc[4]   = {0x00, 0x00, 0x00, 0x00};
 };
-/// UTC vom PC-Monitor: µs seit 01.01.1970 (u64, big-endian wie die übrigen Kommandowerte).
-/// Die Firmware setzt Versatz = UTC − Laufzeit beim Empfang (USB-Interrupt); Genauigkeit
-/// ~1 ms (USB-Laufzeit). Länge 20 statt 16 Byte.
-constexpr uint32_t SDS_UTC_CMD_LENGTH = 20;
-struct SDS_UtcTime {
-    uint8_t magic[4] = {0xDE, 0xAD, 0xBE, 0xEF};
-    uint8_t id       =  0x07;
-    uint8_t size[3]  = {0x00, 0x00, SDS_UTC_CMD_LENGTH};
-    uint8_t utc_us[8] = {};                        // µs seit Epoche, MSB zuerst
-    uint8_t crc[4]   = {0x00, 0x00, 0x00, 0x00};
+/// Sync vom PC-Monitor (doc/ICD_SDS_PC_Monitor.md): UTC in µs seit 01.01.1970 und Luft-
+/// temperatur in 0,01 °C, big-endian wie die übrigen Kommandowerte. UTC 0 = keine Zeit (nur
+/// Temperatur), Temperatur 0x8000 = unbekannt. Die Firmware setzt Versatz = UTC − Laufzeit beim
+/// Empfang (USB-Interrupt, ~1 ms genau) und c aus der Temperatur. Länge 24 Byte.
+constexpr uint32_t SDS_SYNC_CMD_LENGTH = 24;
+struct SDS_Sync {
+    uint8_t magic[4]  = {0xDE, 0xAD, 0xBE, 0xEF};
+    uint8_t id        =  0x07;
+    uint8_t size[3]   = {0x00, 0x00, SDS_SYNC_CMD_LENGTH};
+    uint8_t utc_us[8] = {};                        // µs seit Epoche, MSB zuerst; 0 = keine Zeit
+    uint8_t temp[2]   = {0x80, 0x00};              // int16, 0,01 °C, MSB zuerst; 0x8000 = unbekannt
+    uint8_t reserved[2] = {};                      // 0
+    uint8_t crc[4]    = {0x00, 0x00, 0x00, 0x00};
 };
-static_assert(sizeof(SDS_UtcTime) == SDS_UTC_CMD_LENGTH, "UTC-Kommando muss 20 Byte lang sein");
+static_assert(sizeof(SDS_Sync) == SDS_SYNC_CMD_LENGTH, "Sync-Kommando muss 24 Byte lang sein");
 static_assert(sizeof(SDS_UnixTimeSync)   == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
 static_assert(sizeof(SDS_ModeChange)     == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");
 static_assert(sizeof(SDS_ModeSimulation) == SDS_CMD_LENGTH, "Kommando muss 16 Byte lang sein");

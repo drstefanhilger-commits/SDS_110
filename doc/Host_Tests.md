@@ -29,6 +29,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Prüfung | `t_ml124` | 20, 36 | MLP in 124: Merkmalsversion, C++ ↔ Keras, Kontextstapel, Stufen |
 | Prüfung | `t_hopclock` | 28 | Hop-Takt der Simulation im ProcessingTask (31,25 Hops/s) |
 | Prüfung | `t_gcc_direct` | – | Schnellpfad der GCC-PHAT in 126 gleich IFFT, Zeit je Frame |
+| Prüfung | `t_sound_speed` | 34 | Schallgeschwindigkeit aus der Lufttemperatur (Sync Typ 7), Peilung −40…+60 °C |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
 | Messung | `m_bearing_drone` | 8, 17, 23, 24 | Peilung eines Drohnensignals über die volle Kette |
@@ -203,6 +204,21 @@ Geprüft gegen die IFFT (`setDirectMaxBins(0)`):
 Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0,0007°);
 `estimateBearing()` je Frame 0,13 ms (Schnellpfad) gegenüber 1,51 ms (IFFT), x86 `-O2`
 (400 mm, ±64 Lags: 0,28 ms).
+
+### t_sound_speed – Schallgeschwindigkeit (FSL9 A23)
+Die Lufttemperatur kommt im Sync-Kommando (USB Typ 7, `doc/ICD_SDS_PC_Monitor.md`); daraus
+c = 331,3 m/s · √(1 + T/273,15 °C) (`SoundSpeed.hpp`), gesetzt in 126, 128 und im Simulator.
+1. Formel: 0 °C 331,3 m/s, 20 °C 343,2, −40 °C 306,1, +60 °C 365,9.
+2. Wire-Wert 0,01 °C, 0x8000 = unbekannt, außerhalb −40…+60 °C verworfen.
+3. Volle Kette (DroneStatic 30 dB, 6 Richtungen) bei −40…+60 °C, Luft und 126 mit derselben c:
+   Peilung gültig, Median ≤ 1° (TDOA-LS und SRP), Schnellpfad in jedem Frame. Das Lag-Fenster
+   wächst mit der Kälte: ±29 (+60 °C) … ±35 (−40 °C), mit SRP-Referenz mindestens ±32.
+4. Ohne Korrektur (126 mit 343 m/s) bei −40 °C: im Mittel 26,4 statt 28,0 gültige Paare, weil
+   Verzögerungen bis 31,4 Samples am Rand des Fensters ±30 liegen. Der Azimut selbst ändert sich
+   kaum (alle Paarverzögerungen skalieren gleich).
+
+Referenz: Median-Fehler 0,55…0,62° (SRP 0,47…0,66°), Residuum 0,82…0,86 Samples, alle Frames
+gültig und im Schnellpfad.
 
 ---
 

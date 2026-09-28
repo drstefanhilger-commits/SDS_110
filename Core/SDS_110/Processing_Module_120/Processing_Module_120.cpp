@@ -84,6 +84,8 @@ bool Processing_Module_120::processFrame()
     const uint32_t c4 = dwt.cycles();
     bool srpOn = corr_.srpReference();                 // USB Typ 6; bei Sperr-Timeout alter Wert
     if (dm.tryGetSrpReference(srpOn)) corr_.setSrpReference(srpOn);
+    SDS_Data::Air air;                                 // Lufttemperatur (USB Typ 7) -> c
+    if (dm.tryGetAir(air)) { corr_.setSpeedOfSound(air.soundSpeed); loc_.setSpeedOfSound(air.soundSpeed); }
     corr_.deriveSelection(state_, selection_);
     const uint32_t c4a = dwt.cycles();
     corr_.estimateBearing(spectra_, selection_, bearing_);

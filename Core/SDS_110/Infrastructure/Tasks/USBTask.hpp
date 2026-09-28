@@ -51,7 +51,7 @@ private:
     void handleSimulation(const uint8_t* rx);
     void handleSetUnitId(const uint8_t* rx);     // Typ 5: Payload u32 = neue Unit-ID
     void handleSrpReference(const uint8_t* rx);  // Typ 6: Payload u32 0 = SRP-Scan aus, sonst ein
-    void handleUtcTime(const uint8_t* rx);       // Typ 7: Payload u64 = UTC in µs (20 Byte)
+    void handleSync(const uint8_t* rx);          // Typ 7: UTC in µs (u64) + Temperatur (i16, 0,01 °C), 24 Byte
     void handleError(const uint8_t* rx);
     static bool hasMagic(const uint8_t* rx);
     /// Längenfeld: Gesamtlänge der Nachricht (SDS_CMD_LENGTH), nicht nur der Nutzdaten

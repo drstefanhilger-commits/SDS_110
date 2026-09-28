@@ -14,6 +14,7 @@ Eine Einheit kennt nur sich selbst (Intra-Unit). Die Unterscheidung mehrerer Ein
 erfolgt über die Unit-ID im UnitReport auf dem PC.
 
 ## Datenfluss
+Nachrichtenformate Board ⇄ PC-Monitor: `doc/ICD_SDS_PC_Monitor.md`.
 ```
 Board (112-n)                                   PC-Monitor
 114 Mic ─ 116 SAI/DMA ─ 118 AGC/BP/NS ─ 122 STFT ─ 124 s(t) ─ 126 S(t),w, Peilung

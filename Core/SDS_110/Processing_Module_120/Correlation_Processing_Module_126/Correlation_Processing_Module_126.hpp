@@ -7,7 +7,7 @@
  *  (e)     Quellkonditionierte GCC-PHAT: R_ij(k) = w(k) · X_i X_j* / |X_i X_j*| nur auf S(t),
  *          IFFT -> Kreuzkorrelation, Peak im Fenster ±τ_max, Peak-Ratio-Test -> TDOA τ_ij
  *          Schnellpfad: bei höchstens directMaxBins() selektierten Bins wird die Korrelation
- *          nur für die Lags ±WIN_HALF direkt aus den Bins berechnet (identisch zur IFFT bis auf
+ *          nur für die nötigen Lags (±31 bei 20 °C) direkt aus den Bins berechnet (identisch zur IFFT bis auf
  *          Rundung, t_gcc_direct) – statt 28 inverser FFTs über N_FFT Werte je Frame.
  *  Feedback (Abschnitt 10): ŝ senkt θ_sel für Referenzbänder, x̂ verengt das Suchfenster.
  *
@@ -86,19 +86,27 @@ public:
     void     setDirectMaxBins(uint32_t n) { directMaxBins_ = n < DIRECT_MAX_BINS ? n : DIRECT_MAX_BINS; }
     uint32_t directMaxBins() const { return directMaxBins_; }
     float    maxIntraDelay() const { return maxIntraDelay_s_; }   ///< Intra-Unit-Fenster (s)
+    /// Schallgeschwindigkeit (m/s, aus der Lufttemperatur): Paarverzögerungen, Lag-Fenster
+    /// und Peilung neu; Standard SPEED_OF_SOUND. Ein Aufruf mit unverändertem c kostet nichts.
+    void     setSpeedOfSound(float c);
+    float    speedOfSound() const { return c_; }
+    int      lastWindowHalf() const { return winHalf_; }             ///< Lags des Schnellpfads
     bool     lastWasDirect() const { return direct_; }
 
 private:
-    // Lags, die der Schnellpfad berechnet: Peak-Suche braucht ±(maxLag+1) (Intra-Unit 30 bei
-    // 200 mm), der SRP-Scan ±SRP_MAX_LAG; größere maxLag (zwischen Einheiten) -> IFFT
-    static constexpr int WIN_HALF = static_cast<int>(SRP_MAX_LAG);
+    // Lags, die der Schnellpfad berechnet (winHalf_, je Frame): Peak-Suche braucht ±(maxLag+1)
+    // (Intra-Unit bei 200 mm: 30 bei 20 °C, 34 bei −40 °C), der SRP-Scan ±SRP_MAX_LAG, wenn er
+    // läuft. Puffer bis WIN_MAX; größere maxLag (zwischen Einheiten) -> IFFT
+    static constexpr int WIN_MAX = 40;
+    static_assert(WIN_MAX >= static_cast<int>(SRP_MAX_LAG), "Schnellpfad muss das SRP-Fenster abdecken");
+    void  updateGeometry();                    // pairDx_/Dy_, maxIntraDelay_s_ aus micPos_ und c_
 
     /// Bins und Drehzeiger für den Schnellpfad vorbereiten (einmal je Frame); false -> IFFT
     bool  prepareBins(const ComponentSelection& sel, int maxLag);
     bool  correlatePair(const Spectrum& X, const Spectrum& Y, const ComponentSelection& sel,
                         int maxLag, TdoaMeasurement& out);
     float lagValue(int lag) const
-    { return direct_ ? win_[lag + WIN_HALF] : corr_[(lag + static_cast<int>(N_FFT)) % static_cast<int>(N_FFT)]; }
+    { return direct_ ? win_[lag + WIN_MAX] : corr_[(lag + static_cast<int>(N_FFT)) % static_cast<int>(N_FFT)]; }
     static int maxLagFor(float maxDelay_s);
 
     uint32_t directMaxBins_ = DIRECT_MAX_BINS;
@@ -108,14 +116,17 @@ private:
     uint32_t nBins_ = 0;
     uint16_t binK_[DIRECT_MAX_BINS];
     float    binW_[DIRECT_MAX_BINS], binCos_[DIRECT_MAX_BINS], binSin_[DIRECT_MAX_BINS];
-    static float win_[2 * WIN_HALF + 1];  // Korrelation für Lag -WIN_HALF … +WIN_HALF
+    int      winHalf_ = 0;
+    static float win_[2 * WIN_MAX + 1];   // Korrelation für Lag -winHalf_ … +winHalf_ (Mitte WIN_MAX)
 
     float thetaSel_[NUM_BANDS];
     float weightBoost_[NUM_BANDS];
     TrackingFeedback feedback_{};
 
     Vec3  micPos_[NUM_MICS];
-    float maxIntraDelay_s_ = 0.0f;   // Arraydurchmesser / c
+    float maxIntraDelay_s_ = 0.0f;   // größter Mikrofonabstand / c · 1,1
+    float dmax_ = 0.0f;              // größter Mikrofonabstand (m)
+    float c_ = SPEED_OF_SOUND;       // Schallgeschwindigkeit (m/s)
     arm_rfft_fast_instance_f32 ifft_;
     // Arbeitspuffer der 28 Paar-Korrelationen je Frame (je 16 kB, bei jedem Paar komplett
     // geschrieben/gelesen): statisch im internen RAM statt in der 120-Instanz im SDRAM
