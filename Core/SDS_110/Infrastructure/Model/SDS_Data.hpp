@@ -67,11 +67,15 @@ public:
 
     // --- Rechenzeit je Stufe (ms, geglättet) – LCD-Zeile "ms S.. P.. F.. M.. K.. R.." ----
     struct StageTimes { float sim = 0, pre = 0, feat = 0, ml = 0, corr = 0, rest = 0;
-                        float corrSel = 0, corrGcc = 0, corrSrp = 0; };   // corr = Sel + Gcc + Srp
+                        float corrSel = 0, corrGcc = 0, corrSrp = 0;      // corr = Sel + Gcc + Srp
+                        // Diagnose: P = pre118 + asm (+ Hop holen), F = featRef + 7 · spec
+                        float pre118 = 0, asm_ = 0, featRef = 0, spec = 0; };
     void setStageTimes(float pre, float feat, float ml, float corr, float rest)
     { if (!lockWrite()) return; st_.pre = pre; st_.feat = feat; st_.ml = ml; st_.corr = corr; st_.rest = rest; unlock(); }
     void setCorrTimes(float sel, float gcc, float srp)
     { if (!lockWrite()) return; st_.corrSel = sel; st_.corrGcc = gcc; st_.corrSrp = srp; unlock(); }
+    void setDiagTimes(float pre118, float asmMs, float featRef, float spec)
+    { if (!lockWrite()) return; st_.pre118 = pre118; st_.asm_ = asmMs; st_.featRef = featRef; st_.spec = spec; unlock(); }
     void setSimTime(float ms) { if (!lockWrite()) return; st_.sim = ms; unlock(); }
     StageTimes getStageTimes() const { return getValue(st_); }
 
