@@ -101,14 +101,15 @@ bool USBDriver::sendDetection(uint32_t timestamp, uint32_t micId, float azimuth,
     return transmit(&msg, sizeof(msg), waitMs);
 }
 
-bool USBDriver::sendRead(uint32_t timestamp, uint32_t micNr, uint32_t frameNr, const MicFrame* frame,
+bool USBDriver::sendRead(uint32_t timestamp, uint32_t micNr, uint32_t blockNr, uint32_t hopNr, const MicFrame* frame,
                          uint32_t waitMs)
 {
     SDS_MsgRead msg;
     msg.timestamp = timestamp;
-    msg.micNr     = static_cast<uint16_t>(micNr);
-    msg.frameNr   = static_cast<uint16_t>(frameNr);
-    const uint32_t offset = frameNr * SDS_MSG_BUFFER_SIZE;
+    msg.micNr     = static_cast<uint8_t>(micNr);
+    msg.blockNr   = static_cast<uint8_t>(blockNr);
+    msg.hopNr     = static_cast<uint16_t>(hopNr);
+    const uint32_t offset = blockNr * SDS_MSG_BUFFER_SIZE;
     constexpr float toPcm24 = static_cast<float>(1 << 23);
     for (uint32_t i = 0; i < SDS_MSG_BUFFER_SIZE; ++i) {
         const uint32_t idx = offset + i;
