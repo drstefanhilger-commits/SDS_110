@@ -9,6 +9,8 @@ HBD verglichen.
 überwiegend Bänder ohne Drohnenenergie, die Peilung fällt aus. 124 bleibt deshalb in der Stufe
 **Schatten**: s(t) kommt weiter vom HBD, das MLP rechnet mit, und der Abgleich steht auf dem LCD.
 
+**Nachmessung 28.09.2026** (200-mm-Array, Merkmalsversion `3a685d01f22f3eea`, Modell neu exportiert, Gewichte unverändert): Mit `ML124_MODE = Ml` bleibt die Peilung unbrauchbar. `m_bearing_drone` bei 30 dB: 37 % gültig, 9,8 Paare, Peak-Ratio-Median 1,05, Median-Fehler 94°. Bei 20 dB: 78 % gültig, Median-Fehler 94°. FSL9 verlangt ML in 124; dafür muss das Modell neu trainiert werden (Befund 38, AP 2). 124 bleibt bis zur bestandenen Abnahme in der Stufe Schatten.
+
 ---
 
 ## 1. Stufen und Aufruf

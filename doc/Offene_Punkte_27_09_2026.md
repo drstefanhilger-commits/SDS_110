@@ -22,8 +22,6 @@ Alles hier lässt sich auf dem Host umsetzen und mit `test/host` belegen.
 
 | Befund | Aufgabe | Priorität | Status |
 | --- | --- | --- | --- |
-| 42 | Cache-Aliasing der MicFrame-Kanäle (Zeilenabstand 6144 B): Zeilen auffüllen | hoch | Offen – 114 in der Merkmalsversion, mit 27 und einem Neuexport |
-| 27 | Lücken im Hop-Strom erkennen (`nextId_` im Verwerf-Pfad erhöhen), Test über `pushBlock()` mit vollem Puffer | hoch | Offen – 114 in der Merkmalsversion, mit 42 |
 | 43 | Debug-Build: Inlining in 118/122/124/126 (Aufrufe je Bin trotz Pragma) | mittel | Teilweise (Simulator, 114); Release-Build vergleichen |
 | 34 (A34) | Vorhersage aus Feedback Id 8 nutzen: TDOA-Suchfenster ±2 ms um die vorhergesagte Verzögerung, zusätzlich als Führung für Befund 26 | mittel | Offen |
 | 30 | Start von SAI/Verarbeitung nur nach erfolgreicher Initialisierung | mittel | Offen |
@@ -44,6 +42,7 @@ AP 1 und AP 3–7 sind erledigt. Offen sind:
 | AP 2 | Inventur echter Drohnen abschließen; saubere echte Aufnahmen beschaffen (READ liefert jetzt Rohdaten, PC-Monitor nimmt WAV auf) | hoch | Offen |
 | 38 | Synthetische Drohnen bis BPF ca. 700 Hz erweitern, Datensatz neu erzeugen und neu trainieren | hoch | Offen |
 | AP 8 | Board-Aufnahmen und Endabnahme; Voraussetzung Befund 35 ist erledigt, Blocker 2–4 sind offen | mittel | Offen |
+| FSL9, AP 7 | **ML-Modus (Patent verlangt ML in 124): k5_h48_d3 besteht die Abnahme nicht** (Peilung im ML-Modus 30 dB: Median 94°, Ratio 1,05; selektiert Bänder ohne Drohnenenergie). Voraussetzung: neu trainieren (38, AP 2, Datenfreigabe) und AP 7 wiederholen; bis dahin Stufe Schatten | hoch | Offen |
 | 37 | HBD-Vergleich ab Frame 94 wiederholen (nach der HBD-Anlaufzeit) | mittel | Offen |
 | 38 | Validierung: Umwelt-Clips getrennt vom Training ziehen | niedrig | Offen |
 | Lizenz | ESC-50 (CC BY-NC 3.0) vor einer kommerziellen Verwertung klären oder ersetzen | niedrig | Offen |
@@ -57,7 +56,7 @@ Die Blocker 2–4 sind zurückgestellt. Ohne sie gibt es keine echten Mikrofonda
 | 2 | SAI-DMA einrichten (MspInit, Streams, IRQ-Handler) | hoch | Zurückgestellt |
 | 3 | CubeMX an die eigene Platine anpassen: SAI1 PE4/PE5, I2C2, PE3; SAI-Takt aus PLLI2S, SPDIFRX aus | hoch | Zurückgestellt |
 | 4 | ADAU7118-Registertabelle und I2C-Adresse (0x4B oder 0x3A) klären | hoch | Zurückgestellt |
-| 17, 42 | Rechenlast: gemessen Proc 31,8 ms bei 32 ms Budget, Sim 13,5 ms; nach den Änderungen vom 28.09.2026 neu messen (Debug und Release) | hoch | Offen |
+| 17, 42 | Rechenlast: Proc 32,2 ms bei 32 ms Budget, Sim 8,9 ms (vorher 13,5), Lock 0 (Release und Debug); nach Befund 42 neu messen | hoch | Offen |
 | 26, 29, 32, 35 | Am Board prüfen: Peilung bei hohem f0, Lock-Zähler am LCD, Unit-ID/SRP bei laufendem Feedback, READ-Rohdaten mit Hop-Nummer | mittel | Offen |
 | 5 | Abtastrate messen: FSYNC 47,991 kHz, BCLK 12,286 MHz | mittel | Offen |
 | 6, 34 | Bitlage im 32-Bit-Slot und SAI-Taktflanke am Oszilloskop prüfen | mittel | Offen |
@@ -89,6 +88,7 @@ Die Blocker 2–4 sind zurückgestellt. Ohne sie gibt es keine echten Mikrofonda
 | --- | --- | --- |
 | 1 | ProcessingTask läuft | Board-Messungen 28.09.2026 |
 | 26 | Mehrdeutige TDOA-Paare bei hohem f0: robuste LS, SRP-geführte Neuwahl, sonst ungültig | `t_bearing_f0`, `m_bearing_f0` |
+| 27, 42 | Lücken im Hop-Strom erkennbar; MicFrame-Zeilen aufgefüllt (Cache-Aliasing); Merkmalsversion `3a685d01f22f3eea`, Modell neu exportiert (Merkmale bitgleich) | `t_hop_gap`, `check_features`, `t_ml124` |
 | 28 | Simulation an den 32-ms-Hop gekoppelt | `t_hopclock` |
 | 29 | `SDS_Data`-Getter liefern bei Sperr-Timeout den Wert statt 0; Setter mit zweitem Versuch; Zähler am LCD | `t_sds_data` |
 | 32 | Mehrere und geteilte Kommandos je USB-Paket (`CommandAssembler`) | `t_usb_commands` |

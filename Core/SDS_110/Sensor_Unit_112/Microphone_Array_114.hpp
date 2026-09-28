@@ -26,13 +26,21 @@ struct Vec3 { float x, y, z; };
 
 enum class FrameState : uint8_t { Free = 0, Writing, Ready, Reading };
 
+// Befund 42: Zeilen auffüllen. Ohne Füllung ist der Kanalabstand 1536 · 4 = 6144 Byte, ein
+// Vielfaches der Weggröße des D-Cache (4 KB, 4-fach, 1 KB je Weg): alle 8 Kanäle einer
+// Sampleposition fielen in denselben Satz, und pushBlock() (je Sample alle Kanäle) verdrängte
+// bei jedem Schreibzugriff eine gleich wieder gebrauchte Zeile. Mit 8 Floats (eine Cache-Zeile)
+// liegen die Kanäle in aufeinanderfolgenden Sätzen. Genutzt werden nur [0, HOP_SAMPLES).
+constexpr uint32_t MIC_ROW_PAD = 8;
+
 struct MicFrame {
     FrameState state;
-    uint32_t   frame_id;
+    uint32_t   frame_id;                        // fortlaufend; nach verworfenen Blöcken eine Nummer übersprungen
     uint64_t   time_utc_us;                     // Zeitreferenz des ersten Samples
     uint32_t   writeIndex;                      // 0 .. HOP_SAMPLES
-    float      data[NUM_MICS][HOP_SAMPLES];     // normalisiert [-1, 1)
+    float      data[NUM_MICS][HOP_SAMPLES + MIC_ROW_PAD];   // normalisiert [-1, 1)
 };
+static_assert((sizeof(float) * (HOP_SAMPLES + MIC_ROW_PAD)) % 1024 != 0, "114: Kanalabstand kein Vielfaches von 1 KB (Befund 42)");
 
 class Microphone_Array_114 {
 public:
@@ -65,6 +73,7 @@ private:
     MicFrame*  latest_   = nullptr;  // zuletzt fertiggestellter Frame
     uint32_t   nextId_   = 0;
     uint32_t   dropped_  = 0;
+    bool       dropping_ = false;    // Befund 27: seit dem letzten geschriebenen Block wird verworfen
     osMutexId_t mutex_   = nullptr;  // schützt Leseseite
 
     static MicFrame frames_[NUM_MIC_FRAMES];
