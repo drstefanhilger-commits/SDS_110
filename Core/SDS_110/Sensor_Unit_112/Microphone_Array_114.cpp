@@ -1,6 +1,7 @@
 /*
  * Microphone_Array_114.cpp
  */
+#include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board (pushBlock je DMA-Block)
 #include "Microphone_Array_114.hpp"
 #include <cmath>
 #include <cstring>
