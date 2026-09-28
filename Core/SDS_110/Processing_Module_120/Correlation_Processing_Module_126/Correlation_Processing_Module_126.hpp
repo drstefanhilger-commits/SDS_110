@@ -86,6 +86,24 @@ public:
 
     const TdoaMeasurement* lastPairTdoa() const { return pairTdoa_; }
 
+    /// Befund 26: Mehrdeutigkeit bei hohem f0 (Paarkorrelation mit mehreren fast gleich hohen
+    /// Spitzen; eine vertauschte Spitze liegt ≥ eine Periode der höchsten genutzten Frequenz daneben,
+    /// ≥ 12 Samples). Nach der LS-Lösung wird das größte Paar-Residuum in Samples geprüft:
+    ///  (1) robuste LS: über OUTLIER_SAMPLES das Paar mit dem größten Residuum verwerfen und neu
+    ///      lösen (mindestens BEARING_MIN_PAIRS_FRACTION der Paare bleiben); Rauschen bleibt fast
+    ///      immer darunter und kostet keine Paare
+    ///  (2) bleibt ein Residuum darüber oder sind zu wenige Paare eindeutig: Richtung aus dem SRP-Scan
+    ///      der gesicherten Paarkorrelationen; Paare mit mehr als CONSIST_MAX_SAMPLES Abweichung
+    ///      nehmen die Spitze ±REPICK_HALF Samples um die vorhergesagte Verzögerung; Paare über
+    ///      OUTLIER_SAMPLES verwerfen; gilt, wenn danach alle Residuen ≤ OUTLIER_SAMPLES
+    ///  (3) sonst ungültig – keine falsche Peilung melden
+    /// Die Peilung bleibt TDOA-LS (Patentpfad), SRP löst nur die Mehrdeutigkeit auf.
+    static constexpr float CONSIST_MAX_SAMPLES = 4.0f;
+    static constexpr float OUTLIER_SAMPLES = 8.0f;
+    static constexpr int   REPICK_HALF = 5;          // < halbe Periode bei 4 kHz (12 Samples)
+    bool     lastWasGuided() const { return guided_; }          ///< letzte Peilung per SRP geführt
+    uint32_t lastRejectedPairs() const { return rejected_; }    ///< danach verworfene Paare
+
     /// Schnellpfad bis zu so vielen selektierten Bins (darüber IFFT); 0 = immer IFFT (Tests)
     static constexpr uint32_t DIRECT_MAX_BINS = 128;
     void     setDirectMaxBins(uint32_t n) { directMaxBins_ = n < DIRECT_MAX_BINS ? n : DIRECT_MAX_BINS; }
@@ -145,6 +163,15 @@ private:
     float pairDx_[NUM_MIC_PAIRS], pairDy_[NUM_MIC_PAIRS];   // (p_j - p_i)/c * fs
     float srpCos_[SRP_AZ_STEPS], srpSin_[SRP_AZ_STEPS];     // Richtungen des SRP-Rasters (init)
     float srpAt(uint32_t step) const;                       // SRP-Leistung einer Rasterrichtung
+    /// SRP-Scan über pairCorr_: Rasterschritt des Maximums (+ Parabel-Versatz), Maximum, zweitbester
+    /// Punkt des Grobrasters; false, wenn kein positives Maximum
+    bool  scanSrp(int& bestStep, float& delta, float& best, float& second) const;
+    // Befund 26: LS-Lösung aus pairTdoa_, größtes Residuum, Spitzen um eine Richtung neu wählen
+    bool  solveLs(float& ux, float& uy, uint32_t& valid, float& peakSum) const;
+    float maxResidualSamples(float ux, float uy) const;
+    void  repickPairs(float ux, float uy, int maxLag);
+    bool  guided_ = false;
+    uint32_t rejected_ = 0;
 };
 
 } // namespace sds110

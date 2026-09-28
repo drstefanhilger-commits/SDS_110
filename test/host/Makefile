@@ -38,8 +38,8 @@ SHIM_SRCS := $(HERE)/shim/arm_rfft.cpp $(HERE)/shim/sds_stubs.cpp
 MOD_OBJS := $(patsubst $(CODE)/%.cpp,$(BUILD)/obj/code/%.o,$(MOD_SRCS)) \
             $(patsubst $(HERE)/%.cpp,$(BUILD)/obj/test/%.o,$(SHIM_SRCS)) $(BUILD)/obj/kiss_fft.o
 
-CHECKS   := t_scaling t_frame_assembler t_unit_report t_sdram_selftest t_timebase t_logger t_bearing_broadband t_ml124 t_hopclock t_gcc_direct t_sound_speed t_azimuth t_feedback t_usb_commands t_geo_position t_sds_data
-MEASURES := m_overview m_hbd_diag m_bearing_drone m_selection m_distance m_confidence
+CHECKS   := t_scaling t_frame_assembler t_unit_report t_sdram_selftest t_timebase t_logger t_bearing_broadband t_ml124 t_hopclock t_gcc_direct t_sound_speed t_azimuth t_feedback t_usb_commands t_geo_position t_sds_data t_bearing_f0
+MEASURES := m_overview m_hbd_diag m_bearing_drone m_selection m_distance m_confidence m_bearing_f0
 ALL      := $(CHECKS) $(MEASURES) m_longrun
 
 all: $(addprefix $(BUILD)/,$(ALL))
@@ -56,7 +56,7 @@ $(BUILD)/obj/kiss_fft.o: $(CODE)/Core/Lib/kiss_fft.c
 -include $(MOD_OBJS:.o=.d)
 
 # Tests auf der ganzen Signalkette
-CHAIN_TESTS := t_bearing_broadband t_gcc_direct t_sound_speed t_azimuth t_feedback $(MEASURES) m_longrun
+CHAIN_TESTS := t_bearing_broadband t_gcc_direct t_sound_speed t_azimuth t_feedback t_bearing_f0 $(MEASURES) m_longrun
 $(addprefix $(BUILD)/,$(CHAIN_TESTS)): $(BUILD)/%: $(HERE)/%.cpp $(MOD_OBJS)
 	$(CXX) $(CXXFLAGS) $(INC_CHAIN) $< $(MOD_OBJS) -o $@
 
