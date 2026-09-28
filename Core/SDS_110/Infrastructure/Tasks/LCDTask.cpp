@@ -2,6 +2,7 @@
  * LCDTask.cpp  (Infrastructure/Tasks)
  */
 #include "LCDTask.hpp"
+#include "Infrastructure/Utils/Azimuth.hpp"
 #include "Infrastructure/Timer/HardwareTimer.hpp"
 #include "Processing_Module_120/Machine_Learning_Module_124/ML124_Config.hpp"
 #include "cmsis_os2.h"
@@ -101,10 +102,12 @@ void LCDTask::showRadar()
     gfx_->circle(x0_, y0_, R_, Color::White);
     gfx_->circle(x0_, y0_, dm_.getDebugValue(3) * distFac_, Color::Yellow);   // wahre Distanz (Sim)
 
+    // Azimut 0° = Nord (oben), im Uhrzeigersinn (Azimuth.hpp); Bildschirm-y zeigt nach unten
     const float angle = dm_.getAzimuth() * deg2rad_;
     const float r1    = dm_.getDistance() * distFac_;
-    const int x1 = x0_ + static_cast<int>(r1 * cosf(angle));
-    const int y1 = y0_ + static_cast<int>(r1 * sinf(angle));
+    const int x1 = x0_ + static_cast<int>(r1 * sinf(angle));
+    const int y1 = y0_ - static_cast<int>(r1 * cosf(angle));
+    gfx_->text8x12(x0_ - 4, y0_ - R_ - 14, "N", Color::White);
     gfx_->line(x0_, y0_, x1, y1, dm_.getDetected() ? Color::Red : Color::DarkGray);
     gfx_->circle(x1, y1, 3, Color::Green);
 }
@@ -188,7 +191,7 @@ void LCDTask::showDetection()
 {
     const float trueAz   = dm_.getDebugValue(2);
     const float trueDist = dm_.getDebugValue(3);
-    const float difAz    = fabsf(dm_.getAzimuth() - trueAz);
+    const float difAz    = Azimuth::diff(dm_.getAzimuth(), trueAz);   // 359° vs 1° = 2°
     const float difDist  = fabsf(dm_.getDistance() - trueDist);
     const float percent  = (trueDist > 0.0f) ? 100.0f * difDist / trueDist : 0.0f;
     const Color colorAz  = (difAz < errorAz_)    ? Color::Green : Color::Red;

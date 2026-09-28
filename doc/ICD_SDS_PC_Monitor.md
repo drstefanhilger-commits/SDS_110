@@ -126,7 +126,7 @@ Wird je Frame gesendet, wenn eine gültige Peilung vorliegt und eine Drohne dete
 | 4–7 | len_id | u32 LE | 0x01000020 |
 | 8–11 | timestamp | u32 LE | ms (Abschnitt 3) |
 | 12–15 | mic | u32 LE | Unit-ID |
-| 16–19 | azi | f32 | Azimut in Grad, 0…360, ab der x-Achse des Arrays gegen den Uhrzeigersinn (FSL9 A28 offen) |
+| 16–19 | azi | f32 | Azimut in Grad, 0 … < 360: 0° = Nord, im Uhrzeigersinn (90° = Ost); Mikrofon 0 zeigt nach Nord (FSL9 FIG. 5, `Azimuth.hpp`) |
 | 20–23 | distance | f32 | Distanz in m aus dem Pegelmodell (nur eine Einheit, unkalibriert) |
 | 24–27 | conf | f32 | Konfidenz 0…1 |
 | 28–31 | crc32 | u32 LE | CRC32 über Byte 0–27 |
@@ -186,6 +186,7 @@ Rahmen wie beim UnitReport, mit `len_id` = 0x63000090 und `timestamp` = 0. Die N
 
 | Datum | Änderung | PC-Monitor |
 | --- | --- | --- |
+| 28.09.2026 | Azimut in Detect und UnitReport jetzt 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord (vorher ab der x-Achse gegen den Uhrzeigersinn) | Darstellung Nord oben, Ost rechts: x = r · sin φ, y = r · cos φ |
 | 28.09.2026 | Id 7 von 20 auf 24 Byte erweitert: Lufttemperatur (i16, 0,01 °C) + 2 Byte reserviert; UTC 0 = nur Temperatur | Id 7 im neuen Format senden |
 | 27.09.2026 | UnitReport Id 5 ersetzt Id 4 (Zeit u64 µs + Zeitquelle, Kopf 25 statt 16 Byte, max. 51 statt 56 Bänder) | Id 5 lesen |
 | 27.09.2026 | Kommando Id 7 (UTC in µs) neu | senden |

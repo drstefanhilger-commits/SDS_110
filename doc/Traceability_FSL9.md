@@ -5,7 +5,7 @@ Stand 27.09.2026. Online-Fassung mit änderbarem Status und Diagramm:
 
 ## Zusammenfassung
 
-Von 36 zugesicherten Werten aus FSL9 sind 18 erfüllt, 10 teilweise erfüllt, 4 nicht erfüllt, 2 offen und 2 nicht im Umfang der Firmware. Die Signalkette 118 → 122 → 126 hält die Parameter der bevorzugten Ausführung weitgehend ein: Frames, FFT, Bänder, Selektion, Gewichtung, GCC-PHAT und Peak-Ratio. Die Abweichungen liegen vor allem im Systemaufbau und in den Zeitvorgaben:
+Von 36 zugesicherten Werten aus FSL9 sind 19 erfüllt, 10 teilweise erfüllt, 4 nicht erfüllt, 1 offen und 2 nicht im Umfang der Firmware. Die Signalkette 118 → 122 → 126 hält die Parameter der bevorzugten Ausführung weitgehend ein: Frames, FFT, Bänder, Selektion, Gewichtung, GCC-PHAT und Peak-Ratio. Die Abweichungen liegen vor allem im Systemaufbau und in den Zeitvorgaben:
 
 - **Eine statt mindestens zwei Sensoreinheiten** (`NUM_UNITS = 1`). Die Distanz kommt deshalb aus einem Pegelmodell, das FSL9 nicht vorsieht; Multilateration und der Zwei-Unit-Modus werden nicht genutzt.
 - **Keine Synchronisation der Einheiten auf ≤ 10 µs.** Der Report überträgt jetzt µs und UTC nach Abgleich vom PC über USB (~1 ms genau); die µs-Synchronisation soll GNSS-PPS in HW-Version 2 liefern.
@@ -67,7 +67,7 @@ Je Zeile ein zugesicherter Wert aus FSL9 mit Ist-Wert, Code-Referenz (relativ zu
 | A25 | §5 | Peak-Ratio | verwerfen unter 1,5 | PEAK_RATIO_MIN = 1,5 | `SDS_110_Config.hpp:88, Correlation_Processing_Module_126.cpp:209` | Erfüllt |
 | A26 | §5 | Intra-Unit-Peilung | Kreuzkorrelation der Mikrofone, kein Beamforming | TDOA-Least-Squares über 28 Paare | `Correlation_Processing_Module_126.cpp:218–270` | Erfüllt |
 | A27 | §6, Anspr. 1(f) | Lokalisation | N ≥ 3 Multilateration, N = 2 TDOA + zwei Peilungen | N = 1: Peilung + Pegel-Distanz (nicht in FSL9); Multilateration vorhanden, ungenutzt | `Localisation_Module_128.cpp:26, 67, SDS_110_Config.hpp:104` | Nicht erfüllt |
-| A28 | §6, FIG. 5 | Referenzpunkt, Azimut | Zentroid der Einheiten, Azimut ab Nord | Arraymitte; Azimut = atan2(uy, ux), also ab x-Achse | `Correlation_Processing_Module_126.cpp:263, Processing_Module_120.cpp:37` | Offen |
+| A28 | §6, FIG. 5 | Referenzpunkt, Azimut | Zentroid der Einheiten, Azimut ab Nord | Azimut 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord (festgelegt 28.09.2026); Referenzpunkt = Arraymitte (bei einer Einheit gleich dem Zentroid); gilt für 126, 128, Simulator und LCD (t_azimuth) | `Infrastructure/Utils/Azimuth.hpp, Correlation_Processing_Module_126.cpp:284, Localisation_Module_128.cpp:58` | Erfüllt |
 | A29 | §7, Anspr. 1(g) | Zeitstempel im Report | UTC, µs | UnitReport id 5: u64 µs + Zeitquelle; UTC nach Abgleich (USB Typ 7), bis GNSS nur ~1 ms genau; PC-Monitor liest id 5 noch nicht (Befund 33) | `Data_Interface_140/Candidate_Report_140.hpp:33, Output_Interface_130.cpp:20, 52, USBTask.cpp:84` | Teilweise |
 | A30 | §7, Anspr. 1(g) | Inhalt des Reports | φ, r, Qualität (Paare, Residuum), ausgewählte Bänder + p_b | UnitReport: Peilung, Residuum, Paare, Pegel, Bänder + p_b; φ/r im CandidateReport auf dem PC | `Data_Interface_140/Candidate_Report_140.hpp:30–41` | Teilweise |
 | A31 | §7 | Report-Rate, Format | ≈ 30 Reports/s, feste Binärstruktur | Binärstruktur 128 Byte (t_unit_report); Proc 31,3 ms < 32-ms-Frame-Takt (0,7 ms Reserve), mit echten Mikrofonen nicht nachgewiesen | `Output_Interface_130.cpp, LCDTask.cpp (Zeitanzeige)` | Teilweise |
@@ -119,6 +119,5 @@ Zuerst anzugehen ist die Rechenzeit. Der Arraydurchmesser ist seit 27.09.2026 au
 | 6 | A33 | Feedback wird nie zurückgesetzt | Feedback nach Zeitablauf (z. B. 2 s ohne Report) löschen | Befund 34 |
 | 7 | A12–A16 | Merkmale, Modell, Labels, Glättung weichen ab | entscheiden, ob die Abweichungen als Variante nach §12 gelten; sonst MFCC 13, CNN und Harmonischen-Labels umsetzen | `doc/Vergleich_HBD_ML124.md` |
 | 8 | A15 | Hold-out-AUC nicht geprüft | Auswertung des Modells ohne 6-Rotor-Drohnen in ML_Test gegen 0,65–0,95 prüfen | ML_Test `docs/Training_ML124.md` |
-| 9 | A28 | Azimut ab x-Achse statt ab Nord | Konvention mit dem PC-Programm und der Tracking-Einheit abstimmen | `Correlation_Processing_Module_126.cpp:263` |
 
 Die Befundnummern beziehen sich auf `doc/Analyse_Befunde.md`.

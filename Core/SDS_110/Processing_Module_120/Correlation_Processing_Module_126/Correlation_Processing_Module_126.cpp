@@ -3,6 +3,7 @@
  */
 #include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board
 #include "Correlation_Processing_Module_126.hpp"
+#include "Infrastructure/Utils/Azimuth.hpp"
 #include <cmath>
 #include <cstring>
 
@@ -280,9 +281,7 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
         }
     out.residual    = std::sqrt(res / peakSum);
     out.mean_peak   = peakSum / valid;
-    float az = std::atan2(uy, ux) * 180.0f / PI;
-    if (az < 0.0f) az += 360.0f;
-    out.azimuth_deg = az;
+    out.azimuth_deg = Azimuth::fromArray(ux, uy);        // 0° = Nord, im Uhrzeigersinn
     out.valid = true;
     return true;
 }
@@ -322,10 +321,9 @@ bool Correlation_Processing_Module_126::srpScan(float& azimuth_deg, float& peakP
     const float ym = at(static_cast<int>(bestStep) - 1), y0 = best, yp = at(static_cast<int>(bestStep) + 1);
     const float den = ym - 2.0f * y0 + yp;
     const float delta = (std::fabs(den) > 1e-12f) ? 0.5f * (ym - yp) / den : 0.0f;
-    float az = (static_cast<float>(bestStep) + delta) * (360.0f / SRP_AZ_STEPS);
-    if (az < 0.0f)    az += 360.0f;
-    if (az >= 360.0f) az -= 360.0f;
-    azimuth_deg = az; peakPower = best; peakRatio = best / (std::fabs(second) + 1e-9f);
+    // Raster srpCos_/srpSin_ im Array-Koordinatensystem -> Azimut (0° = Nord, im Uhrzeigersinn)
+    azimuth_deg = Azimuth::fromArrayAngle((static_cast<float>(bestStep) + delta) * (360.0f / SRP_AZ_STEPS));
+    peakPower = best; peakRatio = best / (std::fabs(second) + 1e-9f);
     return true;
 }
 

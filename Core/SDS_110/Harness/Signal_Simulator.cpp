@@ -3,6 +3,7 @@
  */
 #include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board
 #include "Signal_Simulator.hpp"
+#include "Infrastructure/Utils/Azimuth.hpp"
 #include <cmath>
 #include <cstring>
 
@@ -102,8 +103,9 @@ void Signal_Simulator::generateHop(uint64_t time_utc_us)
     if (p_.scenario == SimScenario::DroneSweep) advanceSweep();
 
     // --- Fernfeld-Verzögerung je Mikrofon: τ_m = -(p_m · u) / c ---
-    const float az = p_.azimuth_deg * 3.14159265f / 180.0f;
-    const float ux = std::cos(az), uy = std::sin(az);
+    // azimuth_deg: 0° = Nord, im Uhrzeigersinn (Azimuth.hpp) -> Richtung u im Array-System
+    float ux, uy;
+    Azimuth::toArray(p_.azimuth_deg, ux, uy);
     for (uint32_t m = 0; m < NUM_MICS; ++m) {
         const Vec3& pm = array_.position(m);
         delaySamples_[m] = -(pm.x * ux + pm.y * uy) / c_ * SAMPLE_RATE_HZ;
