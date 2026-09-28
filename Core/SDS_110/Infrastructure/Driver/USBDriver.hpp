@@ -23,6 +23,7 @@
 #pragma once
 #include <cstdint>
 #include "Infrastructure/Model/SDS_Structs.hpp"
+#include "Infrastructure/Utils/GeoPosition.hpp"
 #include "Sensor_Unit_112/Microphone_Array_114.hpp"
 
 namespace sds110 {
@@ -37,6 +38,9 @@ public:
                          uint32_t waitMs = 0);
     /// 48 Byte, id 3 – 32 Byte Logtext
     static bool sendLogging(uint32_t timestamp, const uint8_t* src, int len, uint32_t waitMs = 0);
+    /// 144 Byte, id 6 – Standort der Einheit (ICD 5.5), Rahmen wie sendMessage
+    static bool sendPosition(const GeoPosition& pos, uint16_t unit, uint32_t waitMs = 0);
+    static constexpr uint32_t POSITION_MSG_ID = 6;
     /// generische Nachricht (128 Byte Payload)
     static bool sendMessage(uint32_t id, uint32_t timestamp, const MessageData& data, uint32_t waitMs = 0);
 

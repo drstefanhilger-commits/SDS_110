@@ -4,6 +4,7 @@
 #include "LoggerTask.hpp"
 #include "Infrastructure/Timer/HardwareTimer.hpp"
 #include "Infrastructure/Driver/USBDriver.hpp"
+#include "Infrastructure/Model/SDS_Data.hpp"
 #include "cmsis_os2.h"
 #include <cstring>
 
@@ -44,6 +45,14 @@ void LoggerTask::onTask()
         if (!USBDriver::sendMessage(kMsgId, 0, data))
             break;                  // USB belegt -> Paket bleibt in buf_, nächster Takt
         pending_ = 0;
+    }
+
+    // Standort (Id 6) jede Sekunde, auch ungültig: der PC sieht so, was das Board hat
+    if (++positionTicks_ >= kPositionEveryTicks) {
+        positionTicks_ = 0;
+        SDS_Data& dm = SDS_Data::instance();
+        GeoPosition p;
+        if (dm.tryGetPosition(p)) USBDriver::sendPosition(p, dm.getId());
     }
 
     if (isOverrun()) {

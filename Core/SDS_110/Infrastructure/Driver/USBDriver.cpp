@@ -152,6 +152,13 @@ bool USBDriver::sendMessage(uint32_t id, uint32_t timestamp, const MessageData& 
     return transmit(&msg, sizeof(msg), waitMs);
 }
 
+bool USBDriver::sendPosition(const GeoPosition& pos, uint16_t unit, uint32_t waitMs)
+{
+    MessageData data{};
+    GeoPositionCodec::encodeReport(pos, unit, data.b);
+    return sendMessage(POSITION_MSG_ID, 0, data, waitMs);
+}
+
 } // namespace sds110
 
 extern "C" void USBDriver_OnTransmitComplete(void)

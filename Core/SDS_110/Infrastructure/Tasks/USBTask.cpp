@@ -105,6 +105,7 @@ void USBTask::handle(const uint8_t* rx)
         case 7:  handleSync(rx);       break;
         case 8:  handleFeedback(rx);   break;
         case 9:  handleAzimuthOffset(rx); break;
+        case 10: handlePosition(rx);   break;
         default: handleError(rx);      break;
     }
 }
@@ -183,6 +184,14 @@ void USBTask::handleAzimuthOffset(const uint8_t* rx)
     float deg = 0.0f;
     if (!Azimuth::offsetFromCenti(static_cast<int32_t>(payloadU32(rx)), deg)) { handleError(rx); return; }
     dm_.setAzimuthOffset(deg);
+}
+
+void USBTask::handlePosition(const uint8_t* rx)
+{
+    GeoPosition p;
+    if (!GeoPositionCodec::decode(rx, msgLen(rx), p)) { handleError(rx); return; }
+    if (GeoPositionCodec::accept(dm_.getPosition(), p)) dm_.setPosition(p);   // GNSS hat Vorrang
+    USBDriver::sendPosition(dm_.getPosition(), dm_.getId());                  // Bestätigung (Id 6)
 }
 
 void USBTask::handleError(const uint8_t* rx)
