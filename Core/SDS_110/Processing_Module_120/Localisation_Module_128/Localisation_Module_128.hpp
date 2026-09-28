@@ -51,6 +51,8 @@ public:
 
     /// Azimut-Kalibrierung (aus SRPPhat::calibrateAzimuth); Standard: keine Korrektur
     void setCalibration(float offsetDeg, float scale) { azOffset_ = offsetDeg; azScale_ = scale; }
+    /// Schallgeschwindigkeit (m/s, aus der Lufttemperatur), Standard SPEED_OF_SOUND
+    void setSpeedOfSound(float c) { if (c > 100.0f) c_ = c; }
 
 private:
     float calibrate(float az) const;
@@ -58,6 +60,7 @@ private:
     uint32_t numUnits_ = 0;
     Vec3     ref_{};
     float    azOffset_ = 0.0f, azScale_ = 1.0f;
+    float    c_ = SPEED_OF_SOUND;
 };
 
 } // namespace sds110

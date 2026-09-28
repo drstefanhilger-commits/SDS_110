@@ -4,6 +4,7 @@
 #include "USBTask.hpp"
 #include "Infrastructure/Utils/TimeBase.hpp"
 #include "Infrastructure/Utils/UtcClock.hpp"
+#include "Infrastructure/Utils/SoundSpeed.hpp"
 #include <cstring>
 #include <initializer_list>
 
@@ -81,7 +82,7 @@ void USBTask::handle(const uint8_t* rx)
         case 3:  handleSimulation(rx); break;
         case 5:  handleSetUnitId(rx);  break;
         case 6:  handleSrpReference(rx); break;
-        case 7:  handleUtcTime(rx);    break;
+        case 7:  handleSync(rx);       break;
         default: handleError(rx);      break;
     }
 }
@@ -130,12 +131,20 @@ void USBTask::handleSrpReference(const uint8_t* rx)
     dm_.setSrpReference(payloadU32(rx) != 0);
 }
 
-void USBTask::handleUtcTime(const uint8_t* rx)
+void USBTask::handleSync(const uint8_t* rx)
 {
-    if (msgLen(rx) != SDS_UTC_CMD_LENGTH) { handleError(rx); return; }
+    if (msgLen(rx) != SDS_SYNC_CMD_LENGTH) { handleError(rx); return; }
+    // UTC: 0 = keine Zeit (nur Temperatur); sonst plausibel (ab 2020), sonst Fehler
+    const uint64_t utc = payloadU64(rx);
     UtcOffset o;
-    if (!UtcClock::fromSync(payloadU64(rx), rxTimeUs(rx), TimeSource::PcUtc, o)) { handleError(rx); return; }
-    dm_.setUtcOffset(o);
+    const bool utcOk = utc == 0 || UtcClock::fromSync(utc, rxTimeUs(rx), TimeSource::PcUtc, o);
+    if (utc != 0 && utcOk) dm_.setUtcOffset(o);
+    // Temperatur: unbekannt oder außerhalb −40…+60 °C -> letzte Temperatur bleibt
+    const int16_t centi = static_cast<int16_t>((rx[16] << 8) | rx[17]);
+    float tC;
+    const bool tempOk = SoundSpeed::decode(centi, tC);
+    if (tempOk) dm_.setAirTemperature(tC);
+    if (!utcOk || (!tempOk && centi != SoundSpeed::TEMP_UNKNOWN)) handleError(rx);
 }
 
 void USBTask::handleError(const uint8_t* rx)

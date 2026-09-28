@@ -87,6 +87,8 @@ void ProcessingTask::runOnce()
     if (simOn_) {
         // alle fälligen Hops, je Hop sofort verarbeiten (114 hat nur NUM_MIC_FRAMES Puffer)
         // Überlast: nicht nachholen – jeder weitere Hop verlängert den Durchlauf nur
+        SDS_Data::Air air;                           // simulierte Luft wie in 126 (USB Typ 7)
+        if (dm_.tryGetAir(air)) sim_.setSpeedOfSound(air.soundSpeed);
         const uint32_t n = clock_.due(osKernelGetTickCount(), overloaded() ? 1 : SIM_MAX_CATCH_UP);
         for (uint32_t i = 0; i < n; ++i) {
             const uint32_t c0 = DWTTimer::instance().cycles();

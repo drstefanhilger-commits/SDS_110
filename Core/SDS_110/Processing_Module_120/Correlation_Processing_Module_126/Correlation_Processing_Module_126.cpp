@@ -11,7 +11,7 @@ namespace sds110 {
 // ---------------------------------------------------------------- init
 float Correlation_Processing_Module_126::spec_[N_FFT];
 float Correlation_Processing_Module_126::corr_[N_FFT];
-float Correlation_Processing_Module_126::win_[2 * WIN_HALF + 1];
+float Correlation_Processing_Module_126::win_[2 * WIN_MAX + 1];
 
 void Correlation_Processing_Module_126::init(const Microphone_Array_114& array)
 {
@@ -25,13 +25,8 @@ void Correlation_Processing_Module_126::init(const Microphone_Array_114& array)
             if (d > dmax) dmax = d;
         }
     }
-    maxIntraDelay_s_ = dmax / SPEED_OF_SOUND * 1.1f;   // 10 % Reserve
-    uint32_t idx = 0;
-    for (uint32_t i = 0; i < NUM_MICS; ++i)
-        for (uint32_t j = i + 1; j < NUM_MICS; ++j, ++idx) {
-            pairDx_[idx] = (micPos_[j].x - micPos_[i].x) / SPEED_OF_SOUND * SAMPLE_RATE_HZ;
-            pairDy_[idx] = (micPos_[j].y - micPos_[i].y) / SPEED_OF_SOUND * SAMPLE_RATE_HZ;
-        }
+    dmax_ = dmax;
+    updateGeometry();
     std::memset(pairCorr_, 0, sizeof(pairCorr_));
     for (uint32_t s = 0; s < SRP_AZ_STEPS; ++s) {
         const float phi = static_cast<float>(s) * (2.0f * PI / SRP_AZ_STEPS);
@@ -88,6 +83,26 @@ void Correlation_Processing_Module_126::deriveSelection(const AcousticState& s, 
     }
 }
 
+// ---------------------------------------------------------------- Schallgeschwindigkeit
+void Correlation_Processing_Module_126::updateGeometry()
+{
+    maxIntraDelay_s_ = dmax_ / c_ * 1.1f;             // 10 % Reserve
+    uint32_t idx = 0;
+    for (uint32_t i = 0; i < NUM_MICS; ++i)
+        for (uint32_t j = i + 1; j < NUM_MICS; ++j, ++idx) {
+            pairDx_[idx] = (micPos_[j].x - micPos_[i].x) / c_ * SAMPLE_RATE_HZ;
+            pairDy_[idx] = (micPos_[j].y - micPos_[i].y) / c_ * SAMPLE_RATE_HZ;
+        }
+}
+
+void Correlation_Processing_Module_126::setSpeedOfSound(float c)
+{
+    if (c == c_ || !(c > 100.0f)) return;               // unverändert oder unplausibel
+    c_ = c;
+    updateGeometry();
+    srpValid_ = false;                                  // pairCorr_ passt nicht mehr zu pairDx_
+}
+
 // ---------------------------------------------------------------- Abschnitt 5
 int Correlation_Processing_Module_126::maxLagFor(float maxDelay_s)
 {
@@ -100,8 +115,11 @@ int Correlation_Processing_Module_126::maxLagFor(float maxDelay_s)
 bool Correlation_Processing_Module_126::prepareBins(const ComponentSelection& sel, int maxLag)
 {
     direct_ = false;
-    if (directMaxBins_ == 0 || sel.num_bins == 0 || sel.num_bins > directMaxBins_ || maxLag + 1 > WIN_HALF)
+    int need = maxLag + 1;                                     // Peak-Suche liest ±(maxLag+1)
+    if (srpReference() && need < static_cast<int>(SRP_MAX_LAG)) need = static_cast<int>(SRP_MAX_LAG);
+    if (directMaxBins_ == 0 || sel.num_bins == 0 || sel.num_bins > directMaxBins_ || need > WIN_MAX)
         return false;
+    winHalf_ = need;
     nBins_ = 0;
     for (uint32_t k = 1; k < NUM_BINS - 1 && nBins_ < directMaxBins_; ++k) {
         if (!sel.selected[k]) continue;
@@ -132,11 +150,12 @@ bool Correlation_Processing_Module_126::correlatePair(const Spectrum& X, const S
     if (sel.num_bins == 0) return false;
 
     if (direct_) {
-        // Schnellpfad: IFFT von R(k) nur für |Lag| <= WIN_HALF, wie arm_rfft_fast_f32 (inv., 1/N):
+        // Schnellpfad: IFFT von R(k) nur für |Lag| <= winHalf_, wie arm_rfft_fast_f32 (inv., 1/N):
         // r[n] = (2/N) · Σ_k Re(R(k) · e^{+i2πkn/N}); ein Drehzeiger je Bin für ±n
         std::memset(win_, 0, sizeof(win_));
         constexpr float scale = 2.0f / static_cast<float>(N_FFT);
-        float* const w0 = win_ + WIN_HALF;
+        float* const w0 = win_ + WIN_MAX;
+        const int wh = winHalf_;
         for (uint32_t b = 0; b < nBins_; ++b) {
             const uint32_t k = binK_[b];
             const float cr = X.re[k] * Y.re[k] + X.im[k] * Y.im[k];
@@ -150,7 +169,7 @@ bool Correlation_Processing_Module_126::correlatePair(const Spectrum& X, const S
             //   r[+n] += ar·zr − ai·zi,  r[−n] += ar·zr + ai·zi  (ein Drehzeiger für beide)
             w0[0] += ar;
             float zr = c, zi = s;                              // e^{iθ·1}
-            for (int n = 1; n <= WIN_HALF; ++n) {
+            for (int n = 1; n <= wh; ++n) {
                 const float re = ar * zr, im = ai * zi;
                 w0[n]  += re - im;
                 w0[-n] += re + im;
@@ -235,8 +254,8 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
             }
             if (!ok) continue;
             ++valid; peakSum += m.peak;
-            const float ax = (micPos_[j].x - micPos_[i].x) / SPEED_OF_SOUND;
-            const float ay = (micPos_[j].y - micPos_[i].y) / SPEED_OF_SOUND;
+            const float ax = (micPos_[j].x - micPos_[i].x) / c_;
+            const float ay = (micPos_[j].y - micPos_[i].y) / c_;
             const float w  = m.peak;
             sxx += w * ax * ax; sxy += w * ax * ay; syy += w * ay * ay;
             bx  += w * ax * m.tdoa_s; by += w * ay * m.tdoa_s;
@@ -256,7 +275,7 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
         for (uint32_t j = i + 1; j < NUM_MICS; ++j, ++idx) {
             const TdoaMeasurement& m = pairTdoa_[idx];
             if (!m.valid) continue;
-            const float pred = ((micPos_[j].x - micPos_[i].x) * ux + (micPos_[j].y - micPos_[i].y) * uy) / SPEED_OF_SOUND;
+            const float pred = ((micPos_[j].x - micPos_[i].x) * ux + (micPos_[j].y - micPos_[i].y) * uy) / c_;
             res += m.peak * (m.tdoa_s - pred) * (m.tdoa_s - pred);
         }
     out.residual    = std::sqrt(res / peakSum);
@@ -275,7 +294,8 @@ float Correlation_Processing_Module_126::srpAt(uint32_t step) const
     const float ux = srpCos_[step], uy = srpSin_[step];
     float acc = 0.0f;
     for (uint32_t k = 0; k < NUM_MIC_PAIRS; ++k) {
-        // Lag in Samples + Versatz; |τ| <= Arraydurchmesser/c·fs (≈ 28) < SRP_MAX_LAG -> pos > 0,
+        // Lag in Samples + Versatz; |τ| <= Arraydurchmesser/c·fs (28 bei 20 °C, 31,4 bei −40 °C)
+        // < SRP_MAX_LAG -> pos > 0,
         // die Ganzzahlumwandlung ist dann floor()
         const float pos = pairDx_[k] * ux + pairDy_[k] * uy + static_cast<float>(SRP_MAX_LAG);
         if (pos < 0.0f) continue;
