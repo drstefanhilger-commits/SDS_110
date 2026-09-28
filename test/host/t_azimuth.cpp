@@ -7,6 +7,8 @@
  *      Mikrofon 6, bei 270° (West) Mikrofon 2 (Nummerierung gegen den Uhrzeigersinn, von oben)
  *   3. volle Kette (DroneStatic 30 dB): Quelle bei 0, 45, 90, …, 315° -> TDOA-LS- und SRP-Peilung
  *      liefern denselben Azimut (Median-Fehler ≤ 1°)
+ *   4. Nordabgleich (USB Id 9): Offset i32 in 0,01° (±180,00°), 128 addiert ihn auf die Peilung
+ *      (350° + 15° -> 5°, 10° − 20° -> 350°); außerhalb des Bereichs verworfen
  * Aufruf: build/test_host/t_azimuth
  */
 #include <cstdio>
@@ -18,6 +20,7 @@
 #include "Processing_Module_120/Feature_Extraction_Module_122/Feature_Extraction_Module_122.hpp"
 #include "Processing_Module_120/Machine_Learning_Module_124/Machine_Learning_Module_124.hpp"
 #include "Processing_Module_120/Correlation_Processing_Module_126/Correlation_Processing_Module_126.hpp"
+#include "Processing_Module_120/Localisation_Module_128/Localisation_Module_128.hpp"
 using namespace sds110;
 
 static int g_fail = 0;
@@ -86,5 +89,24 @@ int main()
         chainOk = chainOk && me <= 1.0f && ms <= 1.0f;
     }
     check(chainOk, "Kette: Peilung und SRP im Kompass-Azimut der Quelle");
+
+    // 4) Nordabgleich
+    float off = 0.0f;
+    check(Azimuth::offsetFromCenti(1500, off) && std::fabs(off - 15.0f) < 1e-4f &&
+          Azimuth::offsetFromCenti(-18000, off) && std::fabs(off + 180.0f) < 1e-4f,
+          "Offset aus 0,01° (15,00°, −180,00°)");
+    off = 7.0f;
+    check(!Azimuth::offsetFromCenti(18001, off) && !Azimuth::offsetFromCenti(-18001, off) && off == 7.0f,
+          "Offset außerhalb ±180° verworfen, alter Wert bleibt");
+    Localisation_Module_128 loc;
+    const Vec3 origin{};
+    loc.init(&origin, 1);
+    Bearing bc{}; bc.valid = true; bc.valid_pairs = NUM_MIC_PAIRS;
+    CandidateLocation l{};
+    bc.azimuth_deg = 350.0f; loc.setCalibration(15.0f, 1.0f); loc.fromBearing(bc, 1.0f, l);
+    const bool w1 = std::fabs(l.azimuth_deg - 5.0f) < 1e-3f;
+    bc.azimuth_deg = 10.0f;  loc.setCalibration(-20.0f, 1.0f); loc.fromBearing(bc, 1.0f, l);
+    const bool w2 = std::fabs(l.azimuth_deg - 350.0f) < 1e-3f;
+    check(w1 && w2, "128: Offset auf die Peilung, Ergebnis in [0, 360)");
     return g_fail;
 }

@@ -68,7 +68,10 @@ void LCDTask::onTask()
         case SDS_Mode::DETECT:
             showRadar(); showSystemData(); showDetection(); break;
         case SDS_Mode::CALIBRATE:
-            showSystemData(); break;
+            showRadar(); showSystemData(); showDetection();
+            snprintf(buf_, sizeof(buf_), "Nordabgleich %+7.2f deg", static_cast<double>(dm_.getAzimuthOffset()));
+            gfx_->text8x12(10, 100, buf_, Color::Cyan);
+            break;
         case SDS_Mode::READ:
             showSystemData(); showAcousticState(); break;
         default: break;

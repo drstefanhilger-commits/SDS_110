@@ -69,12 +69,12 @@ void ProcessingTask::process()
 {
     switch (dm_.getMode()) {
         case SDS_Mode::DETECT:
+        case SDS_Mode::CALIBRATE:          // Nordabgleich am PC braucht Peilungen (UnitReport)
             while (proc_.processFrame()) {}
             break;
         case SDS_Mode::READ:
             while (proc_.streamFrame()) {}
             break;
-        case SDS_Mode::CALIBRATE:
         default:
             break;
     }

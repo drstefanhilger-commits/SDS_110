@@ -6,6 +6,7 @@
 #include "Infrastructure/Utils/UtcClock.hpp"
 #include "Infrastructure/Utils/SoundSpeed.hpp"
 #include "Infrastructure/Utils/FeedbackCodec.hpp"
+#include "Infrastructure/Utils/Azimuth.hpp"
 #include <cstring>
 #include <initializer_list>
 
@@ -85,6 +86,7 @@ void USBTask::handle(const uint8_t* rx)
         case 6:  handleSrpReference(rx); break;
         case 7:  handleSync(rx);       break;
         case 8:  handleFeedback(rx);   break;
+        case 9:  handleAzimuthOffset(rx); break;
         default: handleError(rx);      break;
     }
 }
@@ -155,6 +157,14 @@ void USBTask::handleFeedback(const uint8_t* rx)
     bool posValid = false;
     if (!FeedbackCodec::decode(rx, msgLen(rx), fb, posValid)) { handleError(rx); return; }
     dm_.setFeedback(fb, posValid, osKernelGetTickCount());
+}
+
+void USBTask::handleAzimuthOffset(const uint8_t* rx)
+{
+    if (msgLen(rx) != SDS_CMD_LENGTH) { handleError(rx); return; }
+    float deg = 0.0f;
+    if (!Azimuth::offsetFromCenti(static_cast<int32_t>(payloadU32(rx)), deg)) { handleError(rx); return; }
+    dm_.setAzimuthOffset(deg);
 }
 
 void USBTask::handleError(const uint8_t* rx)

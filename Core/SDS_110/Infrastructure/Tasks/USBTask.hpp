@@ -53,6 +53,7 @@ private:
     void handleSrpReference(const uint8_t* rx);  // Typ 6: Payload u32 0 = SRP-Scan aus, sonst ein
     void handleSync(const uint8_t* rx);          // Typ 7: UTC in µs (u64) + Temperatur (i16, 0,01 °C), 24 Byte
     void handleFeedback(const uint8_t* rx);      // Typ 8: Feedback der Tracking-Einheit (ŝ, Vorhersage), 52 Byte
+    void handleAzimuthOffset(const uint8_t* rx); // Typ 9: Nordabgleich, Offset i32 in 0,01°
     void handleError(const uint8_t* rx);
     static bool hasMagic(const uint8_t* rx);
     /// Längenfeld: Gesamtlänge der Nachricht (SDS_CMD_LENGTH), nicht nur der Nutzdaten

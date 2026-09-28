@@ -16,6 +16,7 @@
  */
 #pragma once
 #include <cmath>
+#include <cstdint>
 
 namespace sds110 {
 
@@ -44,6 +45,16 @@ public:
     static float fromArray(float ux, float uy)
     {
         return fromArrayAngle(std::atan2(uy, ux) * (180.0f / 3.14159265f));
+    }
+
+    /// Nordabgleich (USB-Kommando Id 9, doc/ICD_SDS_PC_Monitor.md 4.4): Offset als i32 in 0,01°,
+    /// zulässig −180,00° … +180,00°; false außerhalb (Offset bleibt dann unverändert)
+    static constexpr int32_t OFFSET_LIMIT_CENTI = 18000;
+    static bool offsetFromCenti(int32_t centi, float& deg)
+    {
+        if (centi < -OFFSET_LIMIT_CENTI || centi > OFFSET_LIMIT_CENTI) return false;
+        deg = static_cast<float>(centi) * 0.01f;
+        return true;
     }
 
     /// Azimut -> Einheitsvektor (ux, uy) im Array-Koordinatensystem

@@ -58,7 +58,7 @@ Die Blocker 1–4 stehen in `doc/Analyse_Befunde.md` auf „nicht bearbeiten“ 
 | 6, 34 | Bitlage im 32-Bit-Slot und SAI-Taktflanke am Oszilloskop prüfen | mittel | Offen |
 | 17 | Rechenlast mit 50-%-Überlappung messen (Task-Statistik; ML ≤ 2 ms je Frame) | mittel | Offen |
 | 9 | `LEVEL_DIST_K_REF` mit realer Drohne in bekanntem Abstand kalibrieren | niedrig | Offen |
-| 23 | Azimut-Kalibrierung nach der Vorzeichenkorrektur neu messen | niedrig | Offen |
+| 23 | Azimut-Kalibrierung nach der Vorzeichenkorrektur neu messen: Werkzeug vorhanden (Nordabgleich, USB Id 9, PC-Monitor Tab Calibrate, 28.09.2026), Messung am Board steht aus | niedrig | Offen |
 | 21 | Leistungsgewinn durch gecachten SRAM1 messen | niedrig | Offen |
 
 ## Dokumentation und Klärungen
