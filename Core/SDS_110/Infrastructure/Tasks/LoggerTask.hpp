@@ -22,6 +22,7 @@ public:
     static constexpr float    kRateHz        = 10.0f;  // Takt des Loggers
     static constexpr uint32_t kMaxMsgPerTick = 8;      // max. USB-Pakete je Takt (8 x 128 B)
     static constexpr uint32_t kMsgId         = 99;     // wie bisher
+    static constexpr uint32_t kPositionEveryTicks = 10; // Standort (Id 6) jede Sekunde
 
 protected:
     void onTask() override;
@@ -35,6 +36,7 @@ private:
     uint8_t  buf_[128];
     int      pending_ = 0;       // Bytes in buf_, die noch nicht gesendet wurden
     uint32_t droppedTicks_ = 0;  // Takte mit Overrun (für Diagnose)
+    uint32_t positionTicks_ = 0;
 };
 
 } // namespace sds110

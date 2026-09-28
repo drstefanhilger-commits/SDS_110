@@ -188,6 +188,14 @@ void LCDTask::showSystemData()
     else
         snprintf(buf_, sizeof(buf_), "T --  c %.1f %s", static_cast<double>(air.soundSpeed), utc ? "UTC" : "Lauf");
     gfx_->text8x12(10, 230, buf_, air.valid ? Color::White : Color::Yellow);
+    // Standort (USB Typ 10, Version 2: GNSS), rechts unten unter dem Radar
+    const GeoPosition pos = dm_.getPosition();
+    if (pos.valid)
+        snprintf(buf_, sizeof(buf_), "%s %.5f %.5f %.0fm", pos.source == PositionSource::Gnss ? "GNSS" : "PC",
+                 pos.latDeg(), pos.lonDeg(), static_cast<double>(pos.altM()));
+    else
+        snprintf(buf_, sizeof(buf_), "Standort --");
+    gfx_->text8x12(240, 260, buf_, pos.valid ? Color::White : Color::Yellow);
 }
 
 void LCDTask::showDetection()

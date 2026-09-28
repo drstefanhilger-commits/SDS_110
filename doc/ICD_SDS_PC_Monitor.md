@@ -23,9 +23,11 @@ Schnittstellenbeschreibung (Interface Control Document) zwischen der Sensoreinhe
 | PC → SDS | 7 | Sync | 24 | UTC-Zeit und Lufttemperatur |
 | PC → SDS | 8 | Feedback | 52 | Referenzzustand ŝ und Vorhersage der Tracking-Einheit (FSL9 §10) |
 | PC → SDS | 9 | Nordabgleich | 16 | Azimut-Offset der Einheit |
+| PC → SDS | 10 | Standort | 28 | Breite, Länge, Höhe der Einheit (WGS84) |
 | SDS → PC | 1 | Detect | 32 | Peilung (Legacy-Format) |
 | SDS → PC | 2 | Read | 532 | Rohdatenblock im Modus READ |
 | SDS → PC | 5 | UnitReport | 144 | Peilung, Zeit in µs, selektierte Bänder |
+| SDS → PC | 6 | Standort | 144 | Standort, den das Board verwendet, mit Quelle (PC oder GNSS) |
 | SDS → PC | 99 | Logger | 144 | Textmeldungen der Firmware |
 
 - **Frei:** Id 4 (PC → SDS). Im Pfad SDS → PC ist Id 4 der UnitReport bis 27.09.2026 und wird nicht mehr gesendet.
@@ -155,6 +157,30 @@ Die Einheit wird selten genau mit Mikrofon 0 nach Nord aufgestellt. Der Nordabgl
 - Werte außerhalb ±180,00° oder eine falsche Länge setzen das Fehler-Flag. Der alte Offset bleibt dann gültig.
 - Die Vorhersage aus Id 8 ist schon abgeglichen, weil sie aus abgeglichenen Peilungen stammt.
 
+### 4.5 Standort (Id 10, 28 Byte)
+
+Der PC-Monitor sendet den Standort der Einheit nach einer Eingabe und bei jedem Verbinden (gespeicherter Wert). In der Hardware-Version 2 setzt ein GPS-Modul den Standort beim Start; die Nachricht Id 6 meldet dann die Quelle GNSS.
+
+| Byte | Feld | Typ | Inhalt |
+| --- | --- | --- | --- |
+| 0–3 | magic | 4 × u8 | `DE AD BE EF` |
+| 4 | id | u8 | `0A` |
+| 5–7 | length | u24 BE | `00 00 1C` (28) |
+| 8–11 | lat | i32 BE | geografische Breite in 1e-7°, Nord positiv, −90° … +90° |
+| 12–15 | lon | i32 BE | geografische Länge in 1e-7°, Ost positiv, −180° … +180° |
+| 16–19 | alt | i32 BE | Höhe über NN in mm, −1000 m … +10 000 m |
+| 20 | flags | u8 | Bit 0 = gültig; 0 löscht den Standort |
+| 21–23 | reserved | 3 × u8 | `00 00 00` |
+| 24–27 | crc | u32 BE | CRC32 über Byte 0–23 (noch nicht geprüft) |
+
+**Verarbeitung in der Firmware** (`GeoPosition.hpp`, `USBTask::handlePosition`):
+- **Auflösung:** 1e-7° entspricht etwa 1 cm, die Höhe hat 1 mm. Gespeichert wird als Ganzzahl, weil float bei 180° nur etwa 1,7 m auflöst.
+- **Ungültige Werte:** Werte außerhalb der Grenzen oder eine falsche Länge setzen das Fehler-Flag. Der alte Standort bleibt dann gültig.
+- **Vorrang:** Eine gültige GNSS-Position überschreibt Id 10 nicht.
+- **Antwort:** Die Firmware antwortet sofort mit Id 6 (5.5). So sieht der PC, ob der Standort angekommen ist.
+- **Speicherung:** Nur im RAM. Nach einem Neustart ist der Standort ungültig, bis der PC ihn wieder sendet oder GNSS ihn setzt.
+- **Anzeige:** Das LCD zeigt den Standort rechts unten.
+
 ## 5. Nachrichten SDS → PC
 
 ### 5.1 Detect (Id 1, 32 Byte)
@@ -223,10 +249,25 @@ Rahmen wie beim UnitReport, mit `len_id` = 0x63000090 und `timestamp` = 0. Die N
 
 `USBDriver::sendLogging` (Id 3, 48 Byte) wird nicht verwendet und trägt die Id an falscher Stelle (Befund 34).
 
+### 5.5 Standort (Id 6, 144 Byte)
+
+Rahmen wie beim Logger, mit `len_id` = 0x06000090 und `timestamp` = 0. Die Firmware sendet die Nachricht jede Sekunde, auch ohne gültigen Standort, und sofort nach jedem Kommando Id 10.
+
+| Byte der Nutzlast | Feld | Typ | Inhalt |
+| --- | --- | --- | --- |
+| 0–1 | unit | u16 LE | Unit-ID |
+| 2 | source | u8 | 0 = keiner, 1 = PC (Id 10), 2 = GNSS |
+| 3 | flags | u8 | Bit 0 = gültig |
+| 4–7 | lat | i32 LE | Breite in 1e-7° |
+| 8–11 | lon | i32 LE | Länge in 1e-7° |
+| 12–15 | alt | i32 LE | Höhe über NN in mm |
+| 16–127 | – | – | Nullbytes |
+
 ## 6. Änderungen
 
 | Datum | Änderung | PC-Monitor |
 | --- | --- | --- |
+| 28.09.2026 | Kommando Id 10 (Standort) und Nachricht Id 6 (Standort mit Quelle, jede Sekunde) neu | Standort eingeben, speichern, beim Verbinden senden; Id 6 anzeigen |
 | 28.09.2026 | Mehrere und geteilte Kommandos je USB-Paket werden ausgewertet (Befund 32); vorher blieben z. B. Unit-ID und SRP bei laufendem Feedback ohne Wirkung. LCD zeigt die Unit-ID dezimal | keine Änderung nötig; Unit-ID dezimal anzeigen |
 | 28.09.2026 | Kommando Id 9 (Nordabgleich) neu; CALIBRATE verarbeitet wie DETECT (vorher keine Verarbeitung) | Tab Calibrate: messen, Offset senden, beim Verbinden erneut senden |
 | 28.09.2026 | Azimut in Detect und UnitReport jetzt 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord (vorher ab der x-Achse gegen den Uhrzeigersinn) | Darstellung Nord oben, Ost rechts: x = r · sin φ, y = r · cos φ |

@@ -21,6 +21,7 @@
 #include "SDS_Structs.hpp"
 #include "Data_Interface_140/Candidate_Report_140.hpp"
 #include "Infrastructure/Utils/UtcClock.hpp"
+#include "Infrastructure/Utils/GeoPosition.hpp"
 #include "Infrastructure/Utils/SoundSpeed.hpp"
 
 enum class TaskId : uint8_t { Proc120 = 0, Lcd, Mic, Usb, Logger, Count };
@@ -89,6 +90,10 @@ public:
     void setSrpReference(bool v) { setValue(srpReference, v); }
     bool getSrpReference() const { return getValue(srpReference); }
     bool tryGetSrpReference(bool& out) const { return tryGetValue(srpReference, out); }
+    /// Standort WGS84 (USB Id 10 vom PC; Hardware-Version 2: GNSS beim Start)
+    void setPosition(const sds110::GeoPosition& v) { setValue(position_, v); }
+    sds110::GeoPosition getPosition() const { return getValue(position_); }
+    bool tryGetPosition(sds110::GeoPosition& out) const { return tryGetValue(position_, out); }
     /// Nordabgleich (USB Id 9): Offset in Grad auf die Peilung in 128, Standard 0
     void setAzimuthOffset(float deg) { setValue(azimuthOffsetDeg_, deg); }
     float getAzimuthOffset() const { return getValue(azimuthOffsetDeg_); }
@@ -191,6 +196,7 @@ private:
     // Merkmalsversion eingeht (jede Änderung dort erzwingt einen Neuexport des Modells).
     bool     srpReference = false;
     uint32_t syncTimeDifference = 0;
+    sds110::GeoPosition position_{};     // Standort (USB Id 10 / GNSS), ungültig bis gesetzt
     float    azimuthOffsetDeg_ = 0.0f;   // Nordabgleich (USB Id 9), ebenfalls nicht in der Config
     sds110::UtcOffset utcOffset_{};
     Air      air_{};

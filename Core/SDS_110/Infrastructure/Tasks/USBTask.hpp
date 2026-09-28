@@ -61,6 +61,7 @@ private:
     void handleSync(const uint8_t* rx);          // Typ 7: UTC in µs (u64) + Temperatur (i16, 0,01 °C), 24 Byte
     void handleFeedback(const uint8_t* rx);      // Typ 8: Feedback der Tracking-Einheit (ŝ, Vorhersage), 52 Byte
     void handleAzimuthOffset(const uint8_t* rx); // Typ 9: Nordabgleich, Offset i32 in 0,01°
+    void handlePosition(const uint8_t* rx);      // Typ 10: Standort WGS84, 28 Byte; Antwort Id 6
     void handleError(const uint8_t* rx);
     void handleErrorBytes(const uint8_t* p, uint32_t n);
     static bool hasMagic(const uint8_t* rx);

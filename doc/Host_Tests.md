@@ -32,6 +32,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Prüfung | `t_sound_speed` | 34 | Schallgeschwindigkeit aus der Lufttemperatur (Sync Typ 7), Peilung −40…+60 °C |
 | Prüfung | `t_feedback` | 34 | Feedback der Tracking-Einheit (USB Id 8): Kodierung, Ablauf nach 2 s, Wirkung in 126 |
 | Prüfung | `t_usb_commands` | 32 | Kommandos aus dem USB-Bytestrom: mehrere je Paket, geteilt, Resync, veralteter Rest |
+| Prüfung | `t_geo_position` | – | Standort WGS84 (USB Id 10, Nachricht Id 6): Kodierung, Grenzen, Löschen, Vorrang GNSS |
 | Prüfung | `t_azimuth` | 41 | Azimut 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord; Kette in 8 Richtungen; Nordabgleich (Id 9) |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
@@ -224,6 +225,15 @@ Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0
 4. Müll vor dem Magic und ein scheinbares Magic mit falscher Länge melden Fehler, danach Resync;
    ein Magic-Anfang am Paketende bleibt erhalten.
 5. Ein Rest, der älter als 20 ms ist, wird verworfen und nicht mit dem nächsten Kommando verbunden.
+
+### t_geo_position – Standort der Einheit (FSL9 A7)
+`Infrastructure/Utils/GeoPosition.hpp`, genutzt von `USBTask` (Id 10) und `LoggerTask` (Id 6 jede Sekunde).
+1. Id 10: Breite/Länge in 1e-7°, Höhe in mm, auch Süd/West und unter NN; Bytes gleich denen des
+   PC-Monitors (`build_position_message`).
+2. Außerhalb ±90°/±180°, −1000 … +10 000 m oder falsche Länge verworfen; Grenzwerte gültig.
+3. Flags 0 löscht den Standort.
+4. Eine gültige GNSS-Position wird von Id 10 nicht überschrieben.
+5. Nachricht Id 6: Unit, Quelle, Flags, Breite, Länge, Höhe little-endian; ohne Standort Quelle 0.
 
 ### t_azimuth – Azimut-Konvention (FSL9 A28)
 `Infrastructure/Utils/Azimuth.hpp`: 0° = Nord, im Uhrzeigersinn; Mikrofon 0 zeigt nach Nord.

@@ -5,7 +5,7 @@ Stand 27.09.2026. Online-Fassung mit änderbarem Status und Diagramm:
 
 ## Zusammenfassung
 
-Von 36 zugesicherten Werten aus FSL9 sind 19 erfüllt, 10 teilweise erfüllt, 4 nicht erfüllt, 1 offen und 2 nicht im Umfang der Firmware. Die Signalkette 118 → 122 → 126 hält die Parameter der bevorzugten Ausführung weitgehend ein: Frames, FFT, Bänder, Selektion, Gewichtung, GCC-PHAT und Peak-Ratio. Die Abweichungen liegen vor allem im Systemaufbau und in den Zeitvorgaben:
+Von 36 zugesicherten Werten aus FSL9 sind 19 erfüllt, 11 teilweise erfüllt, 4 nicht erfüllt, 1 offen und 1 nicht im Umfang der Firmware. Die Signalkette 118 → 122 → 126 hält die Parameter der bevorzugten Ausführung weitgehend ein: Frames, FFT, Bänder, Selektion, Gewichtung, GCC-PHAT und Peak-Ratio. Die Abweichungen liegen vor allem im Systemaufbau und in den Zeitvorgaben:
 
 - **Eine statt mindestens zwei Sensoreinheiten** (`NUM_UNITS = 1`). Die Distanz kommt deshalb aus einem Pegelmodell, das FSL9 nicht vorsieht; Multilateration und der Zwei-Unit-Modus werden nicht genutzt.
 - **Keine Synchronisation der Einheiten auf ≤ 10 µs.** Der Report überträgt jetzt µs und UTC nach Abgleich vom PC über USB (~1 ms genau); die µs-Synchronisation soll GNSS-PPS in HW-Version 2 liefern.
@@ -46,7 +46,7 @@ Je Zeile ein zugesicherter Wert aus FSL9 mit Ist-Wert, Code-Referenz (relativ zu
 | A4 | §1 | Abtastung | PDM, 48 kHz, synchron | 48 000 Hz; Board 47 991 Hz (186 ppm, Befund 5) | `SDS_110_Config.hpp:14, Sensor_Unit_112/Sampling_Circuitry_116.cpp configureSai()` | Erfüllt |
 | A5 | §1 | Vorverarbeitung 118 | AGC, Bandpass 80 Hz–8 kHz, adaptive Rauschunterdrückung | Butterworth-HPF/LPF 80–8000 Hz, NS, AGC | `SDS_110_Config.hpp:15–16, Sensor_Unit_112/Pre_Processor_118.hpp:5–12` | Erfüllt |
 | A6 | §1 | Synchronisation der Einheiten | IEEE 1588 PTP, ≤ 10 µs | DWT-Laufzeit in µs; UTC-Abgleich vom PC über USB (Typ 7, ~1 ms); geplant: GNSS-PPS in HW-Version 2 | `Infrastructure/Utils/TimeBase.hpp:9–11, Infrastructure/Utils/UtcClock.hpp:24` | Nicht erfüllt |
-| A7 | §1 | Positionen der Einheiten | vermessen auf 0,1 m, gespeichert | ein Referenzpunkt (0, 0, 0) | `Processing_Module_120/Processing_Module_120.cpp:37` | Nicht im Umfang |
+| A7 | §1 | Positionen der Einheiten | vermessen auf 0,1 m, gespeichert | Standort WGS84 (Breite/Länge 1e-7° ≈ 1 cm, Höhe mm) über USB Id 10 vom PC, Rückmeldung Id 6; Hardware-Version 2: GNSS beim Start, mit Vorrang (t_geo_position). Für die Lokalisation gilt weiter ein Referenzpunkt (0, 0, 0); relative Positionen mehrerer Einheiten mit PC-Monitor T7 | `Infrastructure/Utils/GeoPosition.hpp, USBTask.cpp handlePosition, Processing_Module_120.cpp:37` | Teilweise |
 | A8 | §2 | Frames | 64 ms, 50 % Überlappung | 3072 Samples, Hop 1536 (Befund 17) | `SDS_110_Config.hpp:20, 28–29` | Erfüllt |
 | A9 | §2 | STFT | 4096 Punkte | N_FFT = 4096, Hann-Fenster | `SDS_110_Config.hpp:21, Feature_Extraction_Module_122.cpp:65` | Erfüllt |
 | A10 | §2 | Frequenzbänder | B = 64, Δf = 62,5 Hz, 80 Hz–4 kHz | 64 Bänder, 62,5 Hz, 80–4000 Hz | `SDS_110_Config.hpp:23–26, Feature_Extraction_Module_122.cpp:53` | Erfüllt |
