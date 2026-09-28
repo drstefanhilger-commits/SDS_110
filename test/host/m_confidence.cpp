@@ -31,7 +31,7 @@ static void run(SimScenario sc, float snr, const char* name)
         FeatureVector fv{}; AcousticState st{}; ComponentSelection sel{}; Bearing br{};
         for (int i = 0; i < 200; ++i) {
             const AnalysisFrame& f = nextAnalysisFrame(sim, arr, pre); feat.process(f, sp[REF_MIC], fv);
-            for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f.data[m], FRAME_SAMPLES, sp[m]);
+            for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f, m, sp[m]);
             ml.infer(feat.magnitude(), fv, st); corr.deriveSelection(st, sel); corr.estimateBearing(sp, sel, br);
             if (i < 100 || !br.valid) continue;
             CandidateLocation cl{}; loc.fromBearing(br, 1.0f, cl); conf.push_back(cl.confidence);

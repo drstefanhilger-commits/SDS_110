@@ -3,6 +3,7 @@
  */
 #include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board
 #include "Feature_Extraction_Module_122.hpp"
+#include "Infrastructure/Utils/FftTables.hpp"
 #include <cmath>
 #include <cstring>
 
@@ -16,6 +17,7 @@ void Feature_Extraction_Module_122::init()
         window_[i] = 0.5f - 0.5f * std::cos(2.0f * PI * i / (FRAME_SAMPLES - 1));
 
     arm_rfft_fast_init_f32(&fft_, N_FFT);
+    fftTablesToRam(fft_);                                      // Twiddles im internen RAM (Board)
     buildMelFilterbank();
 
     std::memset(prevMag_, 0, sizeof(prevMag_));
@@ -67,9 +69,20 @@ void Feature_Extraction_Module_122::computeSpectrum(const float* x, uint32_t n, 
     if (n > FRAME_SAMPLES) n = FRAME_SAMPLES;
     arm_mult_f32(const_cast<float*>(x), window_, buf_, n);
     std::memset(buf_ + n, 0, sizeof(float) * (N_FFT - n));     // Zero-Padding
+    fftPacked(out);
+}
 
+void Feature_Extraction_Module_122::computeSpectrum(const AnalysisFrame& frame, uint32_t ch, Spectrum& out)
+{
+    for (uint32_t p = 0; p < AnalysisFrame::PARTS; ++p)          // Fenster je Hop-Teil
+        arm_mult_f32(const_cast<float*>(frame.part[ch][p]), window_ + p * HOP_SAMPLES, buf_ + p * HOP_SAMPLES, HOP_SAMPLES);
+    std::memset(buf_ + FRAME_SAMPLES, 0, sizeof(float) * (N_FFT - FRAME_SAMPLES));   // Zero-Padding
+    fftPacked(out);
+}
+
+void Feature_Extraction_Module_122::fftPacked(Spectrum& out)
+{
     arm_rfft_fast_f32(&fft_, buf_, fftOut_, 0);
-
     // CMSIS-Packing: [Re0, ReN/2, Re1, Im1, Re2, Im2, ...]
     out.re[0] = fftOut_[0];            out.im[0] = 0.0f;
     out.re[NUM_BINS - 1] = fftOut_[1]; out.im[NUM_BINS - 1] = 0.0f;
@@ -137,7 +150,7 @@ void Feature_Extraction_Module_122::updateAm(const float* bandPow, float* amDept
 // ---------------------------------------------------------------- Frame
 void Feature_Extraction_Module_122::process(const AnalysisFrame& frame, Spectrum& refSpectrum, FeatureVector& f)
 {
-    computeSpectrum(frame.data[REF_MIC], FRAME_SAMPLES, refSpectrum);
+    computeSpectrum(frame, REF_MIC, refSpectrum);
 
     for (uint32_t k = 0; k < NUM_BINS; ++k)
         mag_[k] = std::sqrt(refSpectrum.re[k] * refSpectrum.re[k] + refSpectrum.im[k] * refSpectrum.im[k]);

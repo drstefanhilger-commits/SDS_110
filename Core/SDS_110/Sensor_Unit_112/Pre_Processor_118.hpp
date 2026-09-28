@@ -26,7 +26,12 @@ namespace sds110 {
 class Pre_Processor_118 {
 public:
     void init();
+    /// Hop in-place verarbeiten (Werkzeuge, Tests)
     void process(MicFrame& frame);
+    /// Hop verarbeiten und das Ergebnis je Kanal nach out[ch] schreiben (HOP_SAMPLES Werte), frame
+    /// bleibt unverändert. Board: out = Hop-Slot im Frame_Assembler, spart dessen Kopie. Gerechnet
+    /// wird je Kanal in einem internen Zwischenpuffer statt dreimal im SDRAM; bitgleich zu process().
+    void process(const MicFrame& frame, float* const out[NUM_MICS]);
 
     /// Diagnose: aktuelle AGC-Verstärkung / Rauschboden je Kanal
     float gain(uint32_t ch) const { return gain_[ch]; }

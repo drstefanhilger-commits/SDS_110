@@ -10,8 +10,10 @@ inline const AnalysisFrame& nextAnalysisFrame(Signal_Simulator& sim, Microphone_
     for (;;) {
         sim.generateHop(0);
         MicFrame* h = arr.acquireReadable();
-        pre.process(*h);
-        const bool full = g_fa.push(*h);
+        float* dst[NUM_MICS];                      // wie am Board: 118 schreibt direkt in den Slot
+        g_fa.beginHop(*h, dst);
+        pre.process(*h, dst);
+        const bool full = g_fa.commitHop(*h);
         arr.release(h);
         if (full) return g_fa.frame();
     }

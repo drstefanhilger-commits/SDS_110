@@ -56,7 +56,7 @@ Die Blocker 2–4 sind zurückgestellt. Ohne sie gibt es keine echten Mikrofonda
 | 2 | SAI-DMA einrichten (MspInit, Streams, IRQ-Handler) | hoch | Zurückgestellt |
 | 3 | CubeMX an die eigene Platine anpassen: SAI1 PE4/PE5, I2C2, PE3; SAI-Takt aus PLLI2S, SPDIFRX aus | hoch | Zurückgestellt |
 | 4 | ADAU7118-Registertabelle und I2C-Adresse (0x4B oder 0x3A) klären | hoch | Zurückgestellt |
-| 17, 42 | Rechenlast: Proc 32,2 ms bei 32 ms Budget, Sim 8,9 ms (vorher 13,5), Lock 0 (Release und Debug); nach Befund 42 neu messen | hoch | Offen |
+| 17, 42, 44 | Rechenlast: zuletzt Proc 32,2 ms (118 4,3 · Fenster 2,6 · F 15,2), Sim 6,4 ms; nach Befund 44 neu messen (Zeile „118 … Fa … Fr … Fs …“), Schalter `SDS110_FFT_TABLES_IN_RAM` vergleichen | hoch | Offen |
 | 26, 29, 32, 35 | Am Board prüfen: Peilung bei hohem f0, Lock-Zähler am LCD, Unit-ID/SRP bei laufendem Feedback, READ-Rohdaten mit Hop-Nummer | mittel | Offen |
 | 5 | Abtastrate messen: FSYNC 47,991 kHz, BCLK 12,286 MHz | mittel | Offen |
 | 6, 34 | Bitlage im 32-Bit-Slot und SAI-Taktflanke am Oszilloskop prüfen | mittel | Offen |
@@ -88,6 +88,7 @@ Die Blocker 2–4 sind zurückgestellt. Ohne sie gibt es keine echten Mikrofonda
 | --- | --- | --- |
 | 1 | ProcessingTask läuft | Board-Messungen 28.09.2026 |
 | 26 | Mehrdeutige TDOA-Paare bei hohem f0: robuste LS, SRP-geführte Neuwahl, sonst ungültig | `t_bearing_f0`, `m_bearing_f0` |
+| 44 | Frame_Assembler ohne Schieben (118 schreibt in Hop-Slots), FFT-Twiddles im internen RAM, Heap 48 kB; Merkmalsversion `5e2aeca1b90a4d17`, Modell neu exportiert | `t_frame_assembler`, `check_features`, `t_ml124` |
 | 27, 42 | Lücken im Hop-Strom erkennbar; MicFrame-Zeilen aufgefüllt (Cache-Aliasing); Merkmalsversion `3a685d01f22f3eea`, Modell neu exportiert (Merkmale bitgleich) | `t_hop_gap`, `check_features`, `t_ml124` |
 | 28 | Simulation an den 32-ms-Hop gekoppelt | `t_hopclock` |
 | 29 | `SDS_Data`-Getter liefern bei Sperr-Timeout den Wert statt 0; Setter mit zweitem Versuch; Zähler am LCD | `t_sds_data` |

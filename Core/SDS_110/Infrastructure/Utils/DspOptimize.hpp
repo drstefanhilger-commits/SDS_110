@@ -13,6 +13,11 @@
 #pragma GCC optimize ("O2")
 #endif
 
+// FFT-Twiddle-Tabellen beim Start ins interne RAM kopieren (FftTables.hpp); 0 = Flash (Vergleich)
+#ifndef SDS110_FFT_TABLES_IN_RAM
+#define SDS110_FFT_TABLES_IN_RAM 1
+#endif
+
 // Das Pragma schaltet im Debug-Build (-O0) das Inlining NICHT ein: kleine Hilfsfunktionen und
 // Lambdas in inneren Schleifen bleiben Funktionsaufrufe (am Board gemessen: Simulator 13,5 ms
 // je Hop). SDS110_FORCE_INLINE erzwingt es auch unter -O0.

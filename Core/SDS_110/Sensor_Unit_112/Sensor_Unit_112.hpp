@@ -23,7 +23,7 @@ public:
     }
     bool start() { return sampling_.start(); }
 
-    /// Nächsten Hop aus 114 holen, mit 118 verarbeiten und ins Analysefenster schieben.
+    /// Nächsten Hop aus 114 holen, mit 118 in den nächsten Slot des Analysefensters verarbeiten.
     /// Rückgabe false: kein Hop bereit. Sonst true; frame zeigt auf einen vollständigen
     /// Analyse-Frame (64 ms, 50 % Überlappung) oder ist nullptr, solange das Fenster füllt.
     bool nextFrame(const AnalysisFrame*& frame)
@@ -31,12 +31,16 @@ public:
         frame = nullptr;
         MicFrame* h = array_.acquireReadable();
         if (!h) return false;
+        // 118 schreibt direkt in den nächsten Slot des Frame_Assemblers (keine Kopie, kein memmove)
         const uint32_t c0 = DWTTimer::instance().cycles();
-        pre_.process(*h);
+        float* dst[NUM_MICS];
+        asm_.beginHop(*h, dst);
         const uint32_t c1 = DWTTimer::instance().cycles();
-        const bool full = asm_.push(*h);
-        lastPreCycles_ = c1 - c0;                      // Diagnose Rechenlast: 118 und Fenster getrennt
-        lastAsmCycles_ = DWTTimer::instance().cycles() - c1;
+        pre_.process(*h, dst);
+        const uint32_t c2 = DWTTimer::instance().cycles();
+        const bool full = asm_.commitHop(*h);
+        lastPreCycles_ = c2 - c1;                      // Diagnose Rechenlast: 118 und Fenster getrennt
+        lastAsmCycles_ = (c1 - c0) + (DWTTimer::instance().cycles() - c2);
         array_.release(h);
         if (full) frame = &asm_.frame();
         return true;

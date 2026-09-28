@@ -88,7 +88,7 @@ int main()
         sim.init(p); g_fa.reset(); pre.init(); feat.init(); ml.init();
         for (int i = 0; i < 160; ++i) {
             const AnalysisFrame& f = nextAnalysisFrame(sim, arr, pre); feat.process(f, sp[REF_MIC], fv);
-            for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f.data[m], FRAME_SAMPLES, sp[m]);
+            for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f, m, sp[m]);
             ml.infer(feat.magnitude(), fv, st);
             if (i < 100) continue;
             fast.deriveSelection(st, sel);

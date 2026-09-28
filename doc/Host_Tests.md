@@ -20,7 +20,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Art | Programm | Bezug (Befund) | Inhalt |
 |---|---|---|---|
 | Prüfung | `t_scaling` | 6 | Rohdaten-Skalierung in 114 (24 Bit linksbündig) |
-| Prüfung | `t_frame_assembler` | 17 | Analysefenster mit 50 % Überlappung |
+| Prüfung | `t_frame_assembler` | 17, 44 | Analysefenster mit 50 % Überlappung; Board-Pfad (118 schreibt in den Slot) = Werkzeug-Pfad |
 | Prüfung | `t_unit_report` | 10, 33 | Serialisierung des UnitReport (128 Byte), µs-Zeitstempel und UTC-Abgleich |
 | Prüfung | `t_sdram_selftest` | 14 | Logik des SDRAM-Selbsttests |
 | Prüfung | `t_timebase` | 16 | 64-bit-Erweiterung des DWT-Zählers |
@@ -137,7 +137,11 @@ mit Hop- (ab Befund 17) und Frame-großen Puffern.
 Prüft `Frame_Assembler::push()` mit markierten Hops.
 Kriterium: nach Hop 5 nicht voll; nach Hop 6 Frame [5|6] mit Zeitstempel von Hop 5; nach Hop 7
 [6|7], `frame_id` fortlaufend; Hop 9 nach Lücke → Neubeginn; Hop 10 → [9|10]; `reset()`.
-Referenz: 7/7 OK.
+Seit Befund 44 (28.09.2026) zeigt der Frame auf zwei Hop-Slots (`AnalysisFrame::sample()`); zusätzlich:
+Board-Pfad (`beginHop`, `Pre_Processor_118::process(frame, out)`, `commitHop`) und Werkzeug-Pfad
+(118 in-place, `push`) liefern über 6 Hops bitgleiche Frames und dieselbe 118-Verstärkung.
+`test/host/common/chain.hpp` nutzt jetzt den Board-Pfad.
+Referenz: 8/8 OK.
 
 ### t_unit_report – Befunde 10, 33
 Serialisiert UnitReports (Message id 5, Kopf 25 Byte) mit 0, 3, 8, 51, 52, 64 Bändern über
