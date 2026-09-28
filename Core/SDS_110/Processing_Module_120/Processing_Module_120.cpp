@@ -66,11 +66,17 @@ bool Processing_Module_120::processFrame()
 
     // (b) 122: STFT Referenzkanal + Merkmale, dann übrige Kanäle für 126
     feat_.process(*frame, spectra_[REF_MIC], features_);
+    const uint32_t c1a = dwt.cycles();
     for (uint32_t m = 0; m < NUM_MICS; ++m)
         if (m != REF_MIC) feat_.computeSpectrum(frame->data[m], FRAME_SAMPLES, spectra_[m]);
     const uint64_t t = frame->time_utc_us;
     const uint32_t c2 = dwt.cycles();
     smoothMs(tFeat_, c2 - c1);
+    // Diagnose Rechenlast: 118 / Fenster (112), 122 Referenzkanal (FFT + Merkmale), je weiteres Mikrofon
+    smoothMs(tDiag118_, unit_.lastPreCycles());
+    smoothMs(tDiagAsm_, unit_.lastAsmCycles());
+    smoothMs(tDiagRef_, c1a - c1);
+    smoothMs(tDiagSpec_, (c2 - c1a) / (NUM_MICS - 1));
 
     // (c) 124: Acoustic State s(t)
     if (!ml_.infer(feat_.magnitude(), features_, state_)) { dm.setMlRunError(true); return true; }
@@ -127,6 +133,7 @@ bool Processing_Module_120::processFrame()
     smoothMs(tRest_, (dwt.cycles() - c1) - (c2 - c1) - (c3 - c2) - (c5 - c4));
     dm.setStageTimes(tPre_, tFeat_, tMl_, tCorr_, tRest_);
     dm.setCorrTimes(tSel_, tGcc_, tSrp_);
+    dm.setDiagTimes(tDiag118_, tDiagAsm_, tDiagRef_, tDiagSpec_);
     return true;
 }
 

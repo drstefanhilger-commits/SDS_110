@@ -8,6 +8,7 @@
 #include "Sampling_Circuitry_116.hpp"
 #include "Pre_Processor_118.hpp"
 #include "Frame_Assembler.hpp"
+#include "Infrastructure/Utils/DWT.hpp"
 
 namespace sds110 {
 
@@ -30,8 +31,12 @@ public:
         frame = nullptr;
         MicFrame* h = array_.acquireReadable();
         if (!h) return false;
+        const uint32_t c0 = DWTTimer::instance().cycles();
         pre_.process(*h);
+        const uint32_t c1 = DWTTimer::instance().cycles();
         const bool full = asm_.push(*h);
+        lastPreCycles_ = c1 - c0;                      // Diagnose Rechenlast: 118 und Fenster getrennt
+        lastAsmCycles_ = DWTTimer::instance().cycles() - c1;
         array_.release(h);
         if (full) frame = &asm_.frame();
         return true;
@@ -51,6 +56,8 @@ public:
     void releaseHop(MicFrame* h) { array_.release(h); }
 
     uint32_t id() const { return id_; }
+    uint32_t lastPreCycles() const { return lastPreCycles_; }   ///< 118 des letzten Hops (DWT-Zyklen)
+    uint32_t lastAsmCycles() const { return lastAsmCycles_; }   ///< Frame_Assembler des letzten Hops
     const Microphone_Array_114& array() const { return array_; }
     const Pre_Processor_118& preprocessor() const { return pre_; }
     const Sampling_Circuitry_116& sampling() const { return sampling_; }
@@ -62,6 +69,7 @@ private:
     Sampling_Circuitry_116& sampling_ = Sampling_Circuitry_116::instance();
     Pre_Processor_118       pre_;
     Frame_Assembler         asm_;   // liegt mit 120 im SDRAM (~98 kB)
+    uint32_t lastPreCycles_ = 0, lastAsmCycles_ = 0;
 };
 
 } // namespace sds110

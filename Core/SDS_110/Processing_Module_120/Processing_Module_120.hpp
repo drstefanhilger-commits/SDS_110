@@ -64,6 +64,7 @@ private:
     TrackingFeedback   feedback_{};
 
     float tPre_ = 0, tFeat_ = 0, tMl_ = 0, tCorr_ = 0, tRest_ = 0;   // ms je Stufe, geglättet
+    float tDiag118_ = 0, tDiagAsm_ = 0, tDiagRef_ = 0, tDiagSpec_ = 0; // Aufteilung von P und F (LCD)
     float tSel_ = 0, tGcc_ = 0, tSrp_ = 0;                          // 126 aufgeteilt
 
     static Spectrum spectra_[NUM_MICS];   // SDRAM: 8 x 16 kB

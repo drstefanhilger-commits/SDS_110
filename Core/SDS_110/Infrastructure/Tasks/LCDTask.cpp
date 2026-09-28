@@ -179,6 +179,11 @@ void LCDTask::showSystemData()
              static_cast<double>(st.feat), static_cast<double>(st.ml), static_cast<double>(st.corr),
              static_cast<double>(st.rest));
     gfx_->text8x12(10, 250, buf_, Color::White);
+    // Diagnose (DETECT/CALIBRATE, y = 110): P aufgeteilt in 118 und Fenster, F in Referenzkanal
+    // (FFT + Merkmale) und die mittlere Zeit je weiterem Mikrofon (Fenster + FFT)
+    snprintf(buf_, sizeof(buf_), "118 %.1f Fa %.1f Fr %.1f Fs %.2f", static_cast<double>(st.pre118),
+             static_cast<double>(st.asm_), static_cast<double>(st.featRef), static_cast<double>(st.spec));
+    gfx_->text8x12(10, 110, buf_, Color::White);
     snprintf(buf_, sizeof(buf_), "  K Sel%.1f GCC%.1f SRP%.1f", static_cast<double>(st.corrSel),
              static_cast<double>(st.corrGcc), static_cast<double>(st.corrSrp));
     gfx_->text8x12(10, 260, buf_, Color::White);
