@@ -72,8 +72,13 @@ public:
     bool srpScan(float& azimuth_deg, float& peakPower, float& peakRatio) const;
     /// Referenzscan zur Laufzeit ein/aus (Standard ein; 120 setzt ihn aus SDS_Data, USB Typ 6).
     /// Aus: estimateBearing() sichert die Paarkorrelationen nicht, srpScan() liefert false.
-    void setSrpReference(bool on) { srpOn_ = on; srpValid_ = false; }
+    void setSrpReference(bool on) { if (on != srpOn_) srpCount_ = 0; srpOn_ = on; srpValid_ = false; }
     bool srpReference() const { return SRP_REFERENCE_ENABLED && srpOn_; }
+    /// Referenzscan nur in jedem n-ten estimateBearing() (Standard 1 = jeder Frame; 120 nutzt 4).
+    /// Nur in diesen Frames werden die Paarkorrelationen gesichert und das Lag-Fenster erweitert.
+    void setSrpEvery(uint32_t n) { srpEvery_ = (n == 0) ? 1 : n; srpCount_ = 0; }
+    /// Raster des Scans: grob alle SRP_COARSE_STEP Grad, dann ±SRP_FINE_HALF Grad im 1°-Raster
+    static constexpr uint32_t SRP_COARSE_STEP = 5, SRP_FINE_HALF = 4;
 
     /// Abschnitt 10: Feedback der Tracking Unit
     void applyFeedback(const TrackingFeedback& fb);
@@ -112,6 +117,8 @@ private:
     uint32_t directMaxBins_ = DIRECT_MAX_BINS;
     bool     srpOn_ = true;
     bool     srpValid_ = false;          // pairCorr_ stammt aus dem letzten estimateBearing()
+    bool     srpFrame_ = false;          // dieser Frame sichert pairCorr_ (jeder srpEvery_-te)
+    uint32_t srpEvery_ = 1, srpCount_ = 0;
     bool     direct_ = false;
     uint32_t nBins_ = 0;
     uint16_t binK_[DIRECT_MAX_BINS];

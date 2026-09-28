@@ -204,6 +204,11 @@ Geprüft gegen die IFFT (`setDirectMaxBins(0)`):
    gleich (|Δaz| ≤ 0,01°).
 3. SRP-Referenzscan abgeschaltet (`setSrpReference(false)`, am Board USB-Kommando Typ 6): Peilung
    bitgleich, `srpScan()` liefert false; nach dem Einschalten erst mit der nächsten Peilung gültig.
+4. Nur jeder 4. Frame (`setSrpEvery(4)`, wie in 120): `srpScan()` gültig in Frame 1, 5, 9, Peilung
+   und SRP-Azimut unverändert.
+
+`srpScan()` sucht seit 28.09.2026 grob im 5°-Raster und fein ±4° im 1°-Raster (83 statt 360
+Richtungen): 0,010 ms statt 0,029 ms je Aufruf (x86), SRP-Fehler in `t_azimuth` unverändert.
 
 Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0,0007°);
 `estimateBearing()` je Frame 0,13 ms (Schnellpfad) gegenüber 1,51 ms (IFFT), x86 `-O2`

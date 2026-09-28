@@ -9,7 +9,8 @@
  *   2. volle Kette (DroneStatic 10 dB, 12 Richtungen): estimateBearing() und srpScan() gleich
  *      (|Δaz| ≤ 0,01°), der Schnellpfad wird tatsächlich benutzt
  *   3. SRP-Referenzscan abgeschaltet (setSrpReference(false), USB Typ 6): Peilung bitgleich,
- *      srpScan() liefert false; wieder eingeschaltet erst nach dem nächsten estimateBearing() gültig
+ *      srpScan() liefert false; wieder eingeschaltet erst nach dem nächsten estimateBearing() gültig;
+ *      mit setSrpEvery(4) nur in jedem 4. Frame gültig (Peilung unverändert); Zeit je srpScan()
  * und misst die Zeit von estimateBearing() je Frame in beiden Pfaden.
  * Aufruf: build/test_host/t_gcc_direct
  */
@@ -80,7 +81,7 @@ int main()
 
     // 2) volle Kette
     auto& sim = Signal_Simulator::instance();
-    double tFast = 0, tRef = 0; int frames = 0, same = 0, cmp = 0, directFrames = 0; float dAz = 0, dSrp = 0;
+    double tFast = 0, tRef = 0, tSrp = 0; int srpN = 0; int frames = 0, same = 0, cmp = 0, directFrames = 0; float dAz = 0, dSrp = 0;
     FeatureVector fv{}; AcousticState st{}; ComponentSelection sel{}; Bearing bf{}, br{};
     for (int az = 0; az < 360; az += 30) {
         SimParams p; p.scenario = SimScenario::DroneStatic; p.snr_db = 10.0f; p.azimuth_deg = static_cast<float>(az);
@@ -101,13 +102,17 @@ int main()
             if (okf && okr) {
                 ++cmp; float d = std::fabs(bf.azimuth_deg - br.azimuth_deg); if (d > 180) d = 360 - d; dAz = std::fmax(dAz, d);
                 float af, pf, rf, ar, pr, rr;
-                if (fast.srpScan(af, pf, rf) && ref.srpScan(ar, pr, rr)) { float e = std::fabs(af - ar); if (e > 180) e = 360 - e; dSrp = std::fmax(dSrp, e); }
+                auto s0 = std::chrono::steady_clock::now();
+                const bool sf = fast.srpScan(af, pf, rf);
+                tSrp += std::chrono::duration<double>(std::chrono::steady_clock::now() - s0).count(); ++srpN;
+                if (sf && ref.srpScan(ar, pr, rr)) { float e = std::fabs(af - ar); if (e > 180) e = 360 - e; dSrp = std::fmax(dSrp, e); }
             }
         }
     }
     std::printf("Kette: %d Frames, Schnellpfad %d, Gültigkeit gleich %d, max |Δaz| %.4f° (SRP %.4f°); "
                 "estimateBearing je Frame: Schnellpfad %.3f ms, IFFT %.3f ms (x86)\n",
                 frames, directFrames, same, dAz, dSrp, 1e3 * tFast / frames, 1e3 * tRef / frames);
+    std::printf("srpScan je Aufruf: %.4f ms (x86, %d Aufrufe)\n", srpN ? 1e3 * tSrp / srpN : 0.0, srpN);
     check(directFrames == frames, "Kette: Schnellpfad in jedem Frame");
     check(same == frames && cmp > 0 && dAz <= 0.01f && dSrp <= 0.01f, "Kette: Peilung und SRP wie IFFT");
 
@@ -126,5 +131,19 @@ int main()
                 bOff.azimuth_deg, bOn.azimuth_deg, scanOff, scanStale, scanAgain);
     check(okOn == okOff && bOn.azimuth_deg == bOff.azimuth_deg, "SRP aus: Peilung bitgleich");
     check(!scanOff && !scanStale && scanAgain, "SRP aus: srpScan() erst nach neuer Peilung wieder gültig");
+
+    // Referenzscan nur jeden 4. Frame (120: SRP_EVERY_N): gültig in Frame 1, 5, 9; Peilung bitgleich
+    off.setSrpEvery(4);
+    int validMask = 0; bool sameBearing = true; float azN = 0, pwN = 0, rN = 0, az1 = 0, pw1 = 0, r1 = 0;
+    for (int k = 0; k < 9; ++k) {
+        Bearing bk{};
+        off.estimateBearing(sp, sel, bk);
+        sameBearing = sameBearing && bk.azimuth_deg == bOn.azimuth_deg;
+        if (off.srpScan(azN, pwN, rN)) validMask |= 1 << k;
+    }
+    fast.srpScan(az1, pw1, r1);
+    std::printf("SRP jeden 4. Frame: gültig in Frames (Bitmaske) 0x%03X, Azimut %.4f° / %.4f° (jeder Frame)\n",
+                validMask, azN, az1);
+    check(validMask == 0x111 && sameBearing && azN == az1, "SRP jeden 4. Frame: Scan in Frame 1, 5, 9, Peilung unverändert");
     return g_fail;
 }
