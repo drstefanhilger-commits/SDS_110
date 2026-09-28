@@ -72,10 +72,10 @@ Je Zeile ein zugesicherter Wert aus FSL9 mit Ist-Wert, Code-Referenz (relativ zu
 | A30 | §7, Anspr. 1(g) | Inhalt des Reports | φ, r, Qualität (Paare, Residuum), ausgewählte Bänder + p_b | UnitReport: Peilung, Residuum, Paare, Pegel, Bänder + p_b; φ/r im CandidateReport auf dem PC | `Data_Interface_140/Candidate_Report_140.hpp:30–41` | Teilweise |
 | A31 | §7 | Report-Rate, Format | ≈ 30 Reports/s, feste Binärstruktur | Binärstruktur 128 Byte (t_unit_report); Proc 31,3 ms < 32-ms-Frame-Takt (0,7 ms Reserve), mit echten Mikrofonen nicht nachgewiesen | `Output_Interface_130.cpp, LCDTask.cpp (Zeitanzeige)` | Teilweise |
 | A32 | §7, Anspr. 10 | Keine Trajektorie im SDS | SDS bildet keine Trajektorie | keine Tracking-Funktion in der Firmware | – | Erfüllt |
-| A33 | §10 | Feedback Schwelle/Gewicht | ŝ_b > 0,6: θ = 0,3, Gewicht × (1 + ŝ_b) | wie gefordert; wird nie zurückgesetzt (Befund 34) | `SDS_110_Config.hpp:129–130, Correlation_Processing_Module_126.cpp:49–55` | Erfüllt |
+| A33 | §10 | Feedback Schwelle/Gewicht | ŝ_b > 0,6: θ = 0,3, Gewicht × (1 + ŝ_b) | wie gefordert; Feedback über USB Id 8 von der Tracking-Einheit (PC-Monitor), Zurücksetzen nach 2 s ohne Feedback oder mit Flags = 0 (t_feedback) | `Correlation_Processing_Module_126.cpp:45–53, Output_Interface_130.cpp pollFeedback, Infrastructure/Utils/FeedbackCodec.hpp` | Erfüllt |
 | A34 | §10 | Feedback Suchfenster | TDOA-Fenster ±2 ms um die Vorhersage | TDOA_WINDOW_S definiert, ungenutzt | `SDS_110_Config.hpp:131` | Nicht erfüllt |
 | A35 | §11 | Ohne UAV | keine Selektion, keine Korrelation, kein Report | kein Report (0 % bei Rauschen, m_selection); Korrelation läuft wegen A18 immer | `Correlation_Processing_Module_126.cpp:70` | Teilweise |
-| A36 | §8–9, Anspr. 6–8, 11 | Tracking-Einheit | ŝ mit α = 0,2, Kosinus > 0,7, χ²-Gate, 3 Reports, 2 s | nicht Teil von SDS_110 | – | Nicht im Umfang |
+| A36 | §8–9, Anspr. 6–8, 11 | Tracking-Einheit | ŝ mit α = 0,2, Kosinus > 0,7, χ²-Gate, 3 Reports, 2 s | nicht Teil der Firmware; umgesetzt im PC-Monitor `app/tracking/` (Traceability dort, P14–P21) | – | Nicht im Umfang |
 
 ## Rechenzeit und Ressourcen am Board
 
@@ -116,8 +116,7 @@ Zuerst anzugehen ist die Rechenzeit. Der Arraydurchmesser ist seit 27.09.2026 au
 | 3 | A29, A6 | UTC nur ~1 ms genau (USB), keine µs-Synchronisation der Einheiten | Firmware sendet µs (id 5) und nimmt UTC an (Typ 7): PC-Monitor anpassen; HW-Version 2: GNSS-PPS stellt den µs-Zähler (Zeitquelle 2), WiFi nur für Daten (Software-PTP über WiFi erreicht ≤ 10 µs nicht sicher) | Befunde 16, 33 |
 | 4 | A1, A7, A27 | eine Einheit, Pegel-Distanz | Multilateration mit N ≥ 3 Einheiten, wenn die Hardware vorliegt; Positionen der Einheiten konfigurieren | Blocker 1–4 |
 | 5 | A22, A34 | Lag-Fenster global, Fenster aus Feedback ungenutzt | Fenster je Paar aus d_ij; `TDOA_WINDOW_S` um die Vorhersage anwenden (c ist seit 28.09.2026 temperaturkorrigiert, A23) | Befunde 26, 34 |
-| 6 | A33 | Feedback wird nie zurückgesetzt | Feedback nach Zeitablauf (z. B. 2 s ohne Report) löschen | Befund 34 |
-| 7 | A12–A16 | Merkmale, Modell, Labels, Glättung weichen ab | entscheiden, ob die Abweichungen als Variante nach §12 gelten; sonst MFCC 13, CNN und Harmonischen-Labels umsetzen | `doc/Vergleich_HBD_ML124.md` |
-| 8 | A15 | Hold-out-AUC nicht geprüft | Auswertung des Modells ohne 6-Rotor-Drohnen in ML_Test gegen 0,65–0,95 prüfen | ML_Test `docs/Training_ML124.md` |
+| 6 | A12–A16 | Merkmale, Modell, Labels, Glättung weichen ab | entscheiden, ob die Abweichungen als Variante nach §12 gelten; sonst MFCC 13, CNN und Harmonischen-Labels umsetzen | `doc/Vergleich_HBD_ML124.md` |
+| 7 | A15 | Hold-out-AUC nicht geprüft | Auswertung des Modells ohne 6-Rotor-Drohnen in ML_Test gegen 0,65–0,95 prüfen | ML_Test `docs/Training_ML124.md` |
 
 Die Befundnummern beziehen sich auf `doc/Analyse_Befunde.md`.

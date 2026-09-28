@@ -21,13 +21,13 @@ Schnittstellenbeschreibung (Interface Control Document) zwischen der Sensoreinhe
 | PC → SDS | 5 | Unit-ID | 16 | Kennung der Sensoreinheit setzen |
 | PC → SDS | 6 | SRP-Referenz | 16 | Vergleichsscan SRP-PHAT ein/aus |
 | PC → SDS | 7 | Sync | 24 | UTC-Zeit und Lufttemperatur |
+| PC → SDS | 8 | Feedback | 52 | Referenzzustand ŝ und Vorhersage der Tracking-Einheit (FSL9 §10) |
 | SDS → PC | 1 | Detect | 32 | Peilung (Legacy-Format) |
 | SDS → PC | 2 | Read | 532 | Rohdatenblock im Modus READ |
 | SDS → PC | 5 | UnitReport | 144 | Peilung, Zeit in µs, selektierte Bänder |
 | SDS → PC | 99 | Logger | 144 | Textmeldungen der Firmware |
 
 - **Frei:** Id 4 (PC → SDS). Im Pfad SDS → PC ist Id 4 der UnitReport bis 27.09.2026 und wird nicht mehr gesendet.
-- **Reserviert:** Id 8 (PC → SDS) für das Feedback der Tracking-Einheit (FSL9 §10).
 
 ## 2. Transport
 
@@ -114,6 +114,30 @@ In der Makrodatei `PC_Monitor_Test.ptp` sind CALIBRATE und READ vertauscht besch
 DE AD BE EF 07 00 00 18 00 06 5C 89 CE 33 30 00 08 66 00 00 01 B1 FF D4
 ```
 
+### 4.3 Feedback (Id 8, 52 Byte)
+
+Die Tracking-Einheit (PC-Monitor `app/tracking/`) sendet das Feedback nach jeder Übernahme eines Reports in eine **bestätigte** Spur, also bis zu 31-mal pro Sekunde (FSL9 §10, Anspruch 8). Endet eine Spur, sendet sie ein Feedback mit Flags = 0 (zurücksetzen).
+
+| Byte | Feld | Typ | Inhalt |
+| --- | --- | --- | --- |
+| 0–3 | magic | 4 × u8 | `DE AD BE EF` |
+| 4 | id | u8 | `08` |
+| 5–7 | length | u24 BE | `00 00 34` (52) |
+| 8–39 | ref_state | 32 × u8 | ŝ je Band mit 4 Bit, q = round(ŝ_b · 15): Band 2i im oberen, 2i+1 im unteren Halbbyte von Byte 8+i |
+| 40–41 | pred_az | u16 BE | vorhergesagter Azimut in 0,01° (0 … 35 999; 0° = Nord, im Uhrzeigersinn) |
+| 42–43 | pred_r | u16 BE | vorhergesagte Distanz in 0,1 m |
+| 44 | flags | u8 | Bit 0 = ŝ gültig (0 = Feedback zurücksetzen), Bit 1 = Vorhersage gültig |
+| 45–47 | reserved | 3 × u8 | `00 00 00` |
+| 48–51 | crc | u32 BE | CRC32 über Byte 0–47 |
+
+**Verarbeitung in der Firmware** (`FeedbackCodec.hpp`, `Output_Interface_130::pollFeedback`, 126 `applyFeedback`):
+- **Schwelle und Gewicht:** Bänder mit ŝ_b > 0,6 bekommen die Selektionsschwelle 0,3 statt 0,5, ihr Gewicht wird mit (1 + ŝ_b) multipliziert.
+- **Zurücksetzen:** Kommt 2 s lang kein neues Feedback, werden Schwellen und Gewichte zurückgesetzt. Ein Feedback mit Flags = 0 wirkt sofort.
+- **Vorhersage:** Die Firmware nimmt sie an, nutzt sie aber noch nicht. Das Suchfenster ±2 ms um die vorhergesagte Verzögerung (FSL9 §10, A34) ist offen.
+- **Ungültige Werte:** Eine falsche Länge oder ein Azimut ≥ 360° setzt das Fehler-Flag.
+
+Die Kodierung mit 4 Bit hält das Kommando unter 56 Byte, sodass es in ein USB-Paket passt (Abschnitt 2). Für die Schwelle 0,6 und den Faktor (1 + ŝ_b) genügt diese Auflösung (1/15).
+
 ## 5. Nachrichten SDS → PC
 
 ### 5.1 Detect (Id 1, 32 Byte)
@@ -187,6 +211,7 @@ Rahmen wie beim UnitReport, mit `len_id` = 0x63000090 und `timestamp` = 0. Die N
 | Datum | Änderung | PC-Monitor |
 | --- | --- | --- |
 | 28.09.2026 | Azimut in Detect und UnitReport jetzt 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord (vorher ab der x-Achse gegen den Uhrzeigersinn) | Darstellung Nord oben, Ost rechts: x = r · sin φ, y = r · cos φ |
+| 28.09.2026 | Kommando Id 8 (Feedback der Tracking-Einheit) neu | nach jeder Übernahme einer bestätigten Spur senden, Flags = 0 bei Spurende |
 | 28.09.2026 | Id 7 von 20 auf 24 Byte erweitert: Lufttemperatur (i16, 0,01 °C) + 2 Byte reserviert; UTC 0 = nur Temperatur | Id 7 im neuen Format senden |
 | 27.09.2026 | UnitReport Id 5 ersetzt Id 4 (Zeit u64 µs + Zeitquelle, Kopf 25 statt 16 Byte, max. 51 statt 56 Bänder) | Id 5 lesen |
 | 27.09.2026 | Kommando Id 7 (UTC in µs) neu | senden |
@@ -198,5 +223,5 @@ Rahmen wie beim UnitReport, mit `len_id` = 0x63000090 und `timestamp` = 0. Die N
 - **Mehrere oder geteilte Kommandos je USB-Paket zulassen (Befund 32).**
 - **Kommando-Bestätigung durch die Firmware fehlt.**
 - **Beschriftung CALIBRATE/READ in `PC_Monitor_Test.ptp` (Befund 25).**
-- **Id 8 für das Tracking-Feedback (FSL9 §10) festlegen.**
+- **Vorhersage aus Id 8 für das TDOA-Suchfenster nutzen (FSL9 §10, A34).**
 - **Rohdaten vor 118 und eine Hop-Nummer im Modus READ (Befund 35).**

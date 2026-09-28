@@ -98,6 +98,15 @@ public:
     { Air a; a.valid = true; a.tempC = tC; a.soundSpeed = sds110::SoundSpeed::fromTemperature(tC); setValue(air_, a); }
     Air getAir() const { return getValue(air_); }
     bool tryGetAir(Air& out) const { return tryGetValue(air_, out); }
+    /// Feedback der Tracking-Einheit (USB Id 8): Postfach mit Zähler und Empfangszeit (ms)
+    struct FeedbackBox { sds110::TrackingFeedback fb{}; bool positionValid = false; uint32_t seq = 0; uint32_t tickMs = 0; };
+    void setFeedback(const sds110::TrackingFeedback& fb, bool positionValid, uint32_t tickMs)
+    {
+        if (!lock()) return;
+        feedback_.fb = fb; feedback_.positionValid = positionValid; feedback_.tickMs = tickMs; ++feedback_.seq;
+        unlock();
+    }
+    bool tryGetFeedback(FeedbackBox& out) const { return tryGetValue(feedback_, out); }
     void setSyncTimeDifference(uint32_t v) { setValue(syncTimeDifference, v); }
     uint32_t getSyncTimeDifference() const { return getValue(syncTimeDifference); }
 
@@ -180,6 +189,7 @@ private:
     uint32_t syncTimeDifference = 0;
     sds110::UtcOffset utcOffset_{};
     Air      air_{};
+    FeedbackBox feedback_{};
 
     TaskStats tasks_[static_cast<uint8_t>(TaskId::Count)];
 

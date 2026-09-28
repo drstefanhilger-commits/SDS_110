@@ -5,6 +5,7 @@
 #include "Infrastructure/Utils/TimeBase.hpp"
 #include "Infrastructure/Utils/UtcClock.hpp"
 #include "Infrastructure/Utils/SoundSpeed.hpp"
+#include "Infrastructure/Utils/FeedbackCodec.hpp"
 #include <cstring>
 #include <initializer_list>
 
@@ -83,6 +84,7 @@ void USBTask::handle(const uint8_t* rx)
         case 5:  handleSetUnitId(rx);  break;
         case 6:  handleSrpReference(rx); break;
         case 7:  handleSync(rx);       break;
+        case 8:  handleFeedback(rx);   break;
         default: handleError(rx);      break;
     }
 }
@@ -145,6 +147,14 @@ void USBTask::handleSync(const uint8_t* rx)
     const bool tempOk = SoundSpeed::decode(centi, tC);
     if (tempOk) dm_.setAirTemperature(tC);
     if (!utcOk || (!tempOk && centi != SoundSpeed::TEMP_UNKNOWN)) handleError(rx);
+}
+
+void USBTask::handleFeedback(const uint8_t* rx)
+{
+    TrackingFeedback fb;
+    bool posValid = false;
+    if (!FeedbackCodec::decode(rx, msgLen(rx), fb, posValid)) { handleError(rx); return; }
+    dm_.setFeedback(fb, posValid, osKernelGetTickCount());
 }
 
 void USBTask::handleError(const uint8_t* rx)
