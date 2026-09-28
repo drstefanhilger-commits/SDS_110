@@ -229,19 +229,21 @@ Die restlichen Bytes sind 0. Sind mehr als 51 Bänder selektiert, werden nur die
 
 ### 5.3 Read (Id 2, 532 Byte)
 
-Wird nur im Modus READ gesendet. Je Hop (32 ms) gehen 8 Mikrofone × 12 Blöcke = 96 Nachrichten raus, das sind etwa 1,6 MB/s. Das übersteigt USB Full Speed; Frames, die nicht vollständig passen, werden verworfen.
+Wird nur im Modus READ gesendet, mit **Rohdaten** der Mikrofone: 114 ohne die Vorverarbeitung 118 (seit 28.09.2026, Befund 35). Je Hop (32 ms) gehen 8 Mikrofone × 12 Blöcke = 96 Nachrichten raus, das sind etwa 1,6 MB/s. Das übersteigt USB Full Speed; ein Hop, der nicht vollständig in den Sendepuffer passt, wird ab dort verworfen. Die Hop-Nummer zeigt dem PC jede Lücke.
 
 | Byte | Feld | Typ | Inhalt |
 | --- | --- | --- | --- |
 | 0–3 | magic | u32 LE | 0xDEADBEEF |
 | 4–7 | len_id | u32 LE | 0x02000214 |
 | 8–11 | timestamp | u32 LE | ms, Beginn des Hops |
-| 12–13 | micNr | u16 LE | Mikrofon 0…7 |
-| 14–15 | frameNr | u16 LE | Block 0…11 innerhalb des Hops |
-| 16–527 | data | 128 × i32 LE | Samples, skaliert auf 24 Bit (±2²³) |
+| 12 | micNr | u8 | Mikrofon 0…7 |
+| 13 | blockNr | u8 | Block 0…11 innerhalb des Hops |
+| 14–15 | hopNr | u16 LE | Hop-Nummer (fortlaufend, mod 65 536) |
+| 16–527 | data | 128 × i32 LE | Rohsamples, 24 Bit (±2²³) |
 | 528–531 | crc32 | u32 LE | CRC32 über Byte 0–527 |
 
-Die Daten liegen **nach** der Vorverarbeitung 118 (Bandpass, Rauschunterdrückung, AGC) vor, sind also keine Rohdaten (Befund 35).
+- **Rohdaten:** Kein Bandpass, keine Rauschunterdrückung, keine AGC. So lassen sich Aufnahmen mit `tools/features/sds_features` auswerten, das 118 selbst anwendet (8-kanaliges WAV, 24 Bit, 48 kHz).
+- **Bis 27.09.2026:** Bytes 12–15 waren `micNr` u16 und `frameNr` u16, die Daten lagen nach 118.
 
 ### 5.4 Logger (Id 99, 144 Byte)
 
@@ -267,6 +269,7 @@ Rahmen wie beim Logger, mit `len_id` = 0x06000090 und `timestamp` = 0. Die Firmw
 
 | Datum | Änderung | PC-Monitor |
 | --- | --- | --- |
+| 28.09.2026 | Read (Id 2): Rohdaten vor 118; Kopf Byte 12–15 jetzt micNr u8, blockNr u8, hopNr u16 (Befund 35) | neues Kopfformat lesen, Lücken über hopNr zählen, Aufnahme als WAV |
 | 28.09.2026 | Kommando Id 10 (Standort) und Nachricht Id 6 (Standort mit Quelle, jede Sekunde) neu | Standort eingeben, speichern, beim Verbinden senden; Id 6 anzeigen |
 | 28.09.2026 | Mehrere und geteilte Kommandos je USB-Paket werden ausgewertet (Befund 32); vorher blieben z. B. Unit-ID und SRP bei laufendem Feedback ohne Wirkung. LCD zeigt die Unit-ID dezimal | keine Änderung nötig; Unit-ID dezimal anzeigen |
 | 28.09.2026 | Kommando Id 9 (Nordabgleich) neu; CALIBRATE verarbeitet wie DETECT (vorher keine Verarbeitung) | Tab Calibrate: messen, Offset senden, beim Verbinden erneut senden |
@@ -283,4 +286,3 @@ Rahmen wie beim Logger, mit `len_id` = 0x06000090 und `timestamp` = 0. Die Firmw
 - **Kommando-Bestätigung durch die Firmware fehlt.**
 - **Beschriftung CALIBRATE/READ in `PC_Monitor_Test.ptp` (Befund 25).**
 - **Vorhersage aus Id 8 für das TDOA-Suchfenster nutzen (FSL9 §10, A34).**
-- **Rohdaten vor 118 und eine Hop-Nummer im Modus READ (Befund 35).**

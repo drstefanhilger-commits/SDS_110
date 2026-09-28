@@ -37,12 +37,15 @@ public:
         return true;
     }
 
-    /// READ-Modus: nächster vorverarbeiteter Hop ohne Überlappung (nullptr = keiner bereit).
-    /// Aufrufer gibt ihn mit releaseHop() zurück. Das Analysefenster beginnt danach neu.
+    /// READ-Modus: nächster Hop als Rohdaten, also ohne 118 (Bandpass, NS, AGC), ohne Überlappung
+    /// (nullptr = keiner bereit). Befund 35: Aufnahmen für Training und Endabnahme (AP 8) brauchen
+    /// die Mikrofonsignale; tools/features/sds_features wendet 118 selbst an. Aufrufer gibt den
+    /// Hop mit releaseHop() zurück. Das Analysefenster beginnt danach neu; 118 läuft beim Wechsel
+    /// zurück nach DETECT mit dem alten Zustand weiter (einige Frames Einschwingen).
     MicFrame* nextHop()
     {
         MicFrame* h = array_.acquireReadable();
-        if (h) { pre_.process(*h); asm_.reset(); }
+        if (h) asm_.reset();
         return h;
     }
     void releaseHop(MicFrame* h) { array_.release(h); }

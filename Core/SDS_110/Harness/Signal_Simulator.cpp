@@ -9,6 +9,29 @@
 
 namespace sds110 {
 
+namespace {
+// ~N(0,1) als Summe von 4 Gleichverteilten (Irwin-Hall, Varianz 1, Grenzen ±3,46σ): 2 Schritte
+// xorshift32 (alle Bits gleich gut, anders als die unteren Bits eines LCG) liefern 4 × 16 Bit,
+// Summe als Ganzzahl, eine Wandlung. Vorher Box-Muller, danach 4 LCG-Schritte mit je einer Wandlung.
+SDS110_FORCE_INLINE float gauss(uint32_t& state)
+{
+    uint32_t x = state;
+    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+    const uint32_t a = x;
+    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+    state = x;
+    const uint32_t sum = (a & 0xFFFFu) + (a >> 16) + (x & 0xFFFFu) + (x >> 16);   // 0 … 4·65535
+    constexpr float k = 1.7320508f / 65536.0f;            // sqrt(12/4) / 2^16
+    return static_cast<float>(sum) * k - 2.0f * 1.7320508f;
+}
+
+// Zeiger um einen Schritt drehen; Im = sin(Phase) vor dem Schritt
+SDS110_FORCE_INLINE void rotate(float& re, float& im, float sr, float si)
+{
+    const float r = re * sr - im * si; im = re * si + im * sr; re = r;
+}
+} // namespace
+
 Signal_Simulator& Signal_Simulator::instance() { static Signal_Simulator inst; return inst; }
 
 void Signal_Simulator::init(const SimParams& p)
@@ -20,17 +43,7 @@ void Signal_Simulator::init(const SimParams& p)
     std::memset(pinkState_, 0, sizeof(pinkState_));
 }
 
-float Signal_Simulator::noise()
-{
-    // ~N(0,1) als Summe von 4 Gleichverteilten (Irwin-Hall, Varianz 1, Grenzen ±3,46σ).
-    // Vorher Box-Muller (log, sqrt, cos je Sample und Mikrofon, 12 288 Aufrufe je Hop).
-    float sum = 0.0f;
-    for (int i = 0; i < 4; ++i) {
-        rng_ = rng_ * 1664525u + 1013904223u;             // LCG, obere 24 Bit
-        sum += static_cast<float>(rng_ >> 8) * (1.0f / 16777216.0f);
-    }
-    return (sum - 2.0f) * 1.7320508f;                     // sqrt(12/4)
-}
+float Signal_Simulator::noise() { return gauss(rng_); }
 
 void Signal_Simulator::updateOscillators()
 {
@@ -61,10 +74,6 @@ void Signal_Simulator::advanceSweep()
 // Ein Quellsample (phasenkontinuierlich), Amplitude ohne 1/r
 float Signal_Simulator::sourceSample()
 {
-    // Zeiger um einen Schritt drehen; Im = sin(Phase) vor dem Schritt
-    auto rotate = [](float& re, float& im, float sr, float si) {
-        const float r = re * sr - im * si; im = re * si + im * sr; re = r;
-    };
     float s = 0.0f;
     switch (p_.scenario) {
     case SimScenario::DroneSweep:
@@ -123,25 +132,34 @@ void Signal_Simulator::generateHop(uint64_t time_utc_us)
     primed_ = true;
 
     // --- pro Mikrofon: verzögert + eigenes Rauschen, blockweise wie der DMA ---
+    // Die Verzögerung ist je Hop konstant: Ganzzahl-Anteil und Bruch einmal je Mikrofon statt je
+    // Sample (pos = n + GUARD − τ_m = n + base_m + fr_m, 0 ≤ fr_m < 1). |τ_m| < GUARD, daher
+    // liegt i0 = n + base_m immer im Puffer.
     // Format wie die Hardware (116): 24-bit PCM linksbündig im 32-bit-Slot (pcm24 << 8)
     constexpr float toPcm24 = static_cast<float>(1 << 23);
+    int   base[NUM_MICS];
+    float w0[NUM_MICS], w1[NUM_MICS];
+    for (uint32_t m = 0; m < NUM_MICS; ++m) {
+        const float p = static_cast<float>(GUARD) - delaySamples_[m];
+        base[m] = static_cast<int>(std::floor(p));
+        w1[m] = p - static_cast<float>(base[m]);
+        w0[m] = 1.0f - w1[m];
+    }
+    // innere Schleife ohne Funktionsaufrufe (auch im Debug-Build, siehe DspOptimize.hpp)
+    uint32_t rng = rng_;
     for (uint32_t b0 = 0; b0 < HOP_SAMPLES; b0 += DMA_BLOCK_SAMPLES) {
         for (uint32_t s = 0; s < DMA_BLOCK_SAMPLES; ++s) {
             const uint32_t n = b0 + s;
+            int32_t* out = block_ + s * NUM_MICS;
             for (uint32_t m = 0; m < NUM_MICS; ++m) {
-                const float pos = static_cast<float>(n + GUARD) - delaySamples_[m];
-                const int   i0  = static_cast<int>(pos);
-                const float fr  = pos - static_cast<float>(i0);
-                float v = 0.0f;
-                if (i0 >= 0 && i0 + 1 < static_cast<int>(HOP_SAMPLES + 2 * GUARD))
-                    v = src_[i0] * (1.0f - fr) + src_[i0 + 1] * fr;
-                v += noiseAmp * noise();
-                if (v >  0.999f) v =  0.999f;
-                if (v < -0.999f) v = -0.999f;
+                const float* q = src_ + n + base[m];
+                float v = q[0] * w0[m] + q[1] * w1[m] + noiseAmp * gauss(rng);
+                v = (v > 0.999f) ? 0.999f : ((v < -0.999f) ? -0.999f : v);
                 const int32_t pcm24 = static_cast<int32_t>(v * toPcm24);
-                block_[s * NUM_MICS + m] = static_cast<int32_t>(static_cast<uint32_t>(pcm24) << 8);
+                out[m] = static_cast<int32_t>(static_cast<uint32_t>(pcm24) << 8);
             }
         }
+        rng_ = rng;
         array_.pushBlock(block_, DMA_BLOCK_SAMPLES, time_utc_us + static_cast<uint64_t>(b0) * 1000000ULL / SAMPLE_RATE_HZ);
     }
 }

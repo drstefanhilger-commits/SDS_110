@@ -132,17 +132,18 @@ bool Processing_Module_120::processFrame()
 
 bool Processing_Module_120::streamFrame()
 {
-    MicFrame* frame = unit_.nextHop();           // READ: Hops ohne Überlappung
+    MicFrame* frame = unit_.nextHop();           // READ: Rohdaten-Hops (vor 118) ohne Überlappung
     if (!frame) return false;
     const uint32_t ts = static_cast<uint32_t>(frame->time_utc_us / 1000ULL);
     // 96 x 532 B je Hop (~1,6 MB/s) übersteigt USB-FS: auf Platz im TX-Puffer warten;
     // gelingt das nicht, Rest des Frames verwerfen statt einzelne Pakete zu verlieren.
-    // Nicht gestreamte Frames zählt 114 als dropped.
+    // Nicht gestreamte Frames zählt 114 als dropped. Die Hop-Nummer (frame_id) im Kopf zeigt
+    // dem PC jede Lücke (Befund 35).
     constexpr uint32_t kWaitMs = 20;
     bool ok = true;
     for (uint32_t m = 0; m < NUM_MICS && ok; ++m)
         for (uint32_t f = 0; f < HOP_SAMPLES / SDS_MSG_BUFFER_SIZE && ok; ++f)
-            ok = USBDriver::sendRead(ts, m, f, frame, kWaitMs);
+            ok = USBDriver::sendRead(ts, m, f, frame->frame_id, frame, kWaitMs);
     unit_.releaseHop(frame);
     return true;
 }

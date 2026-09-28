@@ -69,10 +69,10 @@ public:
     struct StageTimes { float sim = 0, pre = 0, feat = 0, ml = 0, corr = 0, rest = 0;
                         float corrSel = 0, corrGcc = 0, corrSrp = 0; };   // corr = Sel + Gcc + Srp
     void setStageTimes(float pre, float feat, float ml, float corr, float rest)
-    { if (!lock()) return; st_.pre = pre; st_.feat = feat; st_.ml = ml; st_.corr = corr; st_.rest = rest; unlock(); }
+    { if (!lockWrite()) return; st_.pre = pre; st_.feat = feat; st_.ml = ml; st_.corr = corr; st_.rest = rest; unlock(); }
     void setCorrTimes(float sel, float gcc, float srp)
-    { if (!lock()) return; st_.corrSel = sel; st_.corrGcc = gcc; st_.corrSrp = srp; unlock(); }
-    void setSimTime(float ms) { if (!lock()) return; st_.sim = ms; unlock(); }
+    { if (!lockWrite()) return; st_.corrSel = sel; st_.corrGcc = gcc; st_.corrSrp = srp; unlock(); }
+    void setSimTime(float ms) { if (!lockWrite()) return; st_.sim = ms; unlock(); }
     StageTimes getStageTimes() const { return getValue(st_); }
 
     // --- System Status ------------------------------------------------------
@@ -111,7 +111,7 @@ public:
     struct FeedbackBox { sds110::TrackingFeedback fb{}; bool positionValid = false; uint32_t seq = 0; uint32_t tickMs = 0; };
     void setFeedback(const sds110::TrackingFeedback& fb, bool positionValid, uint32_t tickMs)
     {
-        if (!lock()) return;
+        if (!lockWrite()) return;
         feedback_.fb = fb; feedback_.positionValid = positionValid; feedback_.tickMs = tickMs; ++feedback_.seq;
         unlock();
     }
@@ -148,29 +148,47 @@ public:
 private:
     SDS_Data();
 
-    bool lock(uint32_t timeout = 2) const { return osMutexAcquire(mutex_, timeout) == osOK; }
+    // Befund 29: Sperr-Timeouts
+    //   Lesen (getX):     bei Timeout den aktuellen Wert ohne Sperre lesen statt 0 zu liefern.
+    //                     Werte bis 4 Byte liest der Cortex-M7 atomar; größere Strukturen lesen
+    //                     nur Anzeige und USB (höchstens eine gemischte Anzeige, kein falscher 0-Wert).
+    //   tryGetX:          false bei Timeout (Aufrufer behält seinen letzten Wert, z. B. 116-Start)
+    //   Schreiben (setX): nach dem ersten Timeout einmal länger warten, erst dann verwerfen
+    // Timeouts entstehen vor allem bei CPU-Überlast (am Board: springende Anzeigewerte); der Mutex
+    // vererbt die Priorität (FreeRTOS-Mutexe immer, osMutexPrioInherit im Konstruktor dokumentiert es).
+    static constexpr uint32_t LOCK_MS = 2, WRITE_RETRY_MS = 10;
+    bool lock(uint32_t timeout = LOCK_MS) const { return osMutexAcquire(mutex_, timeout) == osOK; }
     void unlock() const { osMutexRelease(mutex_); }
+    bool lockRead() const { if (lock()) return true; ++lockTimeouts_; return false; }
+    bool lockWrite() { if (lock() || lock(WRITE_RETRY_MS)) return true; ++lockTimeouts_; errorFlag = 999; return false; }
 
     template<typename T> void setValue(T& target, const T& value)
     {
-        if (!lock()) { errorFlag = 999; return; }
+        if (!lockWrite()) return;
         target = value;
         unlock();
     }
     template<typename T> bool tryGetValue(const T& target, T& out) const
     {
-        if (!lock()) return false;
+        if (!lockRead()) return false;
         out = target;
         unlock();
         return true;
     }
     template<typename T> T getValue(const T& target) const
     {
-        if (!lock()) return T{};
+        const bool locked = lockRead();
         T v = target;
-        unlock();
+        if (locked) unlock();
         return v;
     }
+
+public:
+    /// Zahl der Sperr-Timeouts seit dem Start (Diagnose, LCD)
+    uint32_t lockTimeouts() const { return lockTimeouts_; }
+
+private:
+    mutable volatile uint32_t lockTimeouts_ = 0;
 
     mutable osMutexId_t mutex_;
     osMessageQueueId_t  eventQueue_;

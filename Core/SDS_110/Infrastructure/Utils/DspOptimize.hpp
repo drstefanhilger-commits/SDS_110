@@ -12,3 +12,12 @@
 #if defined(__arm__) && defined(__GNUC__) && !defined(__clang__) && !defined(SDS110_DSP_NO_OPT)
 #pragma GCC optimize ("O2")
 #endif
+
+// Das Pragma schaltet im Debug-Build (-O0) das Inlining NICHT ein: kleine Hilfsfunktionen und
+// Lambdas in inneren Schleifen bleiben Funktionsaufrufe (am Board gemessen: Simulator 13,5 ms
+// je Hop). SDS110_FORCE_INLINE erzwingt es auch unter -O0.
+#if defined(__GNUC__)
+#define SDS110_FORCE_INLINE inline __attribute__((always_inline))
+#else
+#define SDS110_FORCE_INLINE inline
+#endif

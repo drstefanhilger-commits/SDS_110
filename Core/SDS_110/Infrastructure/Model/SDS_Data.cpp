@@ -13,6 +13,7 @@ SDS_Data::SDS_Data()
 {
     osMutexAttr_t mutexAttr{};
     mutexAttr.name = "SDS_DataMutex";
+    mutexAttr.attr_bits = osMutexPrioInherit;         // FreeRTOS-Mutexe vererben ohnehin; hier ausdrücklich
     mutex_ = osMutexNew(&mutexAttr);
 
     osMessageQueueAttr_t queueAttr{};
@@ -24,7 +25,7 @@ SDS_Data::SDS_Data()
 // ---------------------------------------------------------------- 120 -> Status
 void SDS_Data::setAcousticState(const sds110::AcousticState& s)
 {
-    if (!lock()) { errorFlag = 999; return; }
+    if (!lockWrite()) return;
     acousticState = s;
     uint32_t n = 0;
     for (uint32_t b = 0; b < sds110::NUM_BANDS; ++b)
@@ -36,14 +37,14 @@ void SDS_Data::setAcousticState(const sds110::AcousticState& s)
 
 void SDS_Data::getAcousticState(sds110::AcousticState& out) const
 {
-    if (!lock()) { out = sds110::AcousticState{}; return; }
+    const bool locked = lockRead();
     out = acousticState;
-    unlock();
+    if (locked) unlock();
 }
 
 void SDS_Data::setCandidate(float az, float dist, float conf, bool valid)
 {
-    if (!lock()) { errorFlag = 999; return; }
+    if (!lockWrite()) return;
     if (valid) {
         azimuthDeg = az;
         distance   = dist;
@@ -56,7 +57,7 @@ void SDS_Data::setCandidate(float az, float dist, float conf, bool valid)
 // ---------------------------------------------------------------- Tasks / Debug
 void SDS_Data::setTaskStats(TaskId t, uint32_t freeStack, float loopTime, uint32_t loopCounter)
 {
-    if (!lock()) { errorFlag = 999; return; }
+    if (!lockWrite()) return;
     TaskStats& s = tasks_[static_cast<uint8_t>(t)];
     s.freeStack = freeStack; s.loopTime = loopTime; s.loopCounter = loopCounter;
     unlock();
@@ -64,9 +65,9 @@ void SDS_Data::setTaskStats(TaskId t, uint32_t freeStack, float loopTime, uint32
 
 TaskStats SDS_Data::getTaskStats(TaskId t) const
 {
-    if (!lock()) return TaskStats{};
+    const bool locked = lockRead();
     TaskStats s = tasks_[static_cast<uint8_t>(t)];
-    unlock();
+    if (locked) unlock();
     return s;
 }
 
@@ -97,7 +98,7 @@ bool SDS_Data::popErrorMessage(SDS_ErrorMessage& out)
 void SDS_Data::setErrorBuffer(const uint8_t* src, uint32_t len)
 {
     if (len > sizeof(errorBuffer_)) len = sizeof(errorBuffer_);
-    if (!lock()) { errorFlag = 998; return; }
+    if (!lockWrite()) { errorFlag = 998; return; }
     memcpy(errorBuffer_, src, len);
     errorLen = len;
     unlock();
@@ -105,10 +106,10 @@ void SDS_Data::setErrorBuffer(const uint8_t* src, uint32_t len)
 
 uint32_t SDS_Data::getErrorBuffer(uint8_t* dst, uint32_t maxLen) const
 {
-    if (!lock()) return 0;
+    const bool locked = lockRead();
     uint32_t n = (errorLen < maxLen) ? errorLen : maxLen;
     memcpy(dst, errorBuffer_, n);
-    unlock();
+    if (locked) unlock();
     return n;
 }
 

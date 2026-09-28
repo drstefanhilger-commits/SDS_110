@@ -147,8 +147,11 @@ void LCDTask::showSystemData()
     taskLine(140, "USB", TaskId::Usb);
     taskLine(150, "Log", TaskId::Logger);
 
-    snprintf(buf_, sizeof(buf_), "Reports        %lu", static_cast<unsigned long>(dm_.getReportCount()));
-    gfx_->text8x12(10, 190, buf_, Color::White);
+    // Sperr-Timeouts von SDS_Data (Befund 29): > 0 deutet auf Überlast
+    const uint32_t lto = dm_.lockTimeouts();
+    snprintf(buf_, sizeof(buf_), "Reports        %lu  Lock %lu", static_cast<unsigned long>(dm_.getReportCount()),
+             static_cast<unsigned long>(lto));
+    gfx_->text8x12(10, 190, buf_, lto ? Color::Yellow : Color::White);
     snprintf(buf_, sizeof(buf_), "Sel. bands     %lu", static_cast<unsigned long>(dm_.getSelectedBands()));
     gfx_->text8x12(10, 200, buf_, Color::White);
     // Stufe 124 (ML124_Config.hpp); im Schatten Abgleich HBD <-> ML seit dem Start:

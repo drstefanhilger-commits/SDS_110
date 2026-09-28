@@ -12,6 +12,7 @@
  *   SDS_MicPayload        -> auf FRAME_SAMPLES umgestellt (unten)
  */
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include "SDS_110_Config.hpp"
 
@@ -125,12 +126,16 @@ struct SDS_MsgRead {
     uint32_t magic     = 0xDEADBEEF;
     uint32_t len_id    = ((sizeof(SDS_MsgRead) & 0x00FFFFFF) | ((uint32_t)0x02 << 24));
     uint32_t timestamp = 0;
-    uint16_t micNr     = 1;
-    uint16_t frameNr   = 0;
+    uint8_t  micNr     = 0;      // Mikrofon 0…7
+    uint8_t  blockNr   = 0;      // Block 0…11 im Hop (je 128 Samples)
+    uint16_t hopNr     = 0;      // Hop-Nummer (frame_id aus 114, mod 2^16): Lücken erkennbar (Befund 35)
     uint32_t data[SDS_MSG_BUFFER_SIZE];
     uint32_t crc32;
 };
 static_assert(sizeof(SDS_MsgRead) == 532, "SDS_MsgRead must be 532 bytes (wire format)");
+static_assert(offsetof(SDS_MsgRead, micNr) == 12 && offsetof(SDS_MsgRead, blockNr) == 13 &&
+              offsetof(SDS_MsgRead, hopNr) == 14 && offsetof(SDS_MsgRead, data) == 16,
+              "SDS_MsgRead: Kopf wie ICD 5.3 (mic u8, block u8, hop u16)");
 
 union MessageData {
     uint8_t  b[128];

@@ -33,6 +33,9 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Prüfung | `t_feedback` | 34 | Feedback der Tracking-Einheit (USB Id 8): Kodierung, Ablauf nach 2 s, Wirkung in 126 |
 | Prüfung | `t_usb_commands` | 32 | Kommandos aus dem USB-Bytestrom: mehrere je Paket, geteilt, Resync, veralteter Rest |
 | Prüfung | `t_geo_position` | – | Standort WGS84 (USB Id 10, Nachricht Id 6): Kodierung, Grenzen, Löschen, Vorrang GNSS |
+| Prüfung | `t_sds_data` | 29 | Sperr-Timeouts in `SDS_Data`: Getter liefern den Wert statt 0, tryGet false, Setter mit zweitem Versuch |
+| Prüfung | `t_bearing_f0` | 26 | Mehrdeutigkeit bei hohem f0: f0 = 180/480/1000 Hz, ≤ 1 % grobe Fehler, 95 % ≤ 10° |
+| Messung | `m_bearing_f0` | 26 | Peilung über f0 = 120 … 1000 Hz (SNR als Argument) |
 | Prüfung | `t_azimuth` | 41 | Azimut 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord; Kette in 8 Richtungen; Nordabgleich (Id 9) |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
@@ -239,6 +242,27 @@ Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0
 3. Flags 0 löscht den Standort.
 4. Eine gültige GNSS-Position wird von Id 10 nicht überschrieben.
 5. Nachricht Id 6: Unit, Quelle, Flags, Breite, Länge, Höhe little-endian; ohne Standort Quelle 0.
+
+### t_sds_data – Sperr-Timeouts in SDS_Data (Befund 29)
+Der Host-Shim `cmsis_os2.h` lässt die nächsten n `osMutexAcquire()` mit Timeout scheitern (`g_osMutexFailNext`).
+1. Getter (Mode, Unit-ID, Simulation, Azimut, Task-Statistik, akustischer Zustand) liefern bei
+   Timeout den aktuellen Wert statt 0; jeder Timeout wird gezählt.
+2. `tryGet…` liefert false und lässt den Ausgabewert unverändert.
+3. Setter: ein Timeout → zweiter Versuch übernimmt den Wert; zwei Timeouts → verworfen,
+   gezählt, errorFlag 999.
+
+### t_bearing_f0 / m_bearing_f0 – Peilung bei hohem f0 (Befund 26)
+DroneStatic, 12 Richtungen, Frames 40…119. Prüfung (20 dB, f0 = 180, 480, 1000 Hz): höchstens 1 %
+grobe Fehler (> 30°), 95-%-Fehler ≤ 10°, mindestens 70 % gültig. Gegenprobe mit dem Stand vor dem
+28.09.2026: 480 Hz 17 grobe Fehler, 1000 Hz 117 (95 % 140°) → fällt durch.
+
+| f0 (Hz) | 120 | 250 | 400 | 480 | 560 | 650 | 800 | 1000 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| gültig, vorher | 100 % | 100 % | 85 % | 85 % | 91 % | 96 % | 78 % | 66 % |
+| 95 %, vorher | 5,4° | 3,6° | 10,6° | 20,6° | 12,2° | 6,5° | 34,3° | 137,5° |
+| gültig, jetzt | 99 % | 100 % | 94 % | 89 % | 87 % | 95 % | 82 % | 78 % |
+| 95 %, jetzt | 5,4° | 3,6° | 3,4° | 6,4° | 8,5° | 6,8° | 3,8° | 3,3° |
+| grob > 30°, jetzt | 0 | 0 | 0 | 1 | 2 | 0 | 1 | 0 |
 
 ### t_azimuth – Azimut-Konvention (FSL9 A28)
 `Infrastructure/Utils/Azimuth.hpp`: 0° = Nord, im Uhrzeigersinn; Mikrofon 0 zeigt nach Nord.
