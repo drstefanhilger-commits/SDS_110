@@ -33,6 +33,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Prüfung | `t_feedback` | 34 | Feedback der Tracking-Einheit (USB Id 8): Kodierung, Ablauf nach 2 s, Wirkung in 126 |
 | Prüfung | `t_usb_commands` | 32 | Kommandos aus dem USB-Bytestrom: mehrere je Paket, geteilt, Resync, veralteter Rest |
 | Prüfung | `t_geo_position` | – | Standort WGS84 (USB Id 10, Nachricht Id 6): Kodierung, Grenzen, Löschen, Vorrang GNSS |
+| Prüfung | `t_sds_data` | 29 | Sperr-Timeouts in `SDS_Data`: Getter liefern den Wert statt 0, tryGet false, Setter mit zweitem Versuch |
 | Prüfung | `t_azimuth` | 41 | Azimut 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord; Kette in 8 Richtungen; Nordabgleich (Id 9) |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
@@ -239,6 +240,14 @@ Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0
 3. Flags 0 löscht den Standort.
 4. Eine gültige GNSS-Position wird von Id 10 nicht überschrieben.
 5. Nachricht Id 6: Unit, Quelle, Flags, Breite, Länge, Höhe little-endian; ohne Standort Quelle 0.
+
+### t_sds_data – Sperr-Timeouts in SDS_Data (Befund 29)
+Der Host-Shim `cmsis_os2.h` lässt die nächsten n `osMutexAcquire()` mit Timeout scheitern (`g_osMutexFailNext`).
+1. Getter (Mode, Unit-ID, Simulation, Azimut, Task-Statistik, akustischer Zustand) liefern bei
+   Timeout den aktuellen Wert statt 0; jeder Timeout wird gezählt.
+2. `tryGet…` liefert false und lässt den Ausgabewert unverändert.
+3. Setter: ein Timeout → zweiter Versuch übernimmt den Wert; zwei Timeouts → verworfen,
+   gezählt, errorFlag 999.
 
 ### t_azimuth – Azimut-Konvention (FSL9 A28)
 `Infrastructure/Utils/Azimuth.hpp`: 0° = Nord, im Uhrzeigersinn; Mikrofon 0 zeigt nach Nord.
