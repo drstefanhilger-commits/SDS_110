@@ -56,7 +56,8 @@ Die Blocker 2–4 sind zurückgestellt. Ohne sie gibt es keine echten Mikrofonda
 | 2 | SAI-DMA einrichten (MspInit, Streams, IRQ-Handler) | hoch | Zurückgestellt |
 | 3 | CubeMX an die eigene Platine anpassen: SAI1 PE4/PE5, I2C2, PE3; SAI-Takt aus PLLI2S, SPDIFRX aus | hoch | Zurückgestellt |
 | 4 | ADAU7118-Registertabelle und I2C-Adresse (0x4B oder 0x3A) klären | hoch | Zurückgestellt |
-| 17, 42, 44 | Rechenlast: zuletzt Proc 32,2 ms (118 4,3 · Fenster 2,6 · F 15,2), Sim 6,4 ms; nach Befund 44 neu messen (Zeile „118 … Fa … Fr … Fs …“), Schalter `SDS110_FFT_TABLES_IN_RAM` vergleichen | hoch | Offen |
+| 17, 42, 44 | Rechenlast gemessen (Release, 28.09.2026): Proc 29,0 ms bei 32 ms Budget (118 4,6 · Fa 0,0 · Fr 3,3 · Fs 1,64 × 7), Sim 6,4 ms (nur Simulation, Sim + Proc 35,4 ms). Echtbetrieb passt | – | Erledigt |
+| 44 (Reserve) | Falls die Integration mehr Rechenzeit braucht: FFT-Arbeitspuffer (`buf_`, `fftOut_`, 32 KB) und Twiddles (32 KB) in den DTCM (64 KB, ohne Wartezyklen); dafür ML-Instanz und Heap aus dem DTCM verlegen, Linker-Abschnitt `.dtcm`, 122 geändert → Neuexport mit `--same-as`. Die Twiddles im SRAM1 brachten nur ~3 % (Fs 1,69 → 1,64 ms); mit `SDS110_FFT_TABLES_IN_RAM 0` lassen sich 32 KB RAM zurückgewinnen | niedrig | Reserve |
 | 26, 29, 32, 35 | Am Board prüfen: Peilung bei hohem f0, Lock-Zähler am LCD, Unit-ID/SRP bei laufendem Feedback, READ-Rohdaten mit Hop-Nummer | mittel | Offen |
 | 5 | Abtastrate messen: FSYNC 47,991 kHz, BCLK 12,286 MHz | mittel | Offen |
 | 6, 34 | Bitlage im 32-Bit-Slot und SAI-Taktflanke am Oszilloskop prüfen | mittel | Offen |
