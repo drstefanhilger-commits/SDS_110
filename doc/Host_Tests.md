@@ -30,6 +30,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Prüfung | `t_hopclock` | 28 | Hop-Takt der Simulation im ProcessingTask (31,25 Hops/s) |
 | Prüfung | `t_gcc_direct` | – | Schnellpfad der GCC-PHAT in 126 gleich IFFT, Zeit je Frame |
 | Prüfung | `t_sound_speed` | 34 | Schallgeschwindigkeit aus der Lufttemperatur (Sync Typ 7), Peilung −40…+60 °C |
+| Prüfung | `t_feedback` | 34 | Feedback der Tracking-Einheit (USB Id 8): Kodierung, Ablauf nach 2 s, Wirkung in 126 |
 | Prüfung | `t_azimuth` | 41 | Azimut 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord; Kette in 8 Richtungen |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
@@ -205,6 +206,14 @@ Geprüft gegen die IFFT (`setDirectMaxBins(0)`):
 Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0,0007°);
 `estimateBearing()` je Frame 0,13 ms (Schnellpfad) gegenüber 1,51 ms (IFFT), x86 `-O2`
 (400 mm, ±64 Lags: 0,28 ms).
+
+### t_feedback – Feedback der Tracking-Einheit (FSL9 §10, Id 8)
+1. `FeedbackCodec`: ŝ mit 4 Bit je Band, Azimut 0,01°, Distanz 0,1 m, Flags; falsche Länge und
+   Azimut ≥ 360° werden verworfen; Bytes vom PC-Monitor (`build_feedback`) gleich und dekodierbar.
+2. `Output_Interface_130::pollFeedback`: neu → übernommen; unverändert → nichts; älter als 2 s →
+   einmal zurücksetzen (valid = false), danach nichts.
+3. 126: Band mit ŝ_b = 0,8 wird schon bei p_b = 0,4 selektiert (θ = 0,3), Gewicht 0,4 · 1,8;
+   nach dem Zurücksetzen wieder θ_sel = 0,5.
 
 ### t_azimuth – Azimut-Konvention (FSL9 A28)
 `Infrastructure/Utils/Azimuth.hpp`: 0° = Nord, im Uhrzeigersinn; Mikrofon 0 zeigt nach Nord.

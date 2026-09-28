@@ -68,9 +68,21 @@ bool Output_Interface_130::send(const UnitReport& r)
     return ok;
 }
 
-bool Output_Interface_130::pollFeedback(TrackingFeedback& fb)
+bool Output_Interface_130::pollFeedback(TrackingFeedback& fb, uint32_t nowMs)
 {
-    fb = TrackingFeedback{};
+    SDS_Data::FeedbackBox box;
+    if (!SDS_Data::instance().tryGetFeedback(box)) return false;     // Sperr-Timeout: nächster Frame
+    if (box.seq != fbSeq_) {                                        // neues Feedback
+        fbSeq_ = box.seq;
+        fb = box.fb;
+        fbActive_ = fb.valid;
+        return true;
+    }
+    if (fbActive_ && nowMs - box.tickMs > FEEDBACK_TIMEOUT_MS) {    // abgelaufen -> zurücksetzen
+        fbActive_ = false;
+        fb = TrackingFeedback{};
+        return true;
+    }
     return false;
 }
 
