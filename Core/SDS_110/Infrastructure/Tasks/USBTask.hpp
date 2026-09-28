@@ -9,7 +9,8 @@
  * Anbindung in usbd_cdc_if.c, CDC_Receive_FS(), USER CODE 6:
  *     extern void USBTask_OnReceive(uint8_t* buf, uint32_t len);
  *     USBTask_OnReceive(Buf, *Len);
- * Nachrichten max. 63 Byte. Das Symbol usb_debug_counter (bisher in LCDTask)
+ * Ein USB-Paket (max. 64 Byte) kann mehrere Kommandos oder den Teil eines Kommandos
+ * enthalten; der CommandAssembler setzt den Bytestrom zusammen (Befund 32). Das Symbol usb_debug_counter (bisher in LCDTask)
  * wird hier definiert.
  *
  * Ereignisgetrieben: waitForWork() blockiert auf rxQueue_, bis ein Kommando
@@ -26,6 +27,7 @@
 #include "queue.h"
 #include "TaskBase.hpp"
 #include "Infrastructure/Driver/USBDriver.hpp"
+#include "Infrastructure/Utils/CommandAssembler.hpp"
 
 namespace sds110 {
 
@@ -45,7 +47,12 @@ protected:
 
 private:
     USBTask();
-    void handle(const uint8_t* rx);
+    static constexpr size_t   MAX_LENGTH    = 64;    // ein USB-FS-Paket
+    struct RxChunk { uint64_t rxUs; uint8_t len; uint8_t data[MAX_LENGTH]; };
+    static constexpr UBaseType_t RX_QUEUE_LEN = 16;
+
+    void handleChunk(const RxChunk& c);
+    void handle(const uint8_t* rx);                // ein vollständiges Kommando ab Magic
     void handleTimeSync(const uint8_t* rx);
     void handleModeChange(const uint8_t* rx);
     void handleSimulation(const uint8_t* rx);
@@ -55,6 +62,7 @@ private:
     void handleFeedback(const uint8_t* rx);      // Typ 8: Feedback der Tracking-Einheit (ŝ, Vorhersage), 52 Byte
     void handleAzimuthOffset(const uint8_t* rx); // Typ 9: Nordabgleich, Offset i32 in 0,01°
     void handleError(const uint8_t* rx);
+    void handleErrorBytes(const uint8_t* p, uint32_t n);
     static bool hasMagic(const uint8_t* rx);
     /// Längenfeld: Gesamtlänge der Nachricht (SDS_CMD_LENGTH), nicht nur der Nutzdaten
     static uint32_t msgLen(const uint8_t* rx)     { return (rx[5] << 16) | (rx[6] << 8) | rx[7]; }
@@ -63,14 +71,12 @@ private:
     { uint64_t v = 0; for (int i = 8; i < 16; ++i) v = (v << 8) | rx[i]; return v; }
     void resetCounters();
 
-    static constexpr size_t   MAX_LENGTH    = 64;
-    /// Empfangszeit (Laufzeit µs, aus dem USB-Interrupt) am Ende jedes Queue-Eintrags
-    static constexpr size_t   RX_TIME_OFFSET = MAX_LENGTH - sizeof(uint64_t);
-    static uint64_t rxTimeUs(const uint8_t* rx) { uint64_t t; memcpy(&t, rx + RX_TIME_OFFSET, sizeof(t)); return t; }
     static constexpr uint32_t IDLE_RESET_MS = 2000;  // danach Zeit-Anzeige = 0
     SDS_Data&     dm_ = SDS_Data::instance();
     QueueHandle_t rxQueue_ = nullptr;
-    uint8_t       rx_[MAX_LENGTH] = {};          // von waitForWork() empfangen
+    RxChunk       rx_{};                         // von waitForWork() empfangen
+    CommandAssembler asm_;                       // Bytestrom -> Kommandos
+    uint64_t      cmdRxUs_ = 0;                  // Empfangszeit des Pakets mit dem aktuellen Kommando
     bool          rxValid_ = false;
     volatile uint32_t rxDropped_ = 0;            // Queue voll / Task nicht bereit
 

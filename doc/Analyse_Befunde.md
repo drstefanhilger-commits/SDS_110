@@ -179,7 +179,7 @@ nachvollzogen, „plausibel“ = nicht nachgewiesen.
 31. **Wechsel Simulation ↔ Hardware mitten im Hop** (`ProcessingTask`; mittel, Code) – Ein Hop enthält echte und simulierte Daten.
     Status: offen – seit Commit 84897b2 erzeugt die Simulation immer ganze Hops; beim Wechsel Hardware → Simulation bleibt der angefangene DMA-Hop in 114 aber stehen und wird mit simulierten Blöcken aufgefüllt.
 32. **Nur ein Kommando je USB-Paket** (`USBTask`; mittel, Code) – Zusammengefasste Kommandos gehen still verloren, geteilte lösen Fehler aus.
-    Status: offen
+    Status: **bearbeitet (28.09.2026)** – Am Board beobachtet: Unit-ID (Id 5) und SRP (Id 6) blieben ohne Wirkung, sobald das Feedback (Id 8) mit bis zu 31/s lief; Windows fasst dicht folgende Schreibvorgänge zu einem USB-Paket zusammen. Neu: `Infrastructure/Utils/CommandAssembler.hpp` setzt den Bytestrom zusammen (Resync auf das Magic, Länge 16…56, Rest über die Paketgrenze, veralteter Rest nach 20 ms verworfen); der ISR reicht ganze Pakete (64 Byte + Empfangszeit) weiter, Queue 16 Pakete. Host-Test `t_usb_commands`; am Board nicht geprüft.
 33. **UnitReport-Zeitstempel nur in ms (uint32)** (`Output_Interface_130.cpp`; mittel, Code) – Die µs-Zeit aus Befund 16 erreicht den PC nicht; Inter-Unit-TDOA (10 µs) damit unmöglich.
     Status: **Firmware bearbeitet (27.09.2026)** – Host-Test `t_unit_report`, am Board nicht geprüft; PC-Monitor offen.
     - UnitReport jetzt Message id 5 (ersetzt id 4): Kopf `[unit u16][time_us u64][src u8][bearing f32][residual f32][pairs u8][nsel u8][level f32]`, little-endian, danach Bänder (max. 51). `src`: 0 Laufzeit, 1 UTC vom PC, 2 GNSS-PPS (vorgesehen).

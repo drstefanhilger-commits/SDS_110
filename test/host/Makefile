@@ -38,7 +38,7 @@ SHIM_SRCS := $(HERE)/shim/arm_rfft.cpp $(HERE)/shim/sds_stubs.cpp
 MOD_OBJS := $(patsubst $(CODE)/%.cpp,$(BUILD)/obj/code/%.o,$(MOD_SRCS)) \
             $(patsubst $(HERE)/%.cpp,$(BUILD)/obj/test/%.o,$(SHIM_SRCS)) $(BUILD)/obj/kiss_fft.o
 
-CHECKS   := t_scaling t_frame_assembler t_unit_report t_sdram_selftest t_timebase t_logger t_bearing_broadband t_ml124 t_hopclock t_gcc_direct t_sound_speed t_azimuth t_feedback
+CHECKS   := t_scaling t_frame_assembler t_unit_report t_sdram_selftest t_timebase t_logger t_bearing_broadband t_ml124 t_hopclock t_gcc_direct t_sound_speed t_azimuth t_feedback t_usb_commands
 MEASURES := m_overview m_hbd_diag m_bearing_drone m_selection m_distance m_confidence
 ALL      := $(CHECKS) $(MEASURES) m_longrun
 
@@ -80,6 +80,9 @@ $(BUILD)/t_sdram_selftest: $(HERE)/t_sdram_selftest.cpp $(S)/Infrastructure/Driv
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) -I$(HERE)/shim_hal -I$(S) $^ -o $@
 $(BUILD)/t_timebase: $(HERE)/t_timebase.cpp $(S)/Infrastructure/Utils/TimeBase.hpp
+	@mkdir -p $(BUILD)
+	$(CXX) $(CXXFLAGS) -I$(S) $< -o $@
+$(BUILD)/t_usb_commands: $(HERE)/t_usb_commands.cpp $(S)/Infrastructure/Utils/CommandAssembler.hpp
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) -I$(S) $< -o $@
 $(BUILD)/t_hopclock: $(HERE)/t_hopclock.cpp $(S)/Infrastructure/Utils/HopClock.hpp

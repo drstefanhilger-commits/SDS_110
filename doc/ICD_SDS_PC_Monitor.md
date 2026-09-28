@@ -34,7 +34,8 @@ Schnittstellenbeschreibung (Interface Control Document) zwischen der Sensoreinhe
 
 - **Physik:** USB Full Speed, Klasse CDC-ACM (virtueller COM-Port). Die Baudrate spielt keine Rolle.
 - **Kommandos PC → SDS:**
-  - **Ein Kommando je USB-Paket.** Mehrere Kommandos in einem Paket gehen verloren, ein geteiltes Kommando löst einen Fehler aus (Befund 32).
+  - **Bytestrom:** Die Firmware setzt die USB-Pakete zu einem Bytestrom zusammen und löst die Kommandos über Magic und Länge heraus (`CommandAssembler.hpp`, seit 28.09.2026). Ein Paket darf mehrere Kommandos oder den Teil eines Kommandos enthalten; der Host fasst dicht folgende Schreibvorgänge oft zusammen (Befund 32).
+  - **Rest eines Kommandos:** Folgt der Rest nicht innerhalb von 20 ms, wird der Anfang verworfen.
   - **Höchstens 56 Byte je Kommando.**
 - **Keine Antwort:** Die Firmware bestätigt Kommandos nicht. Die Wirkung ist am LCD sichtbar und an den folgenden Reports erkennbar, zum Beispiel Zeitquelle und Unit-ID.
 - **Fehlerhafte Kommandos:** Gemeint sind ein falsches Magic, eine unbekannte Id, eine falsche Länge oder ungültige Werte. Die Firmware setzt dann das Fehler-Flag und zeigt die ersten 16 Byte etwa 10 s auf dem LCD an.
@@ -226,6 +227,7 @@ Rahmen wie beim UnitReport, mit `len_id` = 0x63000090 und `timestamp` = 0. Die N
 
 | Datum | Änderung | PC-Monitor |
 | --- | --- | --- |
+| 28.09.2026 | Mehrere und geteilte Kommandos je USB-Paket werden ausgewertet (Befund 32); vorher blieben z. B. Unit-ID und SRP bei laufendem Feedback ohne Wirkung. LCD zeigt die Unit-ID dezimal | keine Änderung nötig; Unit-ID dezimal anzeigen |
 | 28.09.2026 | Kommando Id 9 (Nordabgleich) neu; CALIBRATE verarbeitet wie DETECT (vorher keine Verarbeitung) | Tab Calibrate: messen, Offset senden, beim Verbinden erneut senden |
 | 28.09.2026 | Azimut in Detect und UnitReport jetzt 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord (vorher ab der x-Achse gegen den Uhrzeigersinn) | Darstellung Nord oben, Ost rechts: x = r · sin φ, y = r · cos φ |
 | 28.09.2026 | Kommando Id 8 (Feedback der Tracking-Einheit) neu | nach jeder Übernahme einer bestätigten Spur senden, Flags = 0 bei Spurende |
@@ -237,7 +239,6 @@ Rahmen wie beim UnitReport, mit `len_id` = 0x63000090 und `timestamp` = 0. Die N
 ## 7. Offene Punkte
 
 - **CRC der Kommandos prüfen (Befund 12).** Danach werden Kommandos mit falscher CRC verworfen.
-- **Mehrere oder geteilte Kommandos je USB-Paket zulassen (Befund 32).**
 - **Kommando-Bestätigung durch die Firmware fehlt.**
 - **Beschriftung CALIBRATE/READ in `PC_Monitor_Test.ptp` (Befund 25).**
 - **Vorhersage aus Id 8 für das TDOA-Suchfenster nutzen (FSL9 §10, A34).**

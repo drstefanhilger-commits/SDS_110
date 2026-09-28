@@ -7,6 +7,7 @@
 #include "Infrastructure/Utils/SoundSpeed.hpp"
 #include "Infrastructure/Utils/FeedbackCodec.hpp"
 #include "Infrastructure/Utils/Azimuth.hpp"
+#include "Infrastructure/Utils/CommandAssembler.hpp"
 #include <cstring>
 #include <initializer_list>
 
@@ -27,7 +28,7 @@ USBTask::USBTask() : TaskBase(4096, 0, osPriorityNormal)
 {
     // Queue im Konstruktor (main, nach osKernelInitialize), nicht erst im Task:
     // so geht kein Kommando verloren, das vor dem ersten Task-Lauf eintrifft.
-    rxQueue_ = xQueueCreate(8, MAX_LENGTH);
+    rxQueue_ = xQueueCreate(RX_QUEUE_LEN, sizeof(RxChunk));
     configASSERT(rxQueue_ != nullptr);
     active_ = this;
 }
@@ -37,13 +38,14 @@ void USBTask::onUsbReceiveISR(const uint8_t* buf, uint32_t len)
     USBTask* self = active_;
     if (self == nullptr) return;                     // USBTask nicht gestartet
 
-    uint8_t local[MAX_LENGTH] = {};
-    const uint64_t rxUs = TimeBase::nowUs();          // Empfangszeit für Typ 7 (UTC)
-    const size_t n = (len > RX_TIME_OFFSET) ? RX_TIME_OFFSET : len;   // Kommandos <= 56 Byte
-    memcpy(local, buf, n);
-    memcpy(local + RX_TIME_OFFSET, &rxUs, sizeof(rxUs));
+    // ganzes Paket weiterreichen: es kann mehrere Kommandos oder den Teil eines Kommandos
+    // enthalten (Befund 32), zerlegt wird im Task (CommandAssembler)
+    RxChunk c;
+    c.rxUs = TimeBase::nowUs();                       // Empfangszeit für Typ 7 (UTC)
+    c.len  = static_cast<uint8_t>((len > MAX_LENGTH) ? MAX_LENGTH : len);
+    memcpy(c.data, buf, c.len);
     BaseType_t hpw = pdFALSE;
-    if (xQueueSendFromISR(self->rxQueue_, local, &hpw) != pdPASS)
+    if (xQueueSendFromISR(self->rxQueue_, &c, &hpw) != pdPASS)
         ++self->rxDropped_;
     portYIELD_FROM_ISR(hpw);
 }
@@ -51,28 +53,44 @@ void USBTask::onUsbReceiveISR(const uint8_t* buf, uint32_t len)
 void USBTask::waitForWork()
 {
     // schläft, bis ein Kommando kommt – keine CPU-Last im Leerlauf
-    if (xQueueReceive(rxQueue_, rx_, pdMS_TO_TICKS(IDLE_RESET_MS)) == pdTRUE) {
+    if (xQueueReceive(rxQueue_, &rx_, pdMS_TO_TICKS(IDLE_RESET_MS)) == pdTRUE) {
         rxValid_ = true;
         return;
     }
     // IDLE_RESET_MS ohne Kommando: angezeigte Bearbeitungszeit auf 0,
     // danach wieder ohne Timeout warten (Zähler bleibt = Aufwachvorgänge)
     dm_.setTaskStats(TaskId::Usb, freeStackBytes_, 0.0f, loopNr_);
-    rxValid_ = (xQueueReceive(rxQueue_, rx_, portMAX_DELAY) == pdTRUE);
+    rxValid_ = (xQueueReceive(rxQueue_, &rx_, portMAX_DELAY) == pdTRUE);
 }
 
 void USBTask::runOnce()
 {
     DWTTimer& dwt = DWTTimer::instance();
     const uint32_t t0 = dwt.cycles();
-    if (rxValid_) handle(rx_);
-    // weitere, inzwischen eingetroffene Kommandos gleich mit abarbeiten
-    uint8_t rx[MAX_LENGTH];
-    while (xQueueReceive(rxQueue_, rx, 0) == pdTRUE)
-        handle(rx);
+    if (rxValid_) handleChunk(rx_);
+    // weitere, inzwischen eingetroffene Pakete gleich mit abarbeiten
+    RxChunk c;
+    while (xQueueReceive(rxQueue_, &c, 0) == pdTRUE)
+        handleChunk(c);
     // eigene Messung statt reportStats(): execTimeCycles_/loopNr_ setzt TaskBase
     // erst nach runOnce(), das wäre die Zeit des vorigen Kommandos
     dm_.setTaskStats(TaskId::Usb, freeStackBytes_, cyclesToMs(dwt.cycles() - t0), loopNr_ + 1);
+}
+
+void USBTask::handleChunk(const RxChunk& c)
+{
+    asm_.push(c.data, c.len, c.rxUs);
+    const uint8_t* p = nullptr;
+    uint32_t n = 0;
+    for (;;) {
+        const CommandAssembler::Result r = asm_.next(p, n);
+        if (r == CommandAssembler::Result::None) break;
+        if (r == CommandAssembler::Result::Error) { handleErrorBytes(p, n); continue; }
+        uint8_t cmd[MAX_LENGTH] = {};                // Handler lesen feste Offsets (bis 16 bzw. 52)
+        memcpy(cmd, p, n);
+        cmdRxUs_ = c.rxUs;
+        handle(cmd);
+    }
 }
 
 void USBTask::handle(const uint8_t* rx)
@@ -141,7 +159,7 @@ void USBTask::handleSync(const uint8_t* rx)
     // UTC: 0 = keine Zeit (nur Temperatur); sonst plausibel (ab 2020), sonst Fehler
     const uint64_t utc = payloadU64(rx);
     UtcOffset o;
-    const bool utcOk = utc == 0 || UtcClock::fromSync(utc, rxTimeUs(rx), TimeSource::PcUtc, o);
+    const bool utcOk = utc == 0 || UtcClock::fromSync(utc, cmdRxUs_, TimeSource::PcUtc, o);
     if (utc != 0 && utcOk) dm_.setUtcOffset(o);
     // Temperatur: unbekannt oder außerhalb −40…+60 °C -> letzte Temperatur bleibt
     const int16_t centi = static_cast<int16_t>((rx[16] << 8) | rx[17]);
@@ -173,6 +191,13 @@ void USBTask::handleError(const uint8_t* rx)
     dm_.setErrorBuffer(rx, 16);
     resetCounters();
     dm_.setErrorCount(30);   // ~10 s Anzeige
+}
+
+void USBTask::handleErrorBytes(const uint8_t* p, uint32_t n)
+{
+    uint8_t b[16] = {};                              // Anzeige: die ersten 16 verworfenen Bytes
+    memcpy(b, p, (n < sizeof(b)) ? n : sizeof(b));
+    handleError(b);
 }
 
 bool USBTask::hasMagic(const uint8_t* rx)
