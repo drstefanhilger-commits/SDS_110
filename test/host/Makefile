@@ -38,7 +38,7 @@ SHIM_SRCS := $(HERE)/shim/arm_rfft.cpp $(HERE)/shim/sds_stubs.cpp
 MOD_OBJS := $(patsubst $(CODE)/%.cpp,$(BUILD)/obj/code/%.o,$(MOD_SRCS)) \
             $(patsubst $(HERE)/%.cpp,$(BUILD)/obj/test/%.o,$(SHIM_SRCS)) $(BUILD)/obj/kiss_fft.o
 
-CHECKS   := t_scaling t_frame_assembler t_unit_report t_sdram_selftest t_timebase t_logger t_bearing_broadband t_ml124 t_hopclock t_gcc_direct t_sound_speed t_azimuth t_feedback t_usb_commands t_geo_position t_sds_data t_bearing_f0
+CHECKS   := t_scaling t_frame_assembler t_unit_report t_sdram_selftest t_timebase t_logger t_bearing_broadband t_ml124 t_hopclock t_gcc_direct t_sound_speed t_azimuth t_feedback t_usb_commands t_geo_position t_sds_data t_bearing_f0 t_hop_gap
 MEASURES := m_overview m_hbd_diag m_bearing_drone m_selection m_distance m_confidence m_bearing_f0
 ALL      := $(CHECKS) $(MEASURES) m_longrun
 
@@ -91,6 +91,9 @@ $(BUILD)/t_geo_position: $(HERE)/t_geo_position.cpp $(S)/Infrastructure/Utils/Ge
 $(BUILD)/t_sds_data: $(HERE)/t_sds_data.cpp $(S)/Infrastructure/Model/SDS_Data.cpp $(S)/Infrastructure/Model/SDS_Data.hpp
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) -I$(HERE)/shim -I$(S) $(HERE)/t_sds_data.cpp $(S)/Infrastructure/Model/SDS_Data.cpp -o $@
+$(BUILD)/t_hop_gap: $(HERE)/t_hop_gap.cpp $(S)/Sensor_Unit_112/Microphone_Array_114.cpp $(S)/Sensor_Unit_112/Frame_Assembler.cpp
+	@mkdir -p $(BUILD)
+	$(CXX) $(CXXFLAGS) -I$(HERE)/shim -I$(S) $^ -o $@
 $(BUILD)/t_hopclock: $(HERE)/t_hopclock.cpp $(S)/Infrastructure/Utils/HopClock.hpp
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) -I$(S) $< -o $@

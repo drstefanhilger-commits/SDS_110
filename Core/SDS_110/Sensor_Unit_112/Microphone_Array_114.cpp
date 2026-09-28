@@ -55,11 +55,15 @@ void Microphone_Array_114::pushBlock(const int32_t* interleaved, uint32_t sample
 {
     MicFrame* f = active_;
     if (!f) {
-        // Kein freier Puffer: Block verwerfen, später erneut versuchen
+        // Kein freier Puffer: Block verwerfen, später erneut versuchen. Befund 27: beim ersten
+        // verworfenen Block eine frame_id überspringen, damit der Frame_Assembler (und der
+        // PC-Monitor im Modus READ) die Lücke erkennt und keine zeitlich getrennten Hops verbindet.
+        if (!dropping_) { ++nextId_; dropping_ = true; }
         active_ = acquireFree();
         ++dropped_;
         return;
     }
+    dropping_ = false;
     if (f->writeIndex == 0) f->time_utc_us = time_utc_us;
 
     constexpr float scale = 1.0f / PCM_RAW_FULL_SCALE;   // 24 bit linksbündig im 32-bit-Slot -> [-1, 1)
