@@ -3,6 +3,7 @@
  */
 #include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board
 #include "Correlation_Processing_Module_126.hpp"
+#include "Infrastructure/Utils/FftTables.hpp"
 #include "Infrastructure/Utils/Azimuth.hpp"
 #include <cmath>
 #include <cstring>
@@ -17,6 +18,7 @@ float Correlation_Processing_Module_126::win_[2 * WIN_MAX + 1];
 void Correlation_Processing_Module_126::init(const Microphone_Array_114& array)
 {
     arm_rfft_fast_init_f32(&ifft_, N_FFT);
+    fftTablesToRam(ifft_);                             // dieselben Twiddles wie 122, im internen RAM
     float dmax = 0.0f;
     for (uint32_t m = 0; m < NUM_MICS; ++m) {
         micPos_[m] = array.position(m);

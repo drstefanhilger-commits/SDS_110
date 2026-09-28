@@ -37,7 +37,7 @@ int main()
             for (int i = 0; i < 120; ++i) {
                 const AnalysisFrame& f = nextAnalysisFrame(sim, arr, pre);
                 feat.process(f, sp[REF_MIC], fv);
-                for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f.data[m], FRAME_SAMPLES, sp[m]);
+                for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f, m, sp[m]);
                 ml.infer(feat.magnitude(), fv, st); corr.deriveSelection(st, sel); corr.estimateBearing(sp, sel, br);
                 if (i < 40) continue;
                 ++frames; guided += corr.lastWasGuided();

@@ -74,7 +74,7 @@ int main()
         std::vector<float> e, es;
         for (int i = 0; i < 130; ++i) {
             const AnalysisFrame& f = nextAnalysisFrame(sim, arr, pre); feat.process(f, sp[REF_MIC], fv);
-            for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f.data[m], FRAME_SAMPLES, sp[m]);
+            for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f, m, sp[m]);
             ml.infer(feat.magnitude(), fv, st);
             if (i < 100) continue;
             corr.deriveSelection(st, sel);

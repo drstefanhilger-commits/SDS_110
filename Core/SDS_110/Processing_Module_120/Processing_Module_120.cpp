@@ -68,7 +68,7 @@ bool Processing_Module_120::processFrame()
     feat_.process(*frame, spectra_[REF_MIC], features_);
     const uint32_t c1a = dwt.cycles();
     for (uint32_t m = 0; m < NUM_MICS; ++m)
-        if (m != REF_MIC) feat_.computeSpectrum(frame->data[m], FRAME_SAMPLES, spectra_[m]);
+        if (m != REF_MIC) feat_.computeSpectrum(*frame, m, spectra_[m]);
     const uint64_t t = frame->time_utc_us;
     const uint32_t c2 = dwt.cycles();
     smoothMs(tFeat_, c2 - c1);

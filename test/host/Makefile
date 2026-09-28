@@ -73,7 +73,7 @@ $(BUILD)/t_unit_report: $(HERE)/t_unit_report.cpp $(S)/Processing_Module_120/Out
 $(BUILD)/t_scaling: $(HERE)/t_scaling.cpp $(S)/Sensor_Unit_112/Microphone_Array_114.cpp
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) -I$(HERE)/shim -I$(S) $^ -o $@
-$(BUILD)/t_frame_assembler: $(HERE)/t_frame_assembler.cpp $(S)/Sensor_Unit_112/Frame_Assembler.cpp
+$(BUILD)/t_frame_assembler: $(HERE)/t_frame_assembler.cpp $(S)/Sensor_Unit_112/Frame_Assembler.cpp $(S)/Sensor_Unit_112/Pre_Processor_118.cpp
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) -I$(HERE)/shim -I$(S) $^ -o $@
 $(BUILD)/t_sdram_selftest: $(HERE)/t_sdram_selftest.cpp $(S)/Infrastructure/Driver/SDRAMSelfTest.cpp

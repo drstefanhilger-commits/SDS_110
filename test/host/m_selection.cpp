@@ -35,7 +35,7 @@ static void run(SimScenario sc, float snr)
         FeatureVector fv{}; AcousticState st{}; ComponentSelection sel{}; Bearing br{};
         for (int i = 0; i < g_frames; ++i) {
             const AnalysisFrame& f = nextAnalysisFrame(sim, arr, pre); feat.process(f, sp[REF_MIC], fv);
-            for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f.data[m], FRAME_SAMPLES, sp[m]);
+            for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f, m, sp[m]);
             ml.infer(feat.magnitude(), fv, st); corr.deriveSelection(st, sel); corr.estimateBearing(sp, sel, br);
             if (i < 100) continue;          // 50 alte 64-ms-Frames = 100 Frames à 32 ms
             ++n; hbd += ml.hbd().droneDetected;

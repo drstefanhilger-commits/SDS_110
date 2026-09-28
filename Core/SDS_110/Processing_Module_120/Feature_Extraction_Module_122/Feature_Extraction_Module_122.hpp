@@ -49,6 +49,9 @@ public:
 
     /// STFT eines beliebigen Kanals (für 126: Intra-Unit-Korrelation)
     void computeSpectrum(const float* x, uint32_t n, Spectrum& out);
+    /// Spektrum von Kanal ch eines Analyse-Frames (zwei Hop-Teile, siehe Frame_Assembler);
+    /// bitgleich zu computeSpectrum() über den zusammenhängenden Frame
+    void computeSpectrum(const AnalysisFrame& frame, uint32_t ch, Spectrum& out);
 
     /// Bin-Bereich [k_lo, k_hi) des Bandes b
     static void bandBins(uint32_t b, uint32_t& k_lo, uint32_t& k_hi);
@@ -66,6 +69,7 @@ private:
     static float melToHz(float m)  { return 700.0f * (std::pow(10.0f, m / 2595.0f) - 1.0f); }
 
     arm_rfft_fast_instance_f32 fft_;
+    void  fftPacked(Spectrum& out);           // FFT von buf_, Ergebnis wie CMSIS entpackt
     float window_[FRAME_SAMPLES];
     float buf_[N_FFT];
     float fftOut_[N_FFT];

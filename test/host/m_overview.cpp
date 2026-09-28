@@ -37,7 +37,7 @@ static void run(SimScenario sc, float snrDb, float f0, int frames, int settle)
     for (int i = 0; i < frames; ++i) {
         const AnalysisFrame& f = nextAnalysisFrame(sim, arr, pre);
         feat.process(f, spectra[REF_MIC], fv);
-        for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f.data[m], FRAME_SAMPLES, spectra[m]);
+        for (uint32_t m = 0; m < NUM_MICS; ++m) if (m != REF_MIC) feat.computeSpectrum(f, m, spectra[m]);
         ml.infer(feat.magnitude(), fv, st);
         corr.deriveSelection(st, sel);
         corr.estimateBearing(spectra, sel, br);
