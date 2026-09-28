@@ -31,6 +31,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Prüfung | `t_gcc_direct` | – | Schnellpfad der GCC-PHAT in 126 gleich IFFT, Zeit je Frame |
 | Prüfung | `t_sound_speed` | 34 | Schallgeschwindigkeit aus der Lufttemperatur (Sync Typ 7), Peilung −40…+60 °C |
 | Prüfung | `t_feedback` | 34 | Feedback der Tracking-Einheit (USB Id 8): Kodierung, Ablauf nach 2 s, Wirkung in 126 |
+| Prüfung | `t_usb_commands` | 32 | Kommandos aus dem USB-Bytestrom: mehrere je Paket, geteilt, Resync, veralteter Rest |
 | Prüfung | `t_azimuth` | 41 | Azimut 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord; Kette in 8 Richtungen; Nordabgleich (Id 9) |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
@@ -214,6 +215,15 @@ Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0
    einmal zurücksetzen (valid = false), danach nichts.
 3. 126: Band mit ŝ_b = 0,8 wird schon bei p_b = 0,4 selektiert (θ = 0,3), Gewicht 0,4 · 1,8;
    nach dem Zurücksetzen wieder θ_sel = 0,5.
+
+### t_usb_commands – Kommandos aus dem USB-Bytestrom (Befund 32)
+`Infrastructure/Utils/CommandAssembler.hpp`, genutzt von `USBTask`.
+1. Ein Kommando je Paket wie bisher.
+2. Zusammengefasst: Feedback (52) + Unit-ID (16) auf 64 + 4 Byte; Unit-ID + SRP in einem Paket.
+3. Geteilt: Sync (24) auf 10 + 14 Byte.
+4. Müll vor dem Magic und ein scheinbares Magic mit falscher Länge melden Fehler, danach Resync;
+   ein Magic-Anfang am Paketende bleibt erhalten.
+5. Ein Rest, der älter als 20 ms ist, wird verworfen und nicht mit dem nächsten Kommando verbunden.
 
 ### t_azimuth – Azimut-Konvention (FSL9 A28)
 `Infrastructure/Utils/Azimuth.hpp`: 0° = Nord, im Uhrzeigersinn; Mikrofon 0 zeigt nach Nord.

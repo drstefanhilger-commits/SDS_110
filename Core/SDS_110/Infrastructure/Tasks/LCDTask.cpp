@@ -99,7 +99,7 @@ void LCDTask::onTask()
 void LCDTask::showRadar()
 {
     gfx_->text8x12(420, 10, "1.10", Color::Green);              // Version
-    snprintf(buf_, sizeof(buf_), "Unit %04X", dm_.getId());
+    snprintf(buf_, sizeof(buf_), "Unit %5u", static_cast<unsigned>(dm_.getId()));
     gfx_->text8x12(330, 10, buf_, Color::Green);
     gfx_->line(235, 10, 235, 242, Color::Red);
     gfx_->circle(x0_, y0_, R_, Color::White);

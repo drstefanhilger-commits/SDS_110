@@ -17,7 +17,7 @@ Alles hier lässt sich auf dem Host umsetzen und mit `test/host` belegen.
 | 30 | Start von SAI/Verarbeitung nur nach erfolgreicher Initialisierung | mittel | Offen |
 | 28 | Simulation und READ an den 32-ms-Hop koppeln (alle fälligen Hops je Durchlauf) | mittel | Offen |
 | 31 | Beim Wechsel Simulation ↔ Hardware Hop-Puffer und Frame_Assembler zurücksetzen | mittel | Offen |
-| 32 | Mehrere oder geteilte Kommandos je USB-Paket auswerten | mittel | Offen |
+| 32 | Mehrere oder geteilte Kommandos je USB-Paket auswerten | mittel | Bearbeitet 28.09.2026 (`CommandAssembler`, `t_usb_commands`), am Board prüfen |
 | 33 | UnitReport-Zeitstempel in µs übertragen | mittel | Firmware erledigt (id 5, UTC über Typ 7); PC-Monitor offen |
 | 12 | CRC der USB-Kommandos prüfen | mittel | Offen |
 | 16 | Inter-Unit-Zeitbasis (GNSS-PPS oder PTP), `syncTimeDifference` anwenden | mittel | Offen |
