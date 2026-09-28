@@ -31,7 +31,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Prüfung | `t_gcc_direct` | – | Schnellpfad der GCC-PHAT in 126 gleich IFFT, Zeit je Frame |
 | Prüfung | `t_sound_speed` | 34 | Schallgeschwindigkeit aus der Lufttemperatur (Sync Typ 7), Peilung −40…+60 °C |
 | Prüfung | `t_feedback` | 34 | Feedback der Tracking-Einheit (USB Id 8): Kodierung, Ablauf nach 2 s, Wirkung in 126 |
-| Prüfung | `t_azimuth` | 41 | Azimut 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord; Kette in 8 Richtungen |
+| Prüfung | `t_azimuth` | 41 | Azimut 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord; Kette in 8 Richtungen; Nordabgleich (Id 9) |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
 | Messung | `m_bearing_drone` | 8, 17, 23, 24 | Peilung eines Drohnensignals über die volle Kette |
@@ -221,6 +221,8 @@ Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0
 2. Geometrie: Nord = Mikrofon 0, Ost = 6, Süd = 4, West = 2 (Nummerierung gegen den Uhrzeigersinn).
 3. Kette (DroneStatic 30 dB), Quelle bei 0, 45, …, 315°: TDOA-LS und SRP liefern den Azimut der
    Quelle. Referenz: Median-Fehler 0,36…0,76° (SRP 0,19…0,34°).
+4. Nordabgleich (USB Id 9): Offset aus 0,01° (15,00°, −180,00°); außerhalb ±180° verworfen, der
+   alte Wert bleibt; 128 addiert den Offset auf die Peilung (350° + 15° → 5°, 10° − 20° → 350°).
 
 ### t_sound_speed – Schallgeschwindigkeit (FSL9 A23)
 Die Lufttemperatur kommt im Sync-Kommando (USB Typ 7, `doc/ICD_SDS_PC_Monitor.md`); daraus

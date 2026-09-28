@@ -107,6 +107,8 @@ bool Processing_Module_120::processFrame()
     for (uint32_t b = 0; b < NUM_BANDS; ++b) levelA += std::exp(features_.band_log_power[b]) * state_.p[b];
     const float gRef = unit_.preprocessor().frameCenterGain(REF_MIC);
     levelA = std::sqrt(levelA) / ((gRef > 1e-6f) ? gRef : 1e-6f);
+    float azOffset = 0.0f;                             // Nordabgleich (USB Typ 9)
+    if (dm.tryGetAzimuthOffset(azOffset)) loc_.setCalibration(azOffset, 1.0f);
     loc_.fromBearing(bearing_, levelA, location_);
     dm.setCandidate(location_.azimuth_deg, location_.distance_m, location_.confidence, location_.valid);
 

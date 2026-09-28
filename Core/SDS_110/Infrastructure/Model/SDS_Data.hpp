@@ -89,6 +89,10 @@ public:
     void setSrpReference(bool v) { setValue(srpReference, v); }
     bool getSrpReference() const { return getValue(srpReference); }
     bool tryGetSrpReference(bool& out) const { return tryGetValue(srpReference, out); }
+    /// Nordabgleich (USB Id 9): Offset in Grad auf die Peilung in 128, Standard 0
+    void setAzimuthOffset(float deg) { setValue(azimuthOffsetDeg_, deg); }
+    float getAzimuthOffset() const { return getValue(azimuthOffsetDeg_); }
+    bool tryGetAzimuthOffset(float& out) const { return tryGetValue(azimuthOffsetDeg_, out); }
     /// UTC-Versatz der Laufzeit (USB-Kommando Typ 7; später GNSS-PPS), siehe UtcClock
     void setUtcOffset(const sds110::UtcOffset& v) { setValue(utcOffset_, v); }
     sds110::UtcOffset getUtcOffset() const { return getValue(utcOffset_); }
@@ -187,6 +191,7 @@ private:
     // Merkmalsversion eingeht (jede Änderung dort erzwingt einen Neuexport des Modells).
     bool     srpReference = false;
     uint32_t syncTimeDifference = 0;
+    float    azimuthOffsetDeg_ = 0.0f;   // Nordabgleich (USB Id 9), ebenfalls nicht in der Config
     sds110::UtcOffset utcOffset_{};
     Air      air_{};
     FeedbackBox feedback_{};

@@ -22,6 +22,7 @@ Schnittstellenbeschreibung (Interface Control Document) zwischen der Sensoreinhe
 | PC → SDS | 6 | SRP-Referenz | 16 | Vergleichsscan SRP-PHAT ein/aus |
 | PC → SDS | 7 | Sync | 24 | UTC-Zeit und Lufttemperatur |
 | PC → SDS | 8 | Feedback | 52 | Referenzzustand ŝ und Vorhersage der Tracking-Einheit (FSL9 §10) |
+| PC → SDS | 9 | Nordabgleich | 16 | Azimut-Offset der Einheit |
 | SDS → PC | 1 | Detect | 32 | Peilung (Legacy-Format) |
 | SDS → PC | 2 | Read | 532 | Rohdatenblock im Modus READ |
 | SDS → PC | 5 | UnitReport | 144 | Peilung, Zeit in µs, selektierte Bänder |
@@ -56,7 +57,7 @@ Schnittstellenbeschreibung (Interface Control Document) zwischen der Sensoreinhe
 
 ## 4. Kommandos PC → SDS
 
-### 4.1 Gemeinsamer Aufbau (16 Byte, Id 1–6)
+### 4.1 Gemeinsamer Aufbau (16 Byte, Id 1–6 und 9)
 
 | Byte | Feld | Typ | Inhalt |
 | --- | --- | --- | --- |
@@ -69,10 +70,11 @@ Schnittstellenbeschreibung (Interface Control Document) zwischen der Sensoreinhe
 | Id | Name | value | Standard nach dem Start | Wirkung |
 | --- | --- | --- | --- | --- |
 | 1 | Time Sync (alt) | u32, bisher Unix-Sekunden | – | wird gespeichert, **nicht angewendet**; für UTC Id 7 verwenden |
-| 2 | Mode | 1 = DETECT, 2 = CALIBRATE, 3 = READ | 1 | Betriebsart; setzt die Task-Zähler zurück |
+| 2 | Mode | 1 = DETECT, 2 = CALIBRATE, 3 = READ | 1 | Betriebsart; setzt die Task-Zähler zurück. CALIBRATE verarbeitet wie DETECT (Detect und UnitReport) und zeigt am LCD den Nordabgleich |
 | 3 | Simulation | 0 = Mikrofone (SAI/DMA), 1 = Simulator | 1 | Signalquelle; setzt die Task-Zähler zurück |
 | 5 | Unit-ID | u32, genutzt werden die unteren 16 Bit | aus der STM32-UID | Kennung in Detect (`mic`) und UnitReport (`unit`) |
 | 6 | SRP-Referenz | 0 = aus, sonst ein | 0 | Vergleichsscan SRP-PHAT; ein kostet ~2,3 ms je Frame; die Peilung hängt nicht davon ab |
+| 9 | Nordabgleich | i32 BE (Zweierkomplement) in 0,01°, −18000 … 18000 | 0 | Offset auf die Peilung, siehe 4.4 |
 
 In der Makrodatei `PC_Monitor_Test.ptp` sind CALIBRATE und READ vertauscht beschriftet: CALIBRATE sendet 3, READ sendet 2 (Befund 25). Verbindlich ist die Tabelle oben.
 
@@ -137,6 +139,20 @@ Die Tracking-Einheit (PC-Monitor `app/tracking/`) sendet das Feedback nach jeder
 - **Ungültige Werte:** Eine falsche Länge oder ein Azimut ≥ 360° setzt das Fehler-Flag.
 
 Die Kodierung mit 4 Bit hält das Kommando unter 56 Byte, sodass es in ein USB-Paket passt (Abschnitt 2). Für die Schwelle 0,6 und den Faktor (1 + ŝ_b) genügt diese Auflösung (1/15).
+
+### 4.4 Nordabgleich (Id 9, 16 Byte)
+
+Die Einheit wird selten genau mit Mikrofon 0 nach Nord aufgestellt. Der Nordabgleich gleicht das aus (PC-Monitor, Tab Calibrate):
+
+1. **Messen:** Eine Referenzquelle mit bekanntem Azimut φ_ref betreiben, zum Beispiel einen Lautsprecher oder eine schwebende Drohne. Der PC-Monitor mittelt die Peilungen φ_i der UnitReports zirkular: φ̄ = atan2(Σ sin φ_i, Σ cos φ_i).
+2. **Offset:** Der neue Offset ist o_neu = o_alt + (φ_ref − φ̄), auf −180° … +180° gebracht. Die Peilungen φ_i enthalten schon o_alt.
+3. **Senden:** Der PC-Monitor sendet Id 9 mit round(o_neu · 100). Er speichert den Wert und sendet ihn bei jedem Verbinden erneut, denn die Firmware speichert ihn nicht über einen Neustart hinaus.
+
+**Verarbeitung in der Firmware** (`USBTask::handleAzimuthOffset`, `Azimuth::offsetFromCenti`, 128 `setCalibration`):
+- 128 addiert den Offset auf jede Peilung: φ = wrap360(φ_roh + o). Das gilt für Detect (`azi`) und UnitReport (`bearing_deg`).
+- Die Skalierung bleibt 1.
+- Werte außerhalb ±180,00° oder eine falsche Länge setzen das Fehler-Flag. Der alte Offset bleibt dann gültig.
+- Die Vorhersage aus Id 8 ist schon abgeglichen, weil sie aus abgeglichenen Peilungen stammt.
 
 ## 5. Nachrichten SDS → PC
 
@@ -210,6 +226,7 @@ Rahmen wie beim UnitReport, mit `len_id` = 0x63000090 und `timestamp` = 0. Die N
 
 | Datum | Änderung | PC-Monitor |
 | --- | --- | --- |
+| 28.09.2026 | Kommando Id 9 (Nordabgleich) neu; CALIBRATE verarbeitet wie DETECT (vorher keine Verarbeitung) | Tab Calibrate: messen, Offset senden, beim Verbinden erneut senden |
 | 28.09.2026 | Azimut in Detect und UnitReport jetzt 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord (vorher ab der x-Achse gegen den Uhrzeigersinn) | Darstellung Nord oben, Ost rechts: x = r · sin φ, y = r · cos φ |
 | 28.09.2026 | Kommando Id 8 (Feedback der Tracking-Einheit) neu | nach jeder Übernahme einer bestätigten Spur senden, Flags = 0 bei Spurende |
 | 28.09.2026 | Id 7 von 20 auf 24 Byte erweitert: Lufttemperatur (i16, 0,01 °C) + 2 Byte reserviert; UTC 0 = nur Temperatur | Id 7 im neuen Format senden |
