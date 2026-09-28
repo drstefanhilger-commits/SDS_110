@@ -18,7 +18,7 @@ erfolgt über die Unit-ID im UnitReport auf dem PC.
 Board (112-n)                                   PC-Monitor
 114 Mic ─ 116 SAI/DMA ─ 118 AGC/BP/NS ─ 122 STFT ─ 124 s(t) ─ 126 S(t),w, Peilung
                                                           │
-                                                   UnitReport (USB, id 4)
+                                                   UnitReport (USB, id 5)
                                                           ▼
                                     120: 126(e) Inter-Unit GCC-PHAT ─ 128 Hyperbeln ─ 130
                                                           │ CandidateReport (140)

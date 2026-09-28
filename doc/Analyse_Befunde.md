@@ -181,7 +181,11 @@ nachvollzogen, „plausibel“ = nicht nachgewiesen.
 32. **Nur ein Kommando je USB-Paket** (`USBTask`; mittel, Code) – Zusammengefasste Kommandos gehen still verloren, geteilte lösen Fehler aus.
     Status: offen
 33. **UnitReport-Zeitstempel nur in ms (uint32)** (`Output_Interface_130.cpp`; mittel, Code) – Die µs-Zeit aus Befund 16 erreicht den PC nicht; Inter-Unit-TDOA (10 µs) damit unmöglich.
-    Status: offen
+    Status: **Firmware bearbeitet (27.09.2026)** – Host-Test `t_unit_report`, am Board nicht geprüft; PC-Monitor offen.
+    - UnitReport jetzt Message id 5 (ersetzt id 4): Kopf `[unit u16][time_us u64][src u8][bearing f32][residual f32][pairs u8][nsel u8][level f32]`, little-endian, danach Bänder (max. 51). `src`: 0 Laufzeit, 1 UTC vom PC, 2 GNSS-PPS (vorgesehen).
+    - UTC-Abgleich: USB-Kommando Typ 7 (20 Byte, UTC in µs als u64 big-endian). Die Firmware merkt sich im USB-Interrupt die Empfangszeit und setzt Versatz = UTC − Laufzeit (`UtcClock`, `SDS_Data::utcOffset_`); der Report rechnet den Frame-Beginn damit in UTC um. Genauigkeit ~1 ms (USB-Laufzeit, nicht korrigiert).
+    - Nachrichtenkopf (`timestamp` u32) und Legacy-Detect-Frame (id 1) bleiben ms; nach dem Abgleich UTC-ms modulo 2^32.
+    - Für ≤ 10 µs zwischen Einheiten (FSL9 A6): GNSS-PPS in HW-Version 2 (Quelle 2).
 34. **Sammelpunkt Kleinigkeiten** (niedrig, Code) – Feedback 150 → 126 wird nie zurückgesetzt (`clearFeedback()` nur in `init()`), `pred_azimuth_deg`/`TDOA_WINDOW_S` ungenutzt; TX-Ring sendet nach USB-Trennung alte Daten zuerst; `sendLogging()` Id in Byte 4 statt 7; `SPEED_OF_SOUND` fest trotz Kommentar „temperaturkorrigiert“; SAI-Taktflanke `FALLINGEDGE` am Board prüfen (mit 4 und 6); SAI-Fehlercallback zählt teils doppelt.
     Status: offen
 35. **READ-Modus liefert keine Rohdaten und verwirft Hops** (112/`USBDriver`; hoch für AP 8) – Gesendet wird nach Bandpass, NS und AGC (`sds_features` würde 118 doppelt anwenden); AGC bis 32-fach läuft beim PC über; Hop-Verluste ohne Kennung.

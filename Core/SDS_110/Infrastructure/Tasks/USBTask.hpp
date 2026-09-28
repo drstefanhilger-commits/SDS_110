@@ -21,6 +21,7 @@
  * (setMode(SDS_Mode), setTaskStats, setErrorBuffer statt getErrorBuffer()+memcpy).
  */
 #pragma once
+#include <cstring>
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "TaskBase.hpp"
@@ -50,14 +51,20 @@ private:
     void handleSimulation(const uint8_t* rx);
     void handleSetUnitId(const uint8_t* rx);     // Typ 5: Payload u32 = neue Unit-ID
     void handleSrpReference(const uint8_t* rx);  // Typ 6: Payload u32 0 = SRP-Scan aus, sonst ein
+    void handleUtcTime(const uint8_t* rx);       // Typ 7: Payload u64 = UTC in µs (20 Byte)
     void handleError(const uint8_t* rx);
     static bool hasMagic(const uint8_t* rx);
     /// Längenfeld: Gesamtlänge der Nachricht (SDS_CMD_LENGTH), nicht nur der Nutzdaten
     static uint32_t msgLen(const uint8_t* rx)     { return (rx[5] << 16) | (rx[6] << 8) | rx[7]; }
     static uint32_t payloadU32(const uint8_t* rx)  { return (rx[8] << 24) | (rx[9] << 16) | (rx[10] << 8) | rx[11]; }
+    static uint64_t payloadU64(const uint8_t* rx)
+    { uint64_t v = 0; for (int i = 8; i < 16; ++i) v = (v << 8) | rx[i]; return v; }
     void resetCounters();
 
     static constexpr size_t   MAX_LENGTH    = 64;
+    /// Empfangszeit (Laufzeit µs, aus dem USB-Interrupt) am Ende jedes Queue-Eintrags
+    static constexpr size_t   RX_TIME_OFFSET = MAX_LENGTH - sizeof(uint64_t);
+    static uint64_t rxTimeUs(const uint8_t* rx) { uint64_t t; memcpy(&t, rx + RX_TIME_OFFSET, sizeof(t)); return t; }
     static constexpr uint32_t IDLE_RESET_MS = 2000;  // danach Zeit-Anzeige = 0
     SDS_Data&     dm_ = SDS_Data::instance();
     QueueHandle_t rxQueue_ = nullptr;

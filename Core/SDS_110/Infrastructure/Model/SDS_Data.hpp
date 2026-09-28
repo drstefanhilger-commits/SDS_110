@@ -20,6 +20,7 @@
 #include "SDS_Params.hpp"
 #include "SDS_Structs.hpp"
 #include "Data_Interface_140/Candidate_Report_140.hpp"
+#include "Infrastructure/Utils/UtcClock.hpp"
 
 enum class TaskId : uint8_t { Proc120 = 0, Lcd, Mic, Usb, Logger, Count };
 
@@ -87,6 +88,9 @@ public:
     void setSrpReference(bool v) { setValue(srpReference, v); }
     bool getSrpReference() const { return getValue(srpReference); }
     bool tryGetSrpReference(bool& out) const { return tryGetValue(srpReference, out); }
+    /// UTC-Versatz der Laufzeit (USB-Kommando Typ 7; später GNSS-PPS), siehe UtcClock
+    void setUtcOffset(const sds110::UtcOffset& v) { setValue(utcOffset_, v); }
+    sds110::UtcOffset getUtcOffset() const { return getValue(utcOffset_); }
     void setSyncTimeDifference(uint32_t v) { setValue(syncTimeDifference, v); }
     uint32_t getSyncTimeDifference() const { return getValue(syncTimeDifference); }
 
@@ -167,6 +171,7 @@ private:
     // Merkmalsversion eingeht (jede Änderung dort erzwingt einen Neuexport des Modells).
     bool     srpReference = false;
     uint32_t syncTimeDifference = 0;
+    sds110::UtcOffset utcOffset_{};
 
     TaskStats tasks_[static_cast<uint8_t>(TaskId::Count)];
 

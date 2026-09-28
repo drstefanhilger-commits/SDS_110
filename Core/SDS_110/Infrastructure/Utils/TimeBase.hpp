@@ -6,9 +6,9 @@
  * einen 64-bit-Zähler; Überläufe, die zwischen zwei Aufrufen verpasst wurden (Pause
  * > 19,9 s, z. B. im Simulationsbetrieb), werden über den 1-ms-HAL-Tick ermittelt.
  *
- * Achtung: Die Zeit ist Laufzeit seit dem Start, keine UTC. Für die Inter-Unit-
- * Synchronisation (Patent: 10 µs) fehlt noch der Bezug zu GNSS-PPS/PTP bzw. der
- * USB-Zeitabgleich (SDS_Data::syncTimeDifference wird bisher nicht angewendet).
+ * Achtung: Die Zeit ist Laufzeit seit dem Start, keine UTC. Den UTC-Bezug liefert UtcClock
+ * (Versatz aus USB-Kommando Typ 7, ~1 ms genau; angewendet erst im UnitReport). Für die
+ * Inter-Unit-Synchronisation (FSL9: 10 µs) ist GNSS-PPS in HW-Version 2 vorgesehen.
  */
 #pragma once
 #include <cstdint>

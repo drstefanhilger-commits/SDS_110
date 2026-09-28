@@ -5,10 +5,10 @@ Stand 27.09.2026. Online-Fassung mit änderbarem Status und Diagramm:
 
 ## Zusammenfassung
 
-Von 36 zugesicherten Werten aus FSL9 sind 17 erfüllt, 9 teilweise erfüllt, 6 nicht erfüllt, 2 offen und 2 nicht im Umfang der Firmware. Die Signalkette 118 → 122 → 126 hält die Parameter der bevorzugten Ausführung weitgehend ein: Frames, FFT, Bänder, Selektion, Gewichtung, GCC-PHAT und Peak-Ratio. Die Abweichungen liegen vor allem im Systemaufbau und in den Zeitvorgaben:
+Von 36 zugesicherten Werten aus FSL9 sind 17 erfüllt, 10 teilweise erfüllt, 5 nicht erfüllt, 2 offen und 2 nicht im Umfang der Firmware. Die Signalkette 118 → 122 → 126 hält die Parameter der bevorzugten Ausführung weitgehend ein: Frames, FFT, Bänder, Selektion, Gewichtung, GCC-PHAT und Peak-Ratio. Die Abweichungen liegen vor allem im Systemaufbau und in den Zeitvorgaben:
 
 - **Eine statt mindestens zwei Sensoreinheiten** (`NUM_UNITS = 1`). Die Distanz kommt deshalb aus einem Pegelmodell, das FSL9 nicht vorsieht; Multilateration und der Zwei-Unit-Modus werden nicht genutzt.
-- **Keine Synchronisation nach IEEE 1588 und keine UTC-Zeit.** Der Report überträgt die Zeit in ms statt µs.
+- **Keine Synchronisation der Einheiten auf ≤ 10 µs.** Der Report überträgt jetzt µs und UTC nach Abgleich vom PC über USB (~1 ms genau); die µs-Synchronisation soll GNSS-PPS in HW-Version 2 liefern.
 - **Rechenzeit:** Das Processing Module braucht am Board 31,3 ms je Frame und liegt damit knapp unter dem Frame-Takt von 32 ms (0,7 ms Reserve). Ob ~30 Reports/s mit echten Mikrofonen durchlaufen, ist erst mit der 8-Mikrofon-Platine nachweisbar; im Simulationsbetrieb reicht die Zeit nicht (Simulator 13,4 ms).
 - **ML-Modul:** s(t) kommt vom HBD. Das trainierte MLP läuft nur im Schatten und ist kein CNN. Die Labels folgen dem Band-SNR statt der Harmonischen aus Telemetrie.
 
@@ -45,7 +45,7 @@ Je Zeile ein zugesicherter Wert aus FSL9 mit Ist-Wert, Code-Referenz (relativ zu
 | A3 | §1 | Arraydurchmesser | 200 mm | 200 mm (Radius 0,10 m, seit 27.09.2026; vorher 400 mm) | `SDS_110_Config.hpp:38` | Erfüllt |
 | A4 | §1 | Abtastung | PDM, 48 kHz, synchron | 48 000 Hz; Board 47 991 Hz (186 ppm, Befund 5) | `SDS_110_Config.hpp:14, Sensor_Unit_112/Sampling_Circuitry_116.cpp configureSai()` | Erfüllt |
 | A5 | §1 | Vorverarbeitung 118 | AGC, Bandpass 80 Hz–8 kHz, adaptive Rauschunterdrückung | Butterworth-HPF/LPF 80–8000 Hz, NS, AGC | `SDS_110_Config.hpp:15–16, Sensor_Unit_112/Pre_Processor_118.hpp:5–12` | Erfüllt |
-| A6 | §1 | Synchronisation der Einheiten | IEEE 1588 PTP, ≤ 10 µs | DWT-Laufzeit in µs, kein PTP, kein UTC | `Infrastructure/Utils/TimeBase.hpp:9–10` | Nicht erfüllt |
+| A6 | §1 | Synchronisation der Einheiten | IEEE 1588 PTP, ≤ 10 µs | DWT-Laufzeit in µs; UTC-Abgleich vom PC über USB (Typ 7, ~1 ms); geplant: GNSS-PPS in HW-Version 2 | `Infrastructure/Utils/TimeBase.hpp:9–11, Infrastructure/Utils/UtcClock.hpp:24` | Nicht erfüllt |
 | A7 | §1 | Positionen der Einheiten | vermessen auf 0,1 m, gespeichert | ein Referenzpunkt (0, 0, 0) | `Processing_Module_120/Processing_Module_120.cpp:37` | Nicht im Umfang |
 | A8 | §2 | Frames | 64 ms, 50 % Überlappung | 3072 Samples, Hop 1536 (Befund 17) | `SDS_110_Config.hpp:20, 28–29` | Erfüllt |
 | A9 | §2 | STFT | 4096 Punkte | N_FFT = 4096, Hann-Fenster | `SDS_110_Config.hpp:21, Feature_Extraction_Module_122.cpp:65` | Erfüllt |
@@ -68,7 +68,7 @@ Je Zeile ein zugesicherter Wert aus FSL9 mit Ist-Wert, Code-Referenz (relativ zu
 | A26 | §5 | Intra-Unit-Peilung | Kreuzkorrelation der Mikrofone, kein Beamforming | TDOA-Least-Squares über 28 Paare | `Correlation_Processing_Module_126.cpp:218–270` | Erfüllt |
 | A27 | §6, Anspr. 1(f) | Lokalisation | N ≥ 3 Multilateration, N = 2 TDOA + zwei Peilungen | N = 1: Peilung + Pegel-Distanz (nicht in FSL9); Multilateration vorhanden, ungenutzt | `Localisation_Module_128.cpp:26, 67, SDS_110_Config.hpp:104` | Nicht erfüllt |
 | A28 | §6, FIG. 5 | Referenzpunkt, Azimut | Zentroid der Einheiten, Azimut ab Nord | Arraymitte; Azimut = atan2(uy, ux), also ab x-Achse | `Correlation_Processing_Module_126.cpp:263, Processing_Module_120.cpp:37` | Offen |
-| A29 | §7, Anspr. 1(g) | Zeitstempel im Report | UTC, µs | intern µs (uint64), gesendet ms (uint32), kein UTC (Befund 33) | `Data_Interface_140/Candidate_Report_140.hpp:32, Output_Interface_130.cpp:37` | Nicht erfüllt |
+| A29 | §7, Anspr. 1(g) | Zeitstempel im Report | UTC, µs | UnitReport id 5: u64 µs + Zeitquelle; UTC nach Abgleich (USB Typ 7), bis GNSS nur ~1 ms genau; PC-Monitor liest id 5 noch nicht (Befund 33) | `Data_Interface_140/Candidate_Report_140.hpp:33, Output_Interface_130.cpp:20, 52, USBTask.cpp:84` | Teilweise |
 | A30 | §7, Anspr. 1(g) | Inhalt des Reports | φ, r, Qualität (Paare, Residuum), ausgewählte Bänder + p_b | UnitReport: Peilung, Residuum, Paare, Pegel, Bänder + p_b; φ/r im CandidateReport auf dem PC | `Data_Interface_140/Candidate_Report_140.hpp:30–41` | Teilweise |
 | A31 | §7 | Report-Rate, Format | ≈ 30 Reports/s, feste Binärstruktur | Binärstruktur 128 Byte (t_unit_report); Proc 31,3 ms < 32-ms-Frame-Takt (0,7 ms Reserve), mit echten Mikrofonen nicht nachgewiesen | `Output_Interface_130.cpp, LCDTask.cpp (Zeitanzeige)` | Teilweise |
 | A32 | §7, Anspr. 10 | Keine Trajektorie im SDS | SDS bildet keine Trajektorie | keine Tracking-Funktion in der Firmware | – | Erfüllt |
@@ -113,7 +113,7 @@ Zuerst anzugehen ist die Rechenzeit. Der Arraydurchmesser ist seit 27.09.2026 au
 | --- | --- | --- | --- | --- |
 | 1 | A31 | Proc 31,3 ms, nur 0,7 ms Reserve; Rate mit echten Mikrofonen nicht nachgewiesen | mit der 8-Mikrofon-Platine übersprungene Hops zählen; für Reserve 122 (15 ms, 8 FFT) und 118 (7 ms) prüfen; SRP-Referenzscan bleibt aus (USB Typ 6), Release-Build bringt nichts (`DspOptimize.hpp`) | Befund 28, `doc/Host_Tests.md` |
 | 2 | A18, A35 | TDOA auch bei < 3 Bändern | bei weniger als B_min Bändern keine Korrelation rechnen, wie FSL9 §4 | `Correlation_Processing_Module_126.cpp:70` |
-| 3 | A29, A6 | Zeit in ms, kein UTC, kein PTP | Zeitstempel in µs übertragen; UTC-Bezug über PTP oder GNSS-PPS | Befunde 16, 33 |
+| 3 | A29, A6 | UTC nur ~1 ms genau (USB), keine µs-Synchronisation der Einheiten | Firmware sendet µs (id 5) und nimmt UTC an (Typ 7): PC-Monitor anpassen; HW-Version 2: GNSS-PPS stellt den µs-Zähler (Zeitquelle 2), WiFi nur für Daten (Software-PTP über WiFi erreicht ≤ 10 µs nicht sicher) | Befunde 16, 33 |
 | 4 | A1, A7, A27 | eine Einheit, Pegel-Distanz | Multilateration mit N ≥ 3 Einheiten, wenn die Hardware vorliegt; Positionen der Einheiten konfigurieren | Blocker 1–4 |
 | 5 | A22, A23, A34 | Lag-Fenster global, c fest, Fenster aus Feedback ungenutzt | Fenster je Paar aus d_ij; c aus Temperatur; `TDOA_WINDOW_S` um die Vorhersage anwenden | Befunde 26, 34 |
 | 6 | A33 | Feedback wird nie zurückgesetzt | Feedback nach Zeitablauf (z. B. 2 s ohne Report) löschen | Befund 34 |
