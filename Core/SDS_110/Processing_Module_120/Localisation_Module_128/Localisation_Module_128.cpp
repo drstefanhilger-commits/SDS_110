@@ -2,6 +2,7 @@
  * Localisation_Module_128.cpp
  */
 #include "Localisation_Module_128.hpp"
+#include "Infrastructure/Utils/Azimuth.hpp"
 #include <cmath>
 
 namespace sds110 {
@@ -54,7 +55,7 @@ bool Localisation_Module_128::solve(const TdoaMeasurement* t, uint32_t n, Candid
         if (std::fabs(dx) + std::fabs(dy) < 1e-3f) break;
     }
     const float rx = x - ref_.x, ry = y - ref_.y;
-    out.azimuth_deg    = calibrate(std::atan2(ry, rx) * 180.0f / 3.14159265f);
+    out.azimuth_deg    = calibrate(Azimuth::fromArray(rx, ry));   // 0° = Nord, im Uhrzeigersinn
     out.distance_m     = std::sqrt(rx * rx + ry * ry);
     out.accepted_pairs = static_cast<uint8_t>(valid);
     // Residuum in m -> Samples: r / c · fs

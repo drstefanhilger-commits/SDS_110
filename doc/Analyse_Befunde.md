@@ -221,3 +221,9 @@ Quelle: `doc/Traceability_FSL9.md`.
     - Merkmalsversion 837ff89cbda34b21 → cadc6552b54a4a01 (Config geht in den Hash ein). Die Merkmale hängen nicht von der Geometrie ab (122 rechnet auf dem Referenzmikrofon): altes und neues `sds_features` liefern auf den Referenzsignalen bitgleiche Merkmale. Modell `k5_h48_d3` daher ohne neues Training neu exportiert (ML_Test `export.py --same-as`).
     - Zu Befund 26: Mit dem halben Lag-Fenster sollte die Mehrdeutigkeit erst bei etwa doppelter f0 (ca. 800 Hz) auftreten – nicht gemessen.
     - Host-Makefile: Objekte hingen nicht von den Headern ab; nach der Änderung an `SDS_110_Config.hpp` lief `t_gcc_direct` zunächst mit veralteten Objekten (±61 statt ±31 Samples). Jetzt `-MMD -MP`.
+
+41. **Azimut ab der x-Achse gegen den Uhrzeigersinn statt ab Nord** (FSL9 §6, FIG. 5, A28; mittel, Code) – 126 lieferte atan2(uy, ux) im Array-System; der PC-Monitor zeichnete den Wert als Kompass-Azimut. Das Ziel erschien gespiegelt und gedreht (PC-Monitor Befund P8).
+    Status: **bearbeitet (28.09.2026)** – Festlegung: 0° = Nord, im Uhrzeigersinn, Mikrofon 0 zeigt nach Nord. Host-Test `t_azimuth`, am Board nicht geprüft.
+    - `Infrastructure/Utils/Azimuth.hpp`: Umrechnung Array-System (x = Mikrofon 0 = Nord, y = West bei Nummerierung gegen den Uhrzeigersinn) ↔ Azimut; Schalter `MIC_NUMBERING_CLOCKWISE`, falls die Platine im Uhrzeigersinn nummeriert ist.
+    - Umgestellt: Peilung und SRP (126), Lokalisation (128), Simulator (wahrer Azimut ist jetzt Kompass), LCD-Radar (Nord oben, „N“) und Azimutfehler mit Umlauf (359°/1° = 2°). 114 und Config bleiben unverändert (Merkmalsversion unverändert).
+

@@ -30,6 +30,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Prüfung | `t_hopclock` | 28 | Hop-Takt der Simulation im ProcessingTask (31,25 Hops/s) |
 | Prüfung | `t_gcc_direct` | – | Schnellpfad der GCC-PHAT in 126 gleich IFFT, Zeit je Frame |
 | Prüfung | `t_sound_speed` | 34 | Schallgeschwindigkeit aus der Lufttemperatur (Sync Typ 7), Peilung −40…+60 °C |
+| Prüfung | `t_azimuth` | 41 | Azimut 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord; Kette in 8 Richtungen |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
 | Messung | `m_bearing_drone` | 8, 17, 23, 24 | Peilung eines Drohnensignals über die volle Kette |
@@ -204,6 +205,13 @@ Geprüft gegen die IFFT (`setDirectMaxBins(0)`):
 Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0,0007°);
 `estimateBearing()` je Frame 0,13 ms (Schnellpfad) gegenüber 1,51 ms (IFFT), x86 `-O2`
 (400 mm, ±64 Lags: 0,28 ms).
+
+### t_azimuth – Azimut-Konvention (FSL9 A28)
+`Infrastructure/Utils/Azimuth.hpp`: 0° = Nord, im Uhrzeigersinn; Mikrofon 0 zeigt nach Nord.
+1. Umrechnung Array-System ↔ Azimut umkehrbar, `wrap360`, `diff` (359°/1° → 2°).
+2. Geometrie: Nord = Mikrofon 0, Ost = 6, Süd = 4, West = 2 (Nummerierung gegen den Uhrzeigersinn).
+3. Kette (DroneStatic 30 dB), Quelle bei 0, 45, …, 315°: TDOA-LS und SRP liefern den Azimut der
+   Quelle. Referenz: Median-Fehler 0,36…0,76° (SRP 0,19…0,34°).
 
 ### t_sound_speed – Schallgeschwindigkeit (FSL9 A23)
 Die Lufttemperatur kommt im Sync-Kommando (USB Typ 7, `doc/ICD_SDS_PC_Monitor.md`); daraus
