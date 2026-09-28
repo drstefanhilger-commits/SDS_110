@@ -191,7 +191,7 @@ private:
     uint16_t id = 0;
     SDS_Mode mode = SDS_Mode::DETECT;
     uint32_t simulation = 1;
-    // SRP-Referenzscan (USB Typ 6), Standard aus: spart am Board ~2,3 ms je Frame; die Peilung
+    // SRP-Referenzscan (USB Typ 6), Standard aus (ein: Scan jeden 4. Frame, 126 SRP_EVERY_N in 120); die Peilung
     // (TDOA-LS) hängt nicht davon ab. Hier statt in SDS_110_Config.hpp, weil die Config in die
     // Merkmalsversion eingeht (jede Änderung dort erzwingt einen Neuexport des Modells).
     bool     srpReference = false;

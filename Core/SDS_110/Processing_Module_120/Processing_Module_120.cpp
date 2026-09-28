@@ -22,6 +22,10 @@ Processing_Module_120& Processing_Module_120::instance()
     return inst;
 }
 
+// SRP-Referenzscan (USB Typ 6) nur in jedem n-ten Frame: reiner Vergleich, 8 Peilungen/s genügen.
+// Hier statt in SDS_110_Config.hpp, weil die Config in die Merkmalsversion eingeht.
+static constexpr uint32_t SRP_EVERY_N = 4;
+
 bool Processing_Module_120::init(SAI_HandleTypeDef* hsai, I2C_HandleTypeDef* hi2c)
 {
     SDS_Data& dm = SDS_Data::instance();
@@ -33,6 +37,7 @@ bool Processing_Module_120::init(SAI_HandleTypeDef* hsai, I2C_HandleTypeDef* hi2
     const bool mlOk = ml_.init();
     dm.setMlInitError(!mlOk);
     corr_.init(unit_.array());
+    corr_.setSrpEvery(SRP_EVERY_N);        // SRP-Referenzscan nur jeden 4. Frame (Vergleich, kein Patentpfad)
     const Vec3 origin{0, 0, 0};
     loc_.init(&origin, 1);                 // NUM_UNITS = 1: Referenzpunkt = Arraymitte
     out_.init();
@@ -90,11 +95,11 @@ bool Processing_Module_120::processFrame()
     const uint32_t c4a = dwt.cycles();
     corr_.estimateBearing(spectra_, selection_, bearing_);
     const uint32_t c4b = dwt.cycles();
-    if (corr_.srpReference()) {                        // Vergleich TDOA-LS (Patent) vs. SRP-PHAT (alt)
-        float srpAz = 0.0f, srpPow = 0.0f, srpRatio = 0.0f;
-        if (corr_.srpScan(srpAz, srpPow, srpRatio)) { dm.setDebugValue(0, srpAz); dm.setDebugValue(1, srpRatio); }
-    }
-    const uint32_t c5 = dwt.cycles();
+    // Vergleich TDOA-LS (Patent) vs. SRP-PHAT (alt), nur in jedem SRP_EVERY_N-ten Frame (126)
+    float srpAz = 0.0f, srpPow = 0.0f, srpRatio = 0.0f;
+    const bool srpOk = corr_.srpReference() && corr_.srpScan(srpAz, srpPow, srpRatio);
+    const uint32_t c5 = dwt.cycles();                  // Zeitfenster SRP ohne die Mutex-Aufrufe
+    if (srpOk) { dm.setDebugValue(0, srpAz); dm.setDebugValue(1, srpRatio); }
     smoothMs(tCorr_, c5 - c4);
     smoothMs(tSel_, c4a - c4);                         // Selektion S(t), Gewichte
     smoothMs(tGcc_, c4b - c4a);                        // 28 Paar-Korrelationen + LS-Peilung

@@ -117,7 +117,7 @@ bool Correlation_Processing_Module_126::prepareBins(const ComponentSelection& se
 {
     direct_ = false;
     int need = maxLag + 1;                                     // Peak-Suche liest ±(maxLag+1)
-    if (srpReference() && need < static_cast<int>(SRP_MAX_LAG)) need = static_cast<int>(SRP_MAX_LAG);
+    if (srpFrame_ && need < static_cast<int>(SRP_MAX_LAG)) need = static_cast<int>(SRP_MAX_LAG);
     if (directMaxBins_ == 0 || sel.num_bins == 0 || sel.num_bins > directMaxBins_ || need > WIN_MAX)
         return false;
     winHalf_ = need;
@@ -241,14 +241,16 @@ bool Correlation_Processing_Module_126::estimateBearing(const Spectrum* S, const
     float sxx = 0, sxy = 0, syy = 0, bx = 0, by = 0, peakSum = 0;
     uint32_t idx = 0, valid = 0;
     const int maxLag = maxLagFor(maxIntraDelay_s_);
+    srpFrame_ = srpReference() && srpCount_ == 0;              // Referenzscan in jedem srpEvery_-ten Frame
+    if (srpReference()) srpCount_ = (srpCount_ + 1) % srpEvery_;
     prepareBins(sel, maxLag);                                  // einmal je Frame für alle 28 Paare
-    srpValid_ = srpReference();                                // pairCorr_ nur dann aktuell
+    srpValid_ = srpFrame_;                                     // pairCorr_ nur dann aktuell
     for (uint32_t i = 0; i < NUM_MICS; ++i) {
         for (uint32_t j = i + 1; j < NUM_MICS; ++j, ++idx) {
             TdoaMeasurement& m = pairTdoa_[idx];
             m.i = i; m.j = j;
             const bool ok = correlatePair(S[i], S[j], sel, maxLag, m);
-            if (srpReference()) {
+            if (srpFrame_) {
                 // Korrelationsfenster für den SRP-Scan sichern
                 for (int lag = -static_cast<int>(SRP_MAX_LAG); lag <= static_cast<int>(SRP_MAX_LAG); ++lag)
                     pairCorr_[idx][lag + SRP_MAX_LAG] = (sel.num_bins == 0) ? 0.0f : lagValue(lag);
@@ -309,20 +311,32 @@ float Correlation_Processing_Module_126::srpAt(uint32_t step) const
 bool Correlation_Processing_Module_126::srpScan(float& azimuth_deg, float& peakPower, float& peakRatio) const
 {
     if (!srpValid_) return false;
-    float best = -1e30f, second = -1e30f; uint32_t bestStep = 0;
-    for (uint32_t s = 0; s < SRP_AZ_STEPS; ++s) {
-        const float acc = srpAt(s);
-        if (acc > best) { second = best; best = acc; bestStep = s; }
+    constexpr int N = static_cast<int>(SRP_AZ_STEPS);
+    auto at = [&](int s) { return srpAt(static_cast<uint32_t>(((s % N) + N) % N)); };
+    // grob: alle SRP_COARSE_STEP Grad (72 statt 360 Richtungen); die Hauptkeule des 200-mm-Arrays
+    // ist bei den genutzten Frequenzen (< 4 kHz) viel breiter als 5°
+    float bestC = -1e30f, second = -1e30f; int bc = 0;
+    for (int s = 0; s < N; s += static_cast<int>(SRP_COARSE_STEP)) {
+        const float acc = at(s);
+        if (acc > bestC) { second = bestC; bestC = acc; bc = s; }
         else if (acc > second) second = acc;
+    }
+    // fein: ±SRP_FINE_HALF Grad im 1°-Raster um das grobe Maximum
+    float best = bestC; int bestStep = bc;
+    for (int d = -static_cast<int>(SRP_FINE_HALF); d <= static_cast<int>(SRP_FINE_HALF); ++d) {
+        if (d == 0) continue;
+        const float acc = at(bc + d);
+        if (acc > best) { best = acc; bestStep = bc + d; }
     }
     if (best <= 0.0f) return false;
     // Parabel-Interpolation um das Maximum (1°-Raster)
-    auto at = [&](int s) { return srpAt(static_cast<uint32_t>((s + static_cast<int>(SRP_AZ_STEPS)) % static_cast<int>(SRP_AZ_STEPS))); };
-    const float ym = at(static_cast<int>(bestStep) - 1), y0 = best, yp = at(static_cast<int>(bestStep) + 1);
+    const float ym = at(bestStep - 1), y0 = best, yp = at(bestStep + 1);
     const float den = ym - 2.0f * y0 + yp;
     const float delta = (std::fabs(den) > 1e-12f) ? 0.5f * (ym - yp) / den : 0.0f;
     // Raster srpCos_/srpSin_ im Array-Koordinatensystem -> Azimut (0° = Nord, im Uhrzeigersinn)
     azimuth_deg = Azimuth::fromArrayAngle((static_cast<float>(bestStep) + delta) * (360.0f / SRP_AZ_STEPS));
+    // Verhältnis zum zweitbesten Punkt des Grobrasters (vorher: zweitbester 1°-Punkt, fast immer
+    // der Nachbar des Maximums, Verhältnis ≈ 1)
     peakPower = best; peakRatio = best / (std::fabs(second) + 1e-9f);
     return true;
 }

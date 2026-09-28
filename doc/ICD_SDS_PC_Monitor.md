@@ -76,7 +76,7 @@ Schnittstellenbeschreibung (Interface Control Document) zwischen der Sensoreinhe
 | 2 | Mode | 1 = DETECT, 2 = CALIBRATE, 3 = READ | 1 | Betriebsart; setzt die Task-Zähler zurück. CALIBRATE verarbeitet wie DETECT (Detect und UnitReport) und zeigt am LCD den Nordabgleich |
 | 3 | Simulation | 0 = Mikrofone (SAI/DMA), 1 = Simulator | 1 | Signalquelle; setzt die Task-Zähler zurück |
 | 5 | Unit-ID | u32, genutzt werden die unteren 16 Bit | aus der STM32-UID | Kennung in Detect (`mic`) und UnitReport (`unit`) |
-| 6 | SRP-Referenz | 0 = aus, sonst ein | 0 | Vergleichsscan SRP-PHAT; ein kostet ~2,3 ms je Frame; die Peilung hängt nicht davon ab |
+| 6 | SRP-Referenz | 0 = aus, sonst ein | 0 | Vergleichsscan SRP-PHAT, nur in jedem 4. Frame, Raster grob 5°/fein 1°; die Peilung hängt nicht davon ab |
 | 9 | Nordabgleich | i32 BE (Zweierkomplement) in 0,01°, −18000 … 18000 | 0 | Offset auf die Peilung, siehe 4.4 |
 
 In der Makrodatei `PC_Monitor_Test.ptp` sind CALIBRATE und READ vertauscht beschriftet: CALIBRATE sendet 3, READ sendet 2 (Befund 25). Verbindlich ist die Tabelle oben.
