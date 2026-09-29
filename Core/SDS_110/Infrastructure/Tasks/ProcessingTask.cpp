@@ -4,18 +4,26 @@
 #include "ProcessingTask.hpp"
 #include "stm32f7xx_hal.h"
 #include "Infrastructure/Utils/TimeBase.hpp"
+#include "Infrastructure/Utils/Azimuth.hpp"
 
 namespace sds110 {
 
 void ProcessingTask::onStart()
 {
+    initSimulator(simCmd_);
+    clock_.start(osKernelGetTickCount(), osKernelGetTickFreq());
+    proc_.unit().sampling().setHopReadyHook(&ProcessingTask::onHopReadyISR, this);
+}
+
+void ProcessingTask::initSimulator(uint32_t cmd)
+{
     SimParams sp;                       // Grundwerte: SIM_* in SDS_110_Config.hpp
-    sp.scenario = static_cast<SimScenario>(SIM_SCENARIO_ID);
+    SimScenario s;
+    sp.scenario = simScenarioFromCommand(cmd, s) ? s : static_cast<SimScenario>(SIM_SCENARIO_ID);
     sp.f0_hz    = SIM_F0_HZ;
     sp.snr_db   = SIM_SNR_DB;
     sim_.init(sp);
-    clock_.start(osKernelGetTickCount(), osKernelGetTickFreq());
-    proc_.unit().sampling().setHopReadyHook(&ProcessingTask::onHopReadyISR, this);
+    simInitCmd_ = cmd;
 }
 
 void ProcessingTask::onHopReadyISR(void* ctx)
@@ -47,10 +55,12 @@ void ProcessingTask::waitForWork()
 
 void ProcessingTask::updateSource()
 {
-    // Simulation (USB-Kommando Typ 3, Standard 1): Generator statt SAI/DMA.
-    // Sperr-Timeout: letzten Wert behalten, nicht auf Hardware umschalten (Befund 29)
-    uint32_t simFlag = 0;
-    if (dm_.tryGetSimulation(simFlag)) simOn_ = simFlag != 0;
+    // Simulation (USB-Kommando Typ 3, Standard 1): Generator statt SAI/DMA, Wert wählt das Szenario
+    // (SimScenario.hpp). Sperr-Timeout: letzten Wert behalten, nicht auf Hardware umschalten (Befund 29)
+    uint32_t simCmd = simCmd_;
+    if (dm_.tryGetSimulation(simCmd)) simCmd_ = simCmd;
+    simOn_ = simCmd_ != SIM_CMD_OFF;
+    if (simOn_ && simCmd_ != simInitCmd_) initSimulator(simCmd_);   // anderes Szenario: neu beginnen
     if (simOn_ && !simRunning_) {
         proc_.unit().sampling().stop();
         clock_.start(osKernelGetTickCount(), osKernelGetTickFreq());   // Takt neu ab jetzt
@@ -97,8 +107,12 @@ void ProcessingTask::runOnce()
             process();
         }
         dm_.setSimTime(simMs_);
-        dm_.setDebugValue(2, sim_.trueAzimuth());     // LCD: "True Azimuth"
+        // LCD: "True Azimuth". Der Simulator setzt die Quelle im Array-System (Mikrofon 0 = 0°);
+        // 128 addiert den Nordabgleich (USB Typ 9) auf die Peilung. Ohne den Offset hier wäre
+        // "Dif Azimuth" genau der Offset (z. B. 136° nach einem Abgleich mit DroneSweep).
+        dm_.setDebugValue(2, Azimuth::wrap360(sim_.trueAzimuth() + dm_.getAzimuthOffset()));
         dm_.setDebugValue(3, sim_.trueDistance());    // LCD: "True Distance"
+        dm_.setDebugValue(4, sim_.sourceActive() ? 1.0f : 0.0f);   // LCD: FlyBy-Pause
     } else {
         process();
     }

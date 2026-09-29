@@ -105,7 +105,11 @@ bool Processing_Module_120::processFrame()
     float srpAz = 0.0f, srpPow = 0.0f, srpRatio = 0.0f;
     const bool srpOk = corr_.srpReference() && corr_.srpScan(srpAz, srpPow, srpRatio);
     const uint32_t c5 = dwt.cycles();                  // Zeitfenster SRP ohne die Mutex-Aufrufe
-    if (srpOk) { dm.setDebugValue(0, srpAz); dm.setDebugValue(1, srpRatio); }
+    // Nordabgleich (USB Typ 9) vor der SRP-Anzeige übernehmen: SRP-Referenz und Peilung am LCD
+    // im selben (abgeglichenen) System wie "True Azimuth" (ProcessingTask)
+    float azOffset = 0.0f;
+    if (dm.tryGetAzimuthOffset(azOffset)) loc_.setCalibration(azOffset, 1.0f);
+    if (srpOk) { dm.setDebugValue(0, loc_.calibrate(srpAz)); dm.setDebugValue(1, srpRatio); }
     smoothMs(tCorr_, c5 - c4);
     smoothMs(tSel_, c4a - c4);                         // Selektion S(t), Gewichte
     smoothMs(tGcc_, c4b - c4a);                        // 28 Paar-Korrelationen + LS-Peilung
@@ -118,8 +122,6 @@ bool Processing_Module_120::processFrame()
     for (uint32_t b = 0; b < NUM_BANDS; ++b) levelA += std::exp(features_.band_log_power[b]) * state_.p[b];
     const float gRef = unit_.preprocessor().frameCenterGain(REF_MIC);
     levelA = std::sqrt(levelA) / ((gRef > 1e-6f) ? gRef : 1e-6f);
-    float azOffset = 0.0f;                             // Nordabgleich (USB Typ 9)
-    if (dm.tryGetAzimuthOffset(azOffset)) loc_.setCalibration(azOffset, 1.0f);
     loc_.fromBearing(bearing_, levelA, location_);
     dm.setCandidate(location_.azimuth_deg, location_.distance_m, location_.confidence, location_.valid);
 

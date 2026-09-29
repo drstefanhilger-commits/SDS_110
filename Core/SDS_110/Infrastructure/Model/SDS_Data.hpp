@@ -130,6 +130,8 @@ public:
     // --- Debug --------------------------------------------------------------
     void setDebugTime(float v)   { setValue(debugTime, v); }
     float getDebugTime() const   { return getValue(debugTime); }
+    /// 0 SRP-Azimut, 1 SRP-Ratio, 2 True Azimuth, 3 True Distance, 4 Quelle aktiv (Simulator, 1/0)
+    static constexpr uint32_t NUM_DEBUG_VALUES = 5;
     void setDebugValue(uint32_t i, float v);
     float getDebugValue(uint32_t i) const;
 
@@ -228,7 +230,7 @@ private:
 
     // Debug
     float debugTime = 0;
-    float debugValue[4] = {};
+    float debugValue[NUM_DEBUG_VALUES] = {};
 
     // Error
     uint32_t errorFlag = 0, errorLen = 0, errorCount = 0, usbErrorCount = 0;

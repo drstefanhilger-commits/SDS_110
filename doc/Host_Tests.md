@@ -38,6 +38,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Messung | `m_bearing_f0` | 26 | Peilung über f0 = 120 … 1000 Hz (SNR als Argument) |
 | Prüfung | `t_hop_gap` | 27, 42 | Verworfene DMA-Blöcke: frame_id springt, Frame_Assembler beginnt neu; Kanalabstand kein Vielfaches von 1 KB |
 | Prüfung | `t_azimuth` | 41 | Azimut 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord; Kette in 8 Richtungen; Nordabgleich (Id 9) |
+| Prüfung | `t_sim_flyby` | – | Simulator-Auswahl über USB Id 3; Szenario FlyBy (5 s Flug, 5 s Pause): Geometrie, Ablauf, Peilung und HBD |
 | Messung | `m_overview` | 7, 8, 23, 24 | Alle Simulator-Szenarien + Empfindlichkeit |
 | Messung | `m_hbd_diag` | 7 | HBD-Rauschboden und SNR je Harmonischer |
 | Messung | `m_bearing_drone` | 8, 17, 23, 24 | Peilung eines Drohnensignals über die volle Kette |
@@ -285,6 +286,16 @@ Gegenprobe mit dem Stand vor dem 28.09.2026: 2–4 fallen durch.
    Quelle. Referenz: Median-Fehler 0,36…0,76° (SRP 0,19…0,34°).
 4. Nordabgleich (USB Id 9): Offset aus 0,01° (15,00°, −180,00°); außerhalb ±180° verworfen, der
    alte Wert bleibt; 128 addiert den Offset auf die Peilung (350° + 15° → 5°, 10° − 20° → 350°).
+
+### t_sim_flyby – Simulator-Auswahl und Überflug
+`Harness/SimScenario.hpp`, `Signal_Simulator` (FlyBy).
+1. USB Id 3: 0 = Mikrofone, 1 = `SIM_SCENARIO_ID`, 2 + k = Szenario k (7 = FlyBy), ab 8 ungültig.
+2. Geometrie (15 m/s, kürzester Abstand 30 m, Ost-Kurs): Mitte 30 m bei 0°, Anfang 48,0 m bei 308,7°,
+   Ende 51,3°; 5 … 10 s Pause; im 2. Durchgang Kurs um 45° gedreht.
+3. Ablauf im Simulator über 20 s: Quelle zu 50 % aktiv, 3 Wechsel.
+4. Kette: Peilung im Flug Referenz Median 1,15°, 95 % 3,25° (Grenze 3° / 10°); HBD ab dem
+   2. Durchgang im Flug 122/122, in der zweiten Pausenhälfte 0/78. Beim Kaltstart erkennt HBD die
+   Drohne erst nach ~3 s (Rauschboden), daher zählt der 1. Durchgang für HBD nicht.
 
 ### t_sound_speed – Schallgeschwindigkeit (FSL9 A23)
 Die Lufttemperatur kommt im Sync-Kommando (USB Typ 7, `doc/ICD_SDS_PC_Monitor.md`); daraus

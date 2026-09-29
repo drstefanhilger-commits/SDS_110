@@ -3,6 +3,7 @@
  */
 #include "LCDTask.hpp"
 #include "Infrastructure/Utils/Azimuth.hpp"
+#include "Harness/SimScenario.hpp"
 #include "Infrastructure/Timer/HardwareTimer.hpp"
 #include "Processing_Module_120/Machine_Learning_Module_124/ML124_Config.hpp"
 #include "cmsis_os2.h"
@@ -66,7 +67,13 @@ void LCDTask::onTask()
         showTestPattern();
     } else switch (dm_.getMode()) {
         case SDS_Mode::DETECT:
-            showRadar(); showSystemData(); showDetection(); break;
+            showRadar(); showSystemData(); showDetection();
+            // Nordabgleich wirkt auch in DETECT (vom PC-Monitor beim Verbinden gesendet): sichtbar machen
+            if (dm_.getAzimuthOffset() != 0.0f) {
+                snprintf(buf_, sizeof(buf_), "Nordabgleich %+7.2f deg", static_cast<double>(dm_.getAzimuthOffset()));
+                gfx_->text8x12(10, 100, buf_, Color::Cyan);
+            }
+            break;
         case SDS_Mode::CALIBRATE:
             showRadar(); showSystemData(); showDetection();
             snprintf(buf_, sizeof(buf_), "Nordabgleich %+7.2f deg", static_cast<double>(dm_.getAzimuthOffset()));
@@ -134,7 +141,12 @@ void LCDTask::showSystemData()
         default: break;
     }
     gfx_->text8x12(10, 170, modeTxt, Color::White);
-    gfx_->text8x12(145, 170, dm_.getSimulation() == 0 ? "Real" : "Simulated", Color::White);
+    {
+        SimScenario sc;
+        if (simScenarioFromCommand(dm_.getSimulation(), sc)) snprintf(buf_, sizeof(buf_), "Sim %s", simScenarioName(sc));
+        else snprintf(buf_, sizeof(buf_), "Real");
+        gfx_->text8x12(145, 170, buf_, Color::White);
+    }
     // Anzeige-Diagnose: LTDC-FIFO-Unterlauf / Transferfehler, DMA2D Timeout / Fehler, VBlank-Timeout
     snprintf(buf_, sizeof(buf_), "LTDC U%lu T%lu D2D %lu/%lu VB%lu",
              static_cast<unsigned long>(gfx_->ltdcUnderruns()), static_cast<unsigned long>(gfx_->ltdcTransferErrors()),
@@ -226,12 +238,17 @@ void LCDTask::showDetection()
         gfx_->text8x12(10, 60, "SRP-PHAT az    aus", Color::White);
     } else if (SRP_REFERENCE_ENABLED) {
         const float srpAz = dm_.getDebugValue(0);
-        const Color c = (fabsf(srpAz - trueAz) < errorAz_) ? Color::Green : Color::Yellow;
+        const Color c = (Azimuth::diff(srpAz, trueAz) < errorAz_) ? Color::Green : Color::Yellow;
         snprintf(buf_, sizeof(buf_), "SRP-PHAT az    %.3f", static_cast<double>(srpAz));
         gfx_->text8x12(10, 60, buf_, c);
     }
 
-    if (dm_.getSimulation() == 1) {
+    if (dm_.getSimulation() != SIM_CMD_OFF) {
+        if (dm_.getDebugValue(4) == 0.0f) {          // FlyBy-Pause: keine Quelle, kein Vergleich
+            gfx_->text8x12(10, 40, "True Azimuth   Pause", Color::White);
+            gfx_->text8x12(10, 50, "True Distance  Pause", Color::White);
+            return;
+        }
         snprintf(buf_, sizeof(buf_), "True Azimuth   %.3f", static_cast<double>(trueAz));
         gfx_->text8x12(10, 40, buf_, Color::White);
         snprintf(buf_, sizeof(buf_), "True Distance  %.3f", static_cast<double>(trueDist));

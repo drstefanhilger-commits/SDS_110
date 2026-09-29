@@ -17,7 +17,7 @@ Schnittstellenbeschreibung (Interface Control Document) zwischen der Sensoreinhe
 | --- | --- | --- | --- | --- |
 | PC → SDS | 1 | Time Sync (alt) | 16 | veraltet, ersetzt durch Id 7 |
 | PC → SDS | 2 | Mode | 16 | Betriebsart DETECT / CALIBRATE / READ |
-| PC → SDS | 3 | Simulation | 16 | Signalquelle Simulator oder Mikrofone |
+| PC → SDS | 3 | Simulation | 16 | Signalquelle Mikrofone oder Simulator mit Szenario |
 | PC → SDS | 5 | Unit-ID | 16 | Kennung der Sensoreinheit setzen |
 | PC → SDS | 6 | SRP-Referenz | 16 | Vergleichsscan SRP-PHAT ein/aus |
 | PC → SDS | 7 | Sync | 24 | UTC-Zeit und Lufttemperatur |
@@ -74,7 +74,7 @@ Schnittstellenbeschreibung (Interface Control Document) zwischen der Sensoreinhe
 | --- | --- | --- | --- | --- |
 | 1 | Time Sync (alt) | u32, bisher Unix-Sekunden | – | wird gespeichert, **nicht angewendet**; für UTC Id 7 verwenden |
 | 2 | Mode | 1 = DETECT, 2 = CALIBRATE, 3 = READ | 1 | Betriebsart; setzt die Task-Zähler zurück. CALIBRATE verarbeitet wie DETECT (Detect und UnitReport) und zeigt am LCD den Nordabgleich |
-| 3 | Simulation | 0 = Mikrofone (SAI/DMA), 1 = Simulator | 1 | Signalquelle; setzt die Task-Zähler zurück |
+| 3 | Simulation | 0 = Mikrofone (SAI/DMA), 1 = Simulator (Standardszenario `SIM_SCENARIO_ID`), 2 DroneSweep, 3 DroneStatic, 4 SingleTone, 5 WindNoise, 6 Silence, 7 FlyBy | 1 | Signalquelle und Szenario (`Harness/SimScenario.hpp`); ein anderes Szenario beginnt neu. Andere Werte setzen das Fehler-Flag, der alte Wert bleibt. Setzt die Task-Zähler zurück |
 | 5 | Unit-ID | u32, genutzt werden die unteren 16 Bit | aus der STM32-UID | Kennung in Detect (`mic`) und UnitReport (`unit`) |
 | 6 | SRP-Referenz | 0 = aus, sonst ein | 0 | Vergleichsscan SRP-PHAT, nur in jedem 4. Frame, Raster grob 5°/fein 1°; die Peilung hängt nicht davon ab |
 | 9 | Nordabgleich | i32 BE (Zweierkomplement) in 0,01°, −18000 … 18000 | 0 | Offset auf die Peilung, siehe 4.4 |
@@ -273,6 +273,7 @@ Rahmen wie beim Logger, mit `len_id` = 0x06000090 und `timestamp` = 0. Die Firmw
 | 28.09.2026 | Kommando Id 10 (Standort) und Nachricht Id 6 (Standort mit Quelle, jede Sekunde) neu | Standort eingeben, speichern, beim Verbinden senden; Id 6 anzeigen |
 | 28.09.2026 | Mehrere und geteilte Kommandos je USB-Paket werden ausgewertet (Befund 32); vorher blieben z. B. Unit-ID und SRP bei laufendem Feedback ohne Wirkung. LCD zeigt die Unit-ID dezimal | keine Änderung nötig; Unit-ID dezimal anzeigen |
 | 28.09.2026 | Kommando Id 9 (Nordabgleich) neu; CALIBRATE verarbeitet wie DETECT (vorher keine Verarbeitung) | Tab Calibrate: messen, Offset senden, beim Verbinden erneut senden |
+| 29.09.2026 | Id 3 wählt das Simulator-Szenario (2 … 7, neu FlyBy); 0/1 wie bisher. Simulation: "True Azimuth" enthält den Nordabgleich; LCD zeigt den Nordabgleich auch in DETECT | Auswahl Szenario (Werte 0 … 7); Nordabgleich nur mit ruhender Quelle messen (nicht DroneSweep/FlyBy) |
 | 28.09.2026 | Azimut in Detect und UnitReport jetzt 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord (vorher ab der x-Achse gegen den Uhrzeigersinn) | Darstellung Nord oben, Ost rechts: x = r · sin φ, y = r · cos φ |
 | 28.09.2026 | Kommando Id 8 (Feedback der Tracking-Einheit) neu | nach jeder Übernahme einer bestätigten Spur senden, Flags = 0 bei Spurende |
 | 28.09.2026 | Id 7 von 20 auf 24 Byte erweitert: Lufttemperatur (i16, 0,01 °C) + 2 Byte reserviert; UTC 0 = nur Temperatur | Id 7 im neuen Format senden |
