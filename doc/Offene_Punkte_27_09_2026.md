@@ -15,6 +15,7 @@ Außerdem sind die Punkte des PC-Monitors aufgeführt, die die Firmware berühre
 | --- | --- | --- | --- |
 | 28.09.2026 | T7: Daten mehrerer Einheiten zum PC | **Nur TDOA übertragen:** Jede Einheit sendet ihre Intra-Unit-Ergebnisse (TDOA der 28 Paare bzw. Peilung, Qualität, µs-Zeit), keine Spektren oder Signale | Die Inter-Unit-GCC-PHAT (FSL9 §5, Anspruch 1(e); PC-Traceability P4) entfällt. Die Lokalisation mehrerer Einheiten (§6) muss aus Peilungen und µs-Zeitstempeln der Einheiten erfolgen, also Kreuzpeilung und Zeitdifferenzen gleicher Ereignisse, und ist eine Abweichung von FSL9. Der UnitReport braucht dafür die Paar-TDOA oder mindestens die Peilung mit Unsicherheit; die Formatänderung wird mit T7 festgelegt. Die Bandbreite bleibt klein (≈ 144 B je Frame), passend für WiFi/USB. |
 | 28.09.2026 | Azimut | 0° = Nord, im Uhrzeigersinn, Mikrofon 0 = Nord | umgesetzt (Befund 41) |
+| 29.09.2026 | Standort der Einheit | Lokale Koordinaten Ost/Nord/Oben in m statt WGS84; Grundwert Ursprung [0, 0, 0], gesetzt vom PC-Monitor (Id 10); kein GNSS-Vorrang | umgesetzt; der Simulator (FlyBy) legt die Bahn um den Ursprung; GNSS offen (A7) |
 
 ## Firmware ohne Board
 
@@ -73,6 +74,7 @@ Die Blocker 2–4 sind zurückgestellt. Ohne sie gibt es keine echten Mikrofonda
 | – | Unit-ID im PC-Monitor speichern und beim Verbinden senden; gemeldete ID im Bedienfeld anzeigen | niedrig | Zurückgestellt (28.09.2026) |
 | 9 | PC-Monitor: neue Skala des UnitReport-Felds `level` berücksichtigen | niedrig | Offen |
 | 25 | Moduswerte in `PC_Monitor_Test.ptp` angleichen (CALIBRATE = 2, READ = 3) | niedrig | Offen |
+| A7 | GNSS (Hardware-Version 2) mit lokalen Koordinaten: Bezugspunkt des Ursprungs in WGS84 festlegen und GNSS-Position umrechnen; bis dahin nur Id 10 vom PC (Entscheidung 29.09.2026) | niedrig | Offen |
 
 ## Dokumentation und Klärungen
 
@@ -101,6 +103,6 @@ Die Blocker 2–4 sind zurückgestellt. Ohne sie gibt es keine echten Mikrofonda
 | 22 | Nachrichtentyp für das Tracking-Feedback: Id 8 | ICD 4.3 |
 | AP 5–7 | Export, Inferenz in 124, Vergleich HBD ↔ ML | `t_ml124`, `doc/Vergleich_HBD_ML124.md` |
 | Doku | `Analyse_27_09_2026.md` im Repo; Befunde 26–43 in `Analyse_Befunde.md` | – |
-| neu | USB Id 9 Nordabgleich, Id 10 Standort (WGS84, Vorrang GNSS), Id 6 Standort-Meldung | `t_azimuth`, `t_geo_position` |
+| neu | USB Id 9 Nordabgleich, Id 10 Standort (seit 29.09.2026 lokal Ost/Nord/Oben, vorher WGS84), Id 6 Standort-Meldung | `t_azimuth`, `t_local_position` |
 | neu | SRP-Referenzscan: Grob-/Feinraster, nur jeden 4. Frame (Board: 32,1 → 0,1 ms) | `t_gcc_direct` |
 | neu | Simulator: innere Schleife ohne Aufrufe, xorshift-Rauschen | Host-Prüfungen |

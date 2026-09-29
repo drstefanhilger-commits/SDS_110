@@ -99,6 +99,8 @@ void ProcessingTask::runOnce()
         // Überlast: nicht nachholen – jeder weitere Hop verlängert den Durchlauf nur
         SDS_Data::Air air;                           // simulierte Luft wie in 126 (USB Typ 7)
         if (dm_.tryGetAir(air)) sim_.setSpeedOfSound(air.soundSpeed);
+        LocalPosition pos;                           // Standort (USB Typ 10): FlyBy-Bahn um den Ursprung
+        if (dm_.tryGetPosition(pos)) sim_.setUnitPosition(pos.eastM(), pos.northM(), pos.upM());
         const uint32_t n = clock_.due(osKernelGetTickCount(), overloaded() ? 1 : SIM_MAX_CATCH_UP);
         for (uint32_t i = 0; i < n; ++i) {
             const uint32_t c0 = DWTTimer::instance().cycles();

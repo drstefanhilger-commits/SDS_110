@@ -191,9 +191,9 @@ void USBTask::handleAzimuthOffset(const uint8_t* rx)
 
 void USBTask::handlePosition(const uint8_t* rx)
 {
-    GeoPosition p;
-    if (!GeoPositionCodec::decode(rx, msgLen(rx), p)) { handleError(rx); return; }
-    if (GeoPositionCodec::accept(dm_.getPosition(), p)) dm_.setPosition(p);   // GNSS hat Vorrang
+    LocalPosition p;
+    if (!LocalPositionCodec::decode(rx, msgLen(rx), p)) { handleError(rx); return; }
+    dm_.setPosition(p);
     USBDriver::sendPosition(dm_.getPosition(), dm_.getId());                  // Bestätigung (Id 6)
 }
 

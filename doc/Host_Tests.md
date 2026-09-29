@@ -32,7 +32,7 @@ Peilwerte unten sind mit 200 mm neu gemessen, die Werte für 400 mm stehen in Kl
 | Prüfung | `t_sound_speed` | 34 | Schallgeschwindigkeit aus der Lufttemperatur (Sync Typ 7), Peilung −40…+60 °C |
 | Prüfung | `t_feedback` | 34 | Feedback der Tracking-Einheit (USB Id 8): Kodierung, Ablauf nach 2 s, Wirkung in 126 |
 | Prüfung | `t_usb_commands` | 32 | Kommandos aus dem USB-Bytestrom: mehrere je Paket, geteilt, Resync, veralteter Rest |
-| Prüfung | `t_geo_position` | – | Standort WGS84 (USB Id 10, Nachricht Id 6): Kodierung, Grenzen, Löschen, Vorrang GNSS |
+| Prüfung | `t_local_position` | – | Standort lokal Ost/Nord/Oben (USB Id 10, Nachricht Id 6): Grundwert Ursprung, Kodierung, Grenzen, Zurücksetzen |
 | Prüfung | `t_sds_data` | 29 | Sperr-Timeouts in `SDS_Data`: Getter liefern den Wert statt 0, tryGet false, Setter mit zweitem Versuch |
 | Prüfung | `t_bearing_f0` | 26 | Mehrdeutigkeit bei hohem f0: f0 = 180/480/1000 Hz, ≤ 1 % grobe Fehler, 95 % ≤ 10° |
 | Messung | `m_bearing_f0` | 26 | Peilung über f0 = 120 … 1000 Hz (SNR als Argument) |
@@ -240,14 +240,14 @@ Referenz: |Δτ| 8·10⁻⁶ Samples, Δpeak 5·10⁻⁷, |Δaz| 0,0000° (SRP 0
    ein Magic-Anfang am Paketende bleibt erhalten.
 5. Ein Rest, der älter als 20 ms ist, wird verworfen und nicht mit dem nächsten Kommando verbunden.
 
-### t_geo_position – Standort der Einheit (FSL9 A7)
-`Infrastructure/Utils/GeoPosition.hpp`, genutzt von `USBTask` (Id 10) und `LoggerTask` (Id 6 jede Sekunde).
-1. Id 10: Breite/Länge in 1e-7°, Höhe in mm, auch Süd/West und unter NN; Bytes gleich denen des
-   PC-Monitors (`build_position_message`).
-2. Außerhalb ±90°/±180°, −1000 … +10 000 m oder falsche Länge verworfen; Grenzwerte gültig.
-3. Flags 0 löscht den Standort.
-4. Eine gültige GNSS-Position wird von Id 10 nicht überschrieben.
-5. Nachricht Id 6: Unit, Quelle, Flags, Breite, Länge, Höhe little-endian; ohne Standort Quelle 0.
+### t_local_position – Standort der Einheit (FSL9 A7)
+`Infrastructure/Utils/LocalPosition.hpp`, genutzt von `USBTask` (Id 10), `LoggerTask` (Id 6 jede Sekunde)
+und dem Simulator (FlyBy-Bahn um den Ursprung).
+1. Grundwert: Ursprung [0, 0, 0], nicht gesetzt.
+2. Id 10: Ost/Nord/Oben in mm mit Vorzeichen; Bytes gleich denen des PC-Monitors (`build_position_message`).
+3. Außerhalb ±100 km bzw. −1000 … +10 000 m oder falsche Länge verworfen, alter Wert bleibt; Grenzwerte gültig.
+4. Flags 0 setzt auf den Ursprung zurück.
+5. Nachricht Id 6: Unit, Flags, Ost, Nord, Oben little-endian.
 
 ### t_sds_data – Sperr-Timeouts in SDS_Data (Befund 29)
 Der Host-Shim `cmsis_os2.h` lässt die nächsten n `osMutexAcquire()` mit Timeout scheitern (`g_osMutexFailNext`).
@@ -291,7 +291,9 @@ Gegenprobe mit dem Stand vor dem 28.09.2026: 2–4 fallen durch.
 `Harness/SimScenario.hpp`, `Signal_Simulator` (FlyBy).
 1. USB Id 3: 0 = Mikrofone, 1 = `SIM_SCENARIO_ID`, 2 + k = Szenario k (7 = FlyBy), ab 8 ungültig.
 2. Geometrie (15 m/s, kürzester Abstand 30 m, Ost-Kurs): Mitte 30 m bei 0°, Anfang 48,0 m bei 308,7°,
-   Ende 51,3°; 5 … 10 s Pause; im 2. Durchgang Kurs um 45° gedreht.
+   Ende 51,3°; 5 … 10 s Pause; im 2. Durchgang Kurs um 45° gedreht. Die Bahn liegt um den
+   Ursprung: Einheit bei [0, −50, 0] -> Mitte 80 m bei 0°, Anfang 88,4 m bei 334,9°; 40 m
+   Höhenunterschied gehen in die Distanz ein.
 3. Ablauf im Simulator über 20 s: Quelle zu 50 % aktiv, 3 Wechsel.
 4. Kette: Peilung im Flug Referenz Median 1,15°, 95 % 3,25° (Grenze 3° / 10°); HBD ab dem
    2. Durchgang im Flug 122/122, in der zweiten Pausenhälfte 0/78. Beim Kaltstart erkennt HBD die
