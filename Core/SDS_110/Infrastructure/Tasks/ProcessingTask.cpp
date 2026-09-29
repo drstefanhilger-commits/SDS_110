@@ -4,6 +4,7 @@
 #include "ProcessingTask.hpp"
 #include "stm32f7xx_hal.h"
 #include "Infrastructure/Utils/TimeBase.hpp"
+#include "Infrastructure/Utils/Azimuth.hpp"
 
 namespace sds110 {
 
@@ -97,7 +98,10 @@ void ProcessingTask::runOnce()
             process();
         }
         dm_.setSimTime(simMs_);
-        dm_.setDebugValue(2, sim_.trueAzimuth());     // LCD: "True Azimuth"
+        // LCD: "True Azimuth". Der Simulator setzt die Quelle im Array-System (Mikrofon 0 = 0°);
+        // 128 addiert den Nordabgleich (USB Typ 9) auf die Peilung. Ohne den Offset hier wäre
+        // "Dif Azimuth" genau der Offset (z. B. 136° nach einem Abgleich mit DroneSweep).
+        dm_.setDebugValue(2, Azimuth::wrap360(sim_.trueAzimuth() + dm_.getAzimuthOffset()));
         dm_.setDebugValue(3, sim_.trueDistance());    // LCD: "True Distance"
     } else {
         process();

@@ -66,7 +66,13 @@ void LCDTask::onTask()
         showTestPattern();
     } else switch (dm_.getMode()) {
         case SDS_Mode::DETECT:
-            showRadar(); showSystemData(); showDetection(); break;
+            showRadar(); showSystemData(); showDetection();
+            // Nordabgleich wirkt auch in DETECT (vom PC-Monitor beim Verbinden gesendet): sichtbar machen
+            if (dm_.getAzimuthOffset() != 0.0f) {
+                snprintf(buf_, sizeof(buf_), "Nordabgleich %+7.2f deg", static_cast<double>(dm_.getAzimuthOffset()));
+                gfx_->text8x12(10, 100, buf_, Color::Cyan);
+            }
+            break;
         case SDS_Mode::CALIBRATE:
             showRadar(); showSystemData(); showDetection();
             snprintf(buf_, sizeof(buf_), "Nordabgleich %+7.2f deg", static_cast<double>(dm_.getAzimuthOffset()));
@@ -226,7 +232,7 @@ void LCDTask::showDetection()
         gfx_->text8x12(10, 60, "SRP-PHAT az    aus", Color::White);
     } else if (SRP_REFERENCE_ENABLED) {
         const float srpAz = dm_.getDebugValue(0);
-        const Color c = (fabsf(srpAz - trueAz) < errorAz_) ? Color::Green : Color::Yellow;
+        const Color c = (Azimuth::diff(srpAz, trueAz) < errorAz_) ? Color::Green : Color::Yellow;
         snprintf(buf_, sizeof(buf_), "SRP-PHAT az    %.3f", static_cast<double>(srpAz));
         gfx_->text8x12(10, 60, buf_, c);
     }

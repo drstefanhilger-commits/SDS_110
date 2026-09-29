@@ -53,9 +53,10 @@ public:
     void setCalibration(float offsetDeg, float scale) { azOffset_ = offsetDeg; azScale_ = scale; }
     /// Schallgeschwindigkeit (m/s, aus der Lufttemperatur), Standard SPEED_OF_SOUND
     void setSpeedOfSound(float c) { if (c > 100.0f) c_ = c; }
+    /// Rohazimut (Array, Mikrofon 0 = 0°) -> abgeglichener Azimut (Nordabgleich), [0, 360)
+    float calibrate(float az) const;
 
 private:
-    float calibrate(float az) const;
     Vec3     units_[8]{};
     uint32_t numUnits_ = 0;
     Vec3     ref_{};
