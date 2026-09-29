@@ -4,7 +4,8 @@
  * Prüft:
  *   1. Wert von USB Id 3 -> Szenario: 0 Mikrofone, 1 SIM_SCENARIO_ID, 2 + k Szenario k, sonst ungültig
  *   2. FlyBy-Geometrie (Standard 15 m/s, 30 m, Ost-Kurs): Mitte des Flugs 30 m bei 0° (Nord),
- *      Anfang 48 m bei 308,7°; nach 5 s Pause, nach 10 s nächster Durchgang mit um 45° gedrehtem Kurs
+ *      Anfang 48 m bei 308,7°; nach 5 s Pause, nach 10 s nächster Durchgang mit um 45° gedrehtem Kurs;
+ *      die Bahn liegt um den lokalen Ursprung: Einheit bei [0, −50, 0] -> kürzester Abstand 80 m
  *   3. Zeitablauf im Simulator: Quelle 5 s aktiv, 5 s Pause, wiederholt (je Hop 32 ms)
  *   4. volle Kette (118 -> 126): Peilung während des Flugs folgt der Quelle (Median ≤ 3°, 95 % ≤ 10°);
  *      HBD erkennt die Drohne im Flug, in der zweiten Hälfte der Pause nicht (ab dem 2. Durchgang;
@@ -43,17 +44,26 @@ int main()
     check(all && simScenarioFromCommand(7, s) && s == SimScenario::FlyBy, "2 + k = Szenario k (7 = FlyBy)");
     check(!simCommandValid(8) && !simCommandValid(0xFFFFFFFFu), "8 und größer ungültig");
 
-    // 2. Geometrie
+    // 2. Geometrie (Einheit im Ursprung)
     SimParams p; p.scenario = SimScenario::FlyBy;
     float az, d;
-    check(Signal_Simulator::flyByPosition(p, 2.5f, 0, az, d) && near(d, 30.0f, 0.01f) && Azimuth::diff(az, 0.0f) < 0.01f,
+    const float origin[3] = { 0.0f, 0.0f, 0.0f };
+    check(Signal_Simulator::flyByPosition(p, 2.5f, 0, origin, az, d) && near(d, 30.0f, 0.01f) && Azimuth::diff(az, 0.0f) < 0.01f,
           "Mitte des Flugs: 30 m bei 0° (Nord)");
-    check(Signal_Simulator::flyByPosition(p, 0.0f, 0, az, d) && near(d, 48.02f, 0.05f) && near(az, 308.66f, 0.05f),
+    check(Signal_Simulator::flyByPosition(p, 0.0f, 0, origin, az, d) && near(d, 48.02f, 0.05f) && near(az, 308.66f, 0.05f),
           "Anfang: 48,0 m bei 308,7°");
-    Signal_Simulator::flyByPosition(p, 4.99f, 0, az, d);
+    Signal_Simulator::flyByPosition(p, 4.99f, 0, origin, az, d);
     check(near(az, 51.34f, 0.3f), "Ende: 51,3° (Flug nach Ost, nördlich der Einheit)");
-    check(!Signal_Simulator::flyByPosition(p, 5.0f, 0, az, d) && !Signal_Simulator::flyByPosition(p, 9.9f, 0, az, d), "5 … 10 s: Pause");
-    check(Signal_Simulator::flyByPosition(p, 2.5f, 1, az, d) && Azimuth::diff(az, 45.0f) < 0.01f, "Durchgang 2: Kurs um 45° gedreht");
+    check(!Signal_Simulator::flyByPosition(p, 5.0f, 0, origin, az, d) && !Signal_Simulator::flyByPosition(p, 9.9f, 0, origin, az, d), "5 … 10 s: Pause");
+    check(Signal_Simulator::flyByPosition(p, 2.5f, 1, origin, az, d) && Azimuth::diff(az, 45.0f) < 0.01f, "Durchgang 2: Kurs um 45° gedreht");
+    // Einheit 50 m südlich des Ursprungs: Bahn bleibt, Abstand wächst
+    const float south[3] = { 0.0f, -50.0f, 0.0f };
+    check(Signal_Simulator::flyByPosition(p, 2.5f, 0, south, az, d) && near(d, 80.0f, 0.01f) && Azimuth::diff(az, 0.0f) < 0.01f,
+          "Einheit bei [0, −50, 0]: Mitte des Flugs 80 m bei 0°");
+    check(Signal_Simulator::flyByPosition(p, 0.0f, 0, south, az, d) && near(d, 88.35f, 0.05f) && near(az, 334.89f, 0.05f),
+          "Einheit bei [0, −50, 0]: Anfang 88,4 m bei 334,9°");
+    const float high[3] = { 0.0f, 0.0f, 40.0f };
+    check(Signal_Simulator::flyByPosition(p, 2.5f, 0, high, az, d) && near(d, 50.0f, 0.01f), "Höhenunterschied 40 m geht in die Distanz ein");
 
     // 3. + 4. Zeitablauf und Kette über zwei Durchgänge (20 s)
     auto& sim = Signal_Simulator::instance(); auto& arr = Microphone_Array_114::instance();

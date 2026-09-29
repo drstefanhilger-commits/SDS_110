@@ -72,18 +72,21 @@ void Signal_Simulator::advanceSweep()
     }
 }
 
-bool Signal_Simulator::flyByPosition(const SimParams& p, float t, uint32_t cycle, float& azDeg, float& distM)
+bool Signal_Simulator::flyByPosition(const SimParams& p, float t, uint32_t cycle, const float unitENU[3],
+                                     float& azDeg, float& distM)
 {
     if (t >= p.flyby_flight_s) return false;
     constexpr float d2r = 3.14159265f / 180.0f;
-    // Nord/Ost-Koordinaten: Richtung d der Bahn, kürzester Abstand links der Bahn (Ost-Kurs: nördlich)
+    // Lokales System Nord/Ost: Richtung d der Bahn, kürzester Abstand zum Ursprung links der Bahn
+    // (Ost-Kurs: nördlich des Ursprungs)
     const float tr = (p.flyby_track_deg + static_cast<float>(cycle) * p.flyby_track_step_deg) * d2r;
     const float dn = std::cos(tr), de = std::sin(tr);
     const float s  = p.flyby_speed_mps * (t - 0.5f * p.flyby_flight_s);   // Weg ab dem kürzesten Abstand
-    const float n  =  de * p.flyby_cpa_m + dn * s;
-    const float e  = -dn * p.flyby_cpa_m + de * s;
-    azDeg = Azimuth::wrap360(std::atan2(e, n) / d2r);
-    distM = std::sqrt(n * n + e * e);
+    const float n  =  de * p.flyby_cpa_m + dn * s - unitENU[1];         // relativ zur Einheit
+    const float e  = -dn * p.flyby_cpa_m + de * s - unitENU[0];
+    const float u  =  p.flyby_alt_m - unitENU[2];
+    azDeg = Azimuth::wrap360(std::atan2(e, n) / d2r);                   // Richtung in der Ebene
+    distM = std::sqrt(n * n + e * e + u * u);
     return true;
 }
 
@@ -91,7 +94,7 @@ bool Signal_Simulator::flyByPosition(const SimParams& p, float t, uint32_t cycle
 void Signal_Simulator::advanceFlyBy()
 {
     float az, dist;
-    active_ = flyByPosition(p_, flyT_, flyCycle_, az, dist);
+    active_ = flyByPosition(p_, flyT_, flyCycle_, unit_, az, dist);
     if (active_) { p_.azimuth_deg = az; p_.distance_m = dist; }
     flyT_ += HOP_S;
     const float period = p_.flyby_flight_s + p_.flyby_pause_s;

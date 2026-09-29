@@ -47,11 +47,11 @@ void LoggerTask::onTask()
         pending_ = 0;
     }
 
-    // Standort (Id 6) jede Sekunde, auch ungültig: der PC sieht so, was das Board hat
+    // Standort (Id 6) jede Sekunde, auch der Grundwert: der PC sieht so, was das Board hat
     if (++positionTicks_ >= kPositionEveryTicks) {
         positionTicks_ = 0;
         SDS_Data& dm = SDS_Data::instance();
-        GeoPosition p;
+        LocalPosition p;
         if (dm.tryGetPosition(p)) USBDriver::sendPosition(p, dm.getId());
     }
 

@@ -19,7 +19,7 @@ Blattpass-AM, Pegel, Sweep-Schritte).
 | 2 SingleTone  | f0 gefunden, aber Konsistenz < 5 Harmonische -> kein `DRONE`; kaum selektierte Bänder |
 | 3 WindNoise   | f0 springt am 80-Hz-Rand (Schwäche des Pegel-f0-Schätzers), Score klein, kein `DRONE` |
 | 4 Silence     | nur Mikrofonrauschen; Noise-Floor folgt dem Rauschpegel (dBFS), kein `DRONE`, p_b klein |
-| 5 FlyBy       | gerader Überflug 5 s (15 m/s, kürzester Abstand 30 m, SNR dort SIM_SNR_DB), dann 5 s nur Rauschen; wiederholt, Kurs je Durchgang +45°. Im Flug `DRONE` und Azimut folgt "True Azimuth", in der Pause "True Azimuth Pause" und kein `DRONE` |
+| 5 FlyBy       | gerader Überflug 5 s (15 m/s, Bahn um den lokalen Ursprung mit kürzestem Abstand 30 m, SNR bei 30 m SIM_SNR_DB; Azimut/Distanz von der Position der Einheit, USB Id 10), dann 5 s nur Rauschen; wiederholt, Kurs je Durchgang +45°. Im Flug `DRONE` und Azimut folgt "True Azimuth", in der Pause "True Azimuth Pause" und kein `DRONE` |
 
 Parameter-Sweeps: SIM_SNR_DB von 30 dB abwärts senken, bis `DRONE` ausfällt -> Empfindlichkeit;
 SIM_F0_HZ über 80..350 Hz -> Bandabdeckung der Harmonischen bis 4 kHz (h ≤ 8 bei f0 ≤ 500 Hz).
