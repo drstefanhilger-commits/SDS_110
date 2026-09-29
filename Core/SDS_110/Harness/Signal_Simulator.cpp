@@ -41,6 +41,7 @@ void Signal_Simulator::init(const SimParams& p)
     for (uint32_t h = 0; h < MAX_HARM; ++h) { oscRe_[h] = 1.0f; oscIm_[h] = 0.0f; }   // Phase 0
     amRe_ = 1.0f; amIm_ = 0.0f;
     std::memset(pinkState_, 0, sizeof(pinkState_));
+    active_ = true; flyT_ = 0.0f; flyCycle_ = 0;
 }
 
 float Signal_Simulator::noise() { return gauss(rng_); }
@@ -71,13 +72,40 @@ void Signal_Simulator::advanceSweep()
     }
 }
 
+bool Signal_Simulator::flyByPosition(const SimParams& p, float t, uint32_t cycle, float& azDeg, float& distM)
+{
+    if (t >= p.flyby_flight_s) return false;
+    constexpr float d2r = 3.14159265f / 180.0f;
+    // Nord/Ost-Koordinaten: Richtung d der Bahn, kürzester Abstand links der Bahn (Ost-Kurs: nördlich)
+    const float tr = (p.flyby_track_deg + static_cast<float>(cycle) * p.flyby_track_step_deg) * d2r;
+    const float dn = std::cos(tr), de = std::sin(tr);
+    const float s  = p.flyby_speed_mps * (t - 0.5f * p.flyby_flight_s);   // Weg ab dem kürzesten Abstand
+    const float n  =  de * p.flyby_cpa_m + dn * s;
+    const float e  = -dn * p.flyby_cpa_m + de * s;
+    azDeg = Azimuth::wrap360(std::atan2(e, n) / d2r);
+    distM = std::sqrt(n * n + e * e);
+    return true;
+}
+
+// FlyBy: Position für den nächsten Hop (Zeit am Hop-Anfang), dann Zeit weiterschalten
+void Signal_Simulator::advanceFlyBy()
+{
+    float az, dist;
+    active_ = flyByPosition(p_, flyT_, flyCycle_, az, dist);
+    if (active_) { p_.azimuth_deg = az; p_.distance_m = dist; }
+    flyT_ += HOP_S;
+    const float period = p_.flyby_flight_s + p_.flyby_pause_s;
+    if (period > 0.0f && flyT_ >= period) { flyT_ -= period; ++flyCycle_; }
+}
+
 // Ein Quellsample (phasenkontinuierlich), Amplitude ohne 1/r
 float Signal_Simulator::sourceSample()
 {
     float s = 0.0f;
     switch (p_.scenario) {
     case SimScenario::DroneSweep:
-    case SimScenario::DroneStatic: {
+    case SimScenario::DroneStatic:
+    case SimScenario::FlyBy: {
         // Harmonische mit fallender Amplitude (1/h) und Blattpass-AM
         const float am = 1.0f + 0.5f * amIm_;
         rotate(amRe_, amIm_, amStepRe_, amStepIm_);
@@ -110,6 +138,8 @@ float Signal_Simulator::sourceSample()
 void Signal_Simulator::generateHop(uint64_t time_utc_us)
 {
     if (p_.scenario == SimScenario::DroneSweep) advanceSweep();
+    if (p_.scenario == SimScenario::FlyBy)      advanceFlyBy();
+    else                                        active_ = true;
 
     // --- Fernfeld-Verzögerung je Mikrofon: τ_m = -(p_m · u) / c ---
     // azimuth_deg: 0° = Nord, im Uhrzeigersinn (Azimuth.hpp) -> Richtung u im Array-System
@@ -121,8 +151,13 @@ void Signal_Simulator::generateHop(uint64_t time_utc_us)
     }
 
     // --- Quellsignal mit Vorlauf ---
-    const float amp = p_.source_level / (p_.distance_m > 1.0f ? p_.distance_m : 1.0f);   // 1/r
-    const float noiseAmp = amp * std::pow(10.0f, -p_.snr_db / 20.0f);
+    float amp = p_.source_level / (p_.distance_m > 1.0f ? p_.distance_m : 1.0f);   // 1/r
+    float noiseAmp = amp * std::pow(10.0f, -p_.snr_db / 20.0f);
+    if (p_.scenario == SimScenario::FlyBy) {
+        // Rauschen fest (snr_db am kürzesten Abstand), Quelle in der Pause stumm
+        noiseAmp = p_.source_level / (p_.flyby_cpa_m > 1.0f ? p_.flyby_cpa_m : 1.0f) * std::pow(10.0f, -p_.snr_db / 20.0f);
+        if (!active_) amp = 0.0f;
+    }
 
     // Nur neue Samples erzeugen: beim ersten Aufruf das ganze Fenster, danach um HOP_SAMPLES schieben
     updateOscillators();

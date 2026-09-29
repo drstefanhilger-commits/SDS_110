@@ -11,6 +11,10 @@
  *   SingleTone   – ein reiner Ton (harmonisch NICHT drohnentypisch) -> Fehlalarm-Test
  *   WindNoise    – tieffrequentes Rauschen (1/f) -> Fehlalarm-Test
  *   Silence      – nur Grundrauschen -> Noise-Floor-Einschwingen
+ *   FlyBy        – gerader Überflug (Standard 5 s), danach Pause mit Rauschen (5 s), wiederholt;
+ *                  die Flugrichtung dreht je Durchgang um flyby_track_step_deg
+ *
+ * Auswahl zur Laufzeit über USB-Kommando Id 3 (SimScenario.hpp).
  *
  * Ersetzt SDS/Harness/UnitTestSignals (Breitbandrauschen) und MicTask::simulateMic.
  */
@@ -18,10 +22,9 @@
 #include <cstdint>
 #include "SDS_110_Config.hpp"
 #include "Sensor_Unit_112/Microphone_Array_114.hpp"
+#include "SimScenario.hpp"
 
 namespace sds110 {
-
-enum class SimScenario : uint8_t { DroneSweep = 0, DroneStatic, SingleTone, WindNoise, Silence };
 
 struct SimParams {
     SimScenario scenario   = SimScenario::DroneSweep;
@@ -34,6 +37,14 @@ struct SimParams {
     float sweep_az_step    = 1.0f;     // DroneSweep: Grad pro Frame
     float sweep_dist_step  = 0.5f;     // DroneSweep: m pro Umdrehung
     float source_level     = 0.3f;     // Amplitude bei 1 m (float-Vollaussteuerung = 1)
+    // FlyBy: gerade Bahn in der Ebene, Mitte des Flugs am kürzesten Abstand; snr_db gilt dort.
+    // Das Rauschen bleibt über Flug und Pause gleich (Pegel der Quelle bei flyby_cpa_m).
+    float flyby_speed_mps      = 15.0f;
+    float flyby_cpa_m          = 30.0f;   // kürzester Abstand zur Einheit
+    float flyby_track_deg      = 90.0f;   // Flugrichtung im ersten Durchgang (0° = Nord, im Uhrzeigersinn)
+    float flyby_track_step_deg = 45.0f;   // Drehung der Flugrichtung je Durchgang
+    float flyby_flight_s       = 5.0f;    // Flugdauer
+    float flyby_pause_s        = 5.0f;    // Pause (nur Rauschen)
 };
 
 class Signal_Simulator {
@@ -45,6 +56,11 @@ public:
     void generateHop(uint64_t time_utc_us);
     float trueAzimuth() const { return p_.azimuth_deg; }
     float trueDistance() const { return p_.distance_m; }
+    /// false während der FlyBy-Pause (keine Quelle; Azimut/Distanz bleiben auf dem letzten Wert)
+    bool  sourceActive() const { return active_; }
+    /// FlyBy: Position der Quelle nach t Sekunden ab Beginn des Durchgangs cycle
+    /// (az 0° = Nord, im Uhrzeigersinn); false in der Pause
+    static bool flyByPosition(const SimParams& p, float t, uint32_t cycle, float& azDeg, float& distM);
     /// Schallgeschwindigkeit der simulierten Luft (m/s); ProcessingTask setzt sie wie in 126
     void  setSpeedOfSound(float c) { if (c > 100.0f) c_ = c; }
 
@@ -52,6 +68,7 @@ private:
     Signal_Simulator() = default;
     float noise();
     void  advanceSweep();
+    void  advanceFlyBy();
 
     SimParams p_{};
     Microphone_Array_114& array_ = Microphone_Array_114::instance();
@@ -65,6 +82,9 @@ private:
     float    stepRe_[MAX_HARM] = {}, stepIm_[MAX_HARM] = {};
     float    amRe_ = 1.0f, amIm_ = 0.0f, amStepRe_ = 1.0f, amStepIm_ = 0.0f;
     void     updateOscillators();        // Schritte aus f0/bpf_mod_hz, Zeiger normieren (je Hop)
+    bool     active_ = true;             // Quelle hörbar (FlyBy: false in der Pause)
+    float    flyT_ = 0.0f;               // FlyBy: Zeit im Durchgang (s)
+    uint32_t flyCycle_ = 0;              // FlyBy: Durchgang (Flugrichtung)
     uint32_t rng_ = 0x12345678;
     float    pinkState_[3] = {};
     // Quellsignal: [GUARD Vergangenheit][HOP_SAMPLES aktuell][GUARD Vorlauf]; zwischen zwei

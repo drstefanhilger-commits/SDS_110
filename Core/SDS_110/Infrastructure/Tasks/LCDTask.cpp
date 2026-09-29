@@ -3,6 +3,7 @@
  */
 #include "LCDTask.hpp"
 #include "Infrastructure/Utils/Azimuth.hpp"
+#include "Harness/SimScenario.hpp"
 #include "Infrastructure/Timer/HardwareTimer.hpp"
 #include "Processing_Module_120/Machine_Learning_Module_124/ML124_Config.hpp"
 #include "cmsis_os2.h"
@@ -140,7 +141,12 @@ void LCDTask::showSystemData()
         default: break;
     }
     gfx_->text8x12(10, 170, modeTxt, Color::White);
-    gfx_->text8x12(145, 170, dm_.getSimulation() == 0 ? "Real" : "Simulated", Color::White);
+    {
+        SimScenario sc;
+        if (simScenarioFromCommand(dm_.getSimulation(), sc)) snprintf(buf_, sizeof(buf_), "Sim %s", simScenarioName(sc));
+        else snprintf(buf_, sizeof(buf_), "Real");
+        gfx_->text8x12(145, 170, buf_, Color::White);
+    }
     // Anzeige-Diagnose: LTDC-FIFO-Unterlauf / Transferfehler, DMA2D Timeout / Fehler, VBlank-Timeout
     snprintf(buf_, sizeof(buf_), "LTDC U%lu T%lu D2D %lu/%lu VB%lu",
              static_cast<unsigned long>(gfx_->ltdcUnderruns()), static_cast<unsigned long>(gfx_->ltdcTransferErrors()),
@@ -237,7 +243,12 @@ void LCDTask::showDetection()
         gfx_->text8x12(10, 60, buf_, c);
     }
 
-    if (dm_.getSimulation() == 1) {
+    if (dm_.getSimulation() != SIM_CMD_OFF) {
+        if (dm_.getDebugValue(4) == 0.0f) {          // FlyBy-Pause: keine Quelle, kein Vergleich
+            gfx_->text8x12(10, 40, "True Azimuth   Pause", Color::White);
+            gfx_->text8x12(10, 50, "True Distance  Pause", Color::White);
+            return;
+        }
         snprintf(buf_, sizeof(buf_), "True Azimuth   %.3f", static_cast<double>(trueAz));
         gfx_->text8x12(10, 40, buf_, Color::White);
         snprintf(buf_, sizeof(buf_), "True Distance  %.3f", static_cast<double>(trueDist));

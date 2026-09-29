@@ -8,6 +8,7 @@
 #include "Infrastructure/Utils/FeedbackCodec.hpp"
 #include "Infrastructure/Utils/Azimuth.hpp"
 #include "Infrastructure/Utils/CommandAssembler.hpp"
+#include "Harness/SimScenario.hpp"
 #include <cstring>
 #include <initializer_list>
 
@@ -137,7 +138,9 @@ void USBTask::handleModeChange(const uint8_t* rx)
 void USBTask::handleSimulation(const uint8_t* rx)
 {
     if (msgLen(rx) != SDS_CMD_LENGTH) { handleError(rx); return; }
-    dm_.setSimulation(payloadU32(rx));
+    const uint32_t v = payloadU32(rx);                  // 0 Mikrofone, 1 Standard, 2 + k Szenario k
+    if (!simCommandValid(v)) { handleError(rx); return; }
+    dm_.setSimulation(v);
     resetCounters();
     // entfernt: dm_.setId(rx[0]) – überschrieb die Unit-ID mit 0xDE (Magic)
 }

@@ -73,13 +73,13 @@ TaskStats SDS_Data::getTaskStats(TaskId t) const
 
 void SDS_Data::setDebugValue(uint32_t i, float v)
 {
-    if (i >= 4) return;
+    if (i >= NUM_DEBUG_VALUES) return;
     setValue(debugValue[i], v);
 }
 
 float SDS_Data::getDebugValue(uint32_t i) const
 {
-    return (i < 4) ? getValue(debugValue[i]) : 0.0f;
+    return (i < NUM_DEBUG_VALUES) ? getValue(debugValue[i]) : 0.0f;
 }
 
 // ---------------------------------------------------------------- Error

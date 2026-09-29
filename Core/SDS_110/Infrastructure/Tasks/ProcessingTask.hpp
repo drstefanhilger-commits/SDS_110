@@ -42,7 +42,8 @@ private:
     bool overloaded() const;
 
     ProcessingTask() : TaskBase(16384, 0, osPriorityAboveNormal) {}   // delayMs unbenutzt (waitForWork)
-    void updateSource();                 // Simulation <-> Hardware umschalten
+    void updateSource();                 // Simulation <-> Hardware umschalten, Szenario wählen
+    void initSimulator(uint32_t cmd);    // Szenario aus dem Wert von USB Typ 3 (SimScenario.hpp)
     void process();                      // alle bereiten Hops/Frames je Modus
     static void onHopReadyISR(void* ctx);
 
@@ -50,7 +51,9 @@ private:
     Signal_Simulator&      sim_  = Signal_Simulator::instance();
     HopClock clock_;
     bool simRunning_ = false;
-    bool simOn_      = true;       // zuletzt gelesener Wert von SDS_Data::simulation (Standard 1)
+    bool simOn_      = true;       // Simulator aktiv (simCmd_ != 0)
+    uint32_t simCmd_     = SIM_CMD_DEFAULT;   // zuletzt gelesener Wert von SDS_Data::simulation (Standard 1)
+    uint32_t simInitCmd_ = 0;                 // Wert, mit dem der Simulator zuletzt gestartet wurde
     bool hwTimeout_  = false;      // Meldung "keine Hops" nur einmal je Ausfall
     uint32_t runStartTick_ = 0, runEndTick_ = 0;
     float    simMs_ = 0;           // Simulator je Hop (ms, geglättet) -> LCD "ms S.."
