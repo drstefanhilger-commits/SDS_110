@@ -22,15 +22,18 @@
  */
 #pragma once
 #include "arm_math.h"
+#include "Infrastructure/Utils/DspScratch.hpp"
 #include "SDS_110_Config.hpp"
 #include "Sensor_Unit_112/Frame_Assembler.hpp"
 
 namespace sds110 {
 
 /// Komplexes Spektrum eines Kanals, k = 0 .. N_FFT/2
+/// Komplexes Spektrum eines Mikrofons, nur Bins [0, SPECTRUM_BINS) (Bänder von 126; siehe
+/// SDS_110_Config.hpp). Das volle Betragsspektrum liefert magnitude() (NUM_BINS Werte).
 struct Spectrum {
-    float re[NUM_BINS];
-    float im[NUM_BINS];
+    float re[SPECTRUM_BINS];
+    float im[SPECTRUM_BINS];
 };
 
 struct FeatureVector {
@@ -69,17 +72,21 @@ private:
     static float melToHz(float m)  { return 700.0f * (std::pow(10.0f, m / 2595.0f) - 1.0f); }
 
     arm_rfft_fast_instance_f32 fft_;
-    void  fftPacked(Spectrum& out);           // FFT von buf_, Ergebnis wie CMSIS entpackt
+    void  fftPacked(Spectrum& out);           // FFT von buf_, Ergebnis wie CMSIS entpackt (Bins < SPECTRUM_BINS)
     float window_[FRAME_SAMPLES];
-    float buf_[N_FFT];
-    float fftOut_[N_FFT];
+    // FFT-Ein-/Ausgang im gemeinsamen DSP-Arbeitsspeicher (DspScratch.hpp), nur innerhalb eines Aufrufs gültig
+    float* const buf_    = dspScratch();
+    float* const fftOut_ = dspScratch() + N_FFT;
     float mag_[NUM_BINS];
     float prevMag_[NUM_BINS];
     bool  havePrev_ = false;
 
-    // Sparse Mel-Filterbank: je Band Startbin + Gewichte
-    struct MelFilter { uint32_t k0; uint32_t len; float w[MEL_MAX_BINS_PER_BAND]; };
+    // Sparse Mel-Filterbank: je Band Startbin, Länge und Beginn der Gewichte in melW_ (dicht
+    // hintereinander statt je Band MEL_MAX_BINS_PER_BAND Plätze: 5,4 kB statt 20,8 kB, gleiche Werte)
+    struct MelFilter { uint32_t k0; uint32_t len; uint32_t off; };
+    static constexpr uint32_t MEL_WEIGHTS_MAX = 1344;   // Summe der Bandbreiten 80 Hz … 8 kHz: 1306 Bins
     MelFilter mel_[MEL_BANDS];
+    float     melW_[MEL_WEIGHTS_MAX];
 
     // AM-Historie der Bandleistung (Ring)
     float amHist_[AM_HISTORY_FRAMES][NUM_BANDS];

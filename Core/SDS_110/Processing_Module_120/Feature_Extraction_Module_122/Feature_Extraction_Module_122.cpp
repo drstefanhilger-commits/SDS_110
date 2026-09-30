@@ -35,6 +35,7 @@ void Feature_Extraction_Module_122::buildMelFilterbank()
         const float hz = melToHz(mLo + (mHi - mLo) * i / (MEL_BANDS + 1));
         edgeBin[i] = hz * N_FFT / SAMPLE_RATE_HZ;          // Bin, nicht gerundet
     }
+    uint32_t off = 0;
     for (uint32_t b = 0; b < MEL_BANDS; ++b) {
         const float lo = edgeBin[b], mid = edgeBin[b + 1], hi = edgeBin[b + 2];
         uint32_t k0 = static_cast<uint32_t>(std::ceil(lo));
@@ -43,11 +44,14 @@ void Feature_Extraction_Module_122::buildMelFilterbank()
         if (k1 - k0 + 1 > MEL_MAX_BINS_PER_BAND) k1 = k0 + MEL_MAX_BINS_PER_BAND - 1;
         mel_[b].k0  = k0;
         mel_[b].len = (k1 >= k0) ? (k1 - k0 + 1) : 0;
+        if (off + mel_[b].len > MEL_WEIGHTS_MAX) mel_[b].len = MEL_WEIGHTS_MAX - off;   // nicht erwartet (1306)
+        mel_[b].off = off;
         for (uint32_t i = 0; i < mel_[b].len; ++i) {
             const float k = static_cast<float>(k0 + i);
             float w = (k <= mid) ? (k - lo) / (mid - lo) : (hi - k) / (hi - mid);
-            mel_[b].w[i] = (w > 0.0f) ? w : 0.0f;
+            melW_[off + i] = (w > 0.0f) ? w : 0.0f;
         }
+        off += mel_[b].len;
     }
 }
 
@@ -74,8 +78,8 @@ void Feature_Extraction_Module_122::computeSpectrum(const float* x, uint32_t n, 
 
 void Feature_Extraction_Module_122::computeSpectrum(const AnalysisFrame& frame, uint32_t ch, Spectrum& out)
 {
-    for (uint32_t p = 0; p < AnalysisFrame::PARTS; ++p)          // Fenster je Hop-Teil
-        arm_mult_f32(const_cast<float*>(frame.part[ch][p]), window_ + p * HOP_SAMPLES, buf_ + p * HOP_SAMPLES, HOP_SAMPLES);
+    frame.decode(ch, buf_);                                      // beide Hop-Teile (Blockgleitkomma)
+    arm_mult_f32(buf_, window_, buf_, FRAME_SAMPLES);            // Fenster, in place
     std::memset(buf_ + FRAME_SAMPLES, 0, sizeof(float) * (N_FFT - FRAME_SAMPLES));   // Zero-Padding
     fftPacked(out);
 }
@@ -84,9 +88,9 @@ void Feature_Extraction_Module_122::fftPacked(Spectrum& out)
 {
     arm_rfft_fast_f32(&fft_, buf_, fftOut_, 0);
     // CMSIS-Packing: [Re0, ReN/2, Re1, Im1, Re2, Im2, ...]
+    // Nyquist-Bin (fftOut_[1]) liegt über SPECTRUM_BINS und wird nicht gespeichert
     out.re[0] = fftOut_[0];            out.im[0] = 0.0f;
-    out.re[NUM_BINS - 1] = fftOut_[1]; out.im[NUM_BINS - 1] = 0.0f;
-    for (uint32_t k = 1; k < NUM_BINS - 1; ++k) {
+    for (uint32_t k = 1; k < SPECTRUM_BINS; ++k) {
         out.re[k] = fftOut_[2 * k];
         out.im[k] = fftOut_[2 * k + 1];
     }
@@ -109,7 +113,7 @@ void Feature_Extraction_Module_122::computeMel(const float* mag, float* mel)
     for (uint32_t b = 0; b < MEL_BANDS; ++b) {
         float v = 0.0f;
         if (mel_[b].len)
-            arm_dot_prod_f32(mel_[b].w, const_cast<float*>(mag + mel_[b].k0), mel_[b].len, &v);
+            arm_dot_prod_f32(melW_ + mel_[b].off, const_cast<float*>(mag + mel_[b].k0), mel_[b].len, &v);
         mel[b] = std::log(1e-6f + v);                          // Log-Mel wie MelSpectrogram
     }
 }
@@ -152,8 +156,12 @@ void Feature_Extraction_Module_122::process(const AnalysisFrame& frame, Spectrum
 {
     computeSpectrum(frame, REF_MIC, refSpectrum);
 
-    for (uint32_t k = 0; k < NUM_BINS; ++k)
-        mag_[k] = std::sqrt(refSpectrum.re[k] * refSpectrum.re[k] + refSpectrum.im[k] * refSpectrum.im[k]);
+    // |X| über alle Bins direkt aus der gepackten FFT (fftOut_ gilt noch); gleiche Rechnung wie
+    // bisher aus dem vollen Spektrum (Im von Bin 0 und N/2 ist 0)
+    mag_[0] = std::sqrt(fftOut_[0] * fftOut_[0] + 0.0f * 0.0f);
+    mag_[NUM_BINS - 1] = std::sqrt(fftOut_[1] * fftOut_[1] + 0.0f * 0.0f);
+    for (uint32_t k = 1; k < NUM_BINS - 1; ++k)
+        mag_[k] = std::sqrt(fftOut_[2 * k] * fftOut_[2 * k] + fftOut_[2 * k + 1] * fftOut_[2 * k + 1]);
 
     float bandPow[NUM_BANDS];
     computeBandPower(mag_, bandPow);

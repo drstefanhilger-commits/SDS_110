@@ -61,9 +61,9 @@ bool Sampling_Circuitry_116::configureCodec()
 }
 
 // SAI-Kerneltakt aus PLLI2S (Werte und Begründung: SAI_PLLI2S_* in SDS_110_Config.hpp).
-// Bewusst hier und nicht in PeriphCommonClock_Config(): die ist CubeMX-generiert und nutzt
-// PLLSAI (192 MHz -> 53,57 kHz). Läuft nach MX_SPDIFRX_Init() und überschreibt dessen
-// PLLI2S-Einstellung (SPDIFRX wird nicht genutzt; P und R übernimmt die HAL aus dem Register).
+// Bewusst hier und nicht in HAL_SAI_MspInit(): die ist CubeMX-generiert und stellt SAI1 auf
+// PLLSAI (192 MHz -> 46,875 kHz bzw. 53,57 kHz). STM32F746ZGT6-Board: SAI1 Block A (PE4..PE6),
+// PLLI2S ist sonst unbenutzt (USB-48 MHz kommt aus PLLQ); P und R übernimmt die HAL aus dem Register.
 bool Sampling_Circuitry_116::configureSaiClock()
 {
     const bool sai1 = (hsai_->Instance == SAI1_Block_A || hsai_->Instance == SAI1_Block_B);

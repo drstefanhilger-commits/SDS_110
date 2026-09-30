@@ -9,16 +9,15 @@
 
 namespace sds110 {
 
-SDS110_SDRAM_SECTION Spectrum Processing_Module_120::spectra_[NUM_MICS];
+Spectrum Processing_Module_120::spectra_[NUM_MICS];               // nur Band-Bins (SPECTRUM_BINS)
 Feature_Extraction_Module_122 Processing_Module_120::featInst_;   // .bss, internes RAM
 Machine_Learning_Module_124   Processing_Module_120::mlInst_;
 Correlation_Processing_Module_126 Processing_Module_120::corrInst_;
 
 Processing_Module_120& Processing_Module_120::instance()
 {
-    // Instanz (122: Mel-Filterbank/FFT-Puffer, 126: Korrelationspuffer) im SDRAM.
-    // Konstruktor läuft beim ersten Aufruf (SDS110_Init, nach MX_FMC_Init).
-    static SDS110_SDRAM_SECTION Processing_Module_120 inst;
+    // Instanz im internen RAM (STM32F746ZGT6: kein SDRAM); Konstruktor beim ersten Aufruf (SDS110_Init)
+    static Processing_Module_120 inst;
     return inst;
 }
 
@@ -29,7 +28,6 @@ static constexpr uint32_t SRP_EVERY_N = 4;
 bool Processing_Module_120::init(SAI_HandleTypeDef* hsai, I2C_HandleTypeDef* hi2c)
 {
     SDS_Data& dm = SDS_Data::instance();
-    // SDRAM-Selbsttest läuft vorher in SDS110_Init() (vor dem Konstruktor dieser Instanz)
     const bool unitOk = unit_.init(hsai, hi2c);
     if (!unitOk) dm.pushErrorMessage(unit_.sampling().errorCount() ? "116: SAI clock / I2C" : "116 init failed");
 
@@ -70,6 +68,7 @@ bool Processing_Module_120::processFrame()
     for (uint32_t m = 0; m < NUM_MICS; ++m)
         if (m != REF_MIC) feat_.computeSpectrum(*frame, m, spectra_[m]);
     const uint64_t t = frame->time_utc_us;
+    unit_.releaseOldest();                       // Spektren fertig: älteren Hop an 114 zurück (frame ungültig)
     const uint32_t c2 = dwt.cycles();
     smoothMs(tFeat_, c2 - c1);
     // Diagnose Rechenlast: 118 / Fenster (112), 122 Referenzkanal (FFT + Merkmale), je weiteres Mikrofon

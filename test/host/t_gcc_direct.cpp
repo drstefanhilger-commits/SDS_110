@@ -47,7 +47,7 @@ int main()
                 maxDelay * SAMPLE_RATE_HZ, 1e3f * MIC_RADIUS_M, SRP_MAX_LAG);
     for (int t = 0; t < TRIALS; ++t) {
         const float tau = tauMax * (2.0f * ud(rng) - 1.0f);
-        for (uint32_t k = 0; k < NUM_BINS; ++k) {
+        for (uint32_t k = 0; k < SPECTRUM_BINS; ++k) {      // Port: Spectrum nur bis SPECTRUM_BINS
             const float a = nd(rng), b = nd(rng), ph = -2.0f * 3.14159265f * k * tau / N_FFT;
             X.re[k] = a; X.im[k] = b;
             Y.re[k] = a * std::cos(ph) - b * std::sin(ph) + 0.3f * nd(rng);

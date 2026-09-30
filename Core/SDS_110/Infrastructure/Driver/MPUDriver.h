@@ -9,14 +9,11 @@
  * Die CubeMX-Funktion MPU_Config() bleibt unbenutzt (leer oder auskommentiert).
  * Nur aus main.c (C) einbinden – Header-only-Definition.
  *
- * Regionen (höhere Nummer gewinnt bei Überlappung):
+ * Regionen (STM32F746ZGT6-Board, kein externes SDRAM, kein LCD):
  *   0  SRAM2    0x2004C000, 16 kB   – Normal, nicht cachebar: DMA-Puffer (.dma_nocache, SDS110_DMA_SECTION)
- *      SRAM1 (0x20010000, 240 kB) ist nicht mehr abgedeckt -> Standard-Speicherkarte (Write-Back,
- *      Write-Allocate). Bisher lag hier eine 256-kB-Region Strongly-ordered (TEX0/C0/B0): kein Cache,
- *      jeder Zugriff geordnet, keine nicht ausgerichteten Zugriffe – betraf u. a. den Stack aller ISRs.
- *      DTCM (0x20000000, 64 kB) ist architekturbedingt nie gecacht.
- *   1  SDRAM    0xC0000000, 8 MB    – Write-Back-Cache: DSP-Puffer (.sdram_data ab 0xC0200000)
- *   2  SDRAM    0xC0000000, 2 MB    – uncached: LTDC-Framebuffer (überlagert Region 1)
+ *      SRAM1 (0x20010000, 240 kB) ist nicht abgedeckt -> Standard-Speicherkarte (Write-Back,
+ *      Write-Allocate). DTCM (0x20000000, 64 kB) ist architekturbedingt nie gecacht.
+ *   Die SDRAM-Regionen des Discovery-Boards (DSP-Puffer, LTDC-Framebuffer) entfallen.
  */
 #pragma once
 #include "stm32f7xx_hal.h"
@@ -46,21 +43,6 @@ static inline void SDS110_MPU_Config(void)
     /* 0: SRAM2 Normal, nicht cachebar (TEX=1, C=0, B=0) – DMA-Puffer ohne Cache-Pflege */
     SDS110_MPU_ConfigRegion(MPU_REGION_NUMBER0, 0x2004C000, MPU_REGION_SIZE_16KB,
                             MPU_ACCESS_NOT_CACHEABLE, MPU_ACCESS_NOT_BUFFERABLE, MPU_TEX_LEVEL1);
-
-    /* 1: gesamtes SDRAM Write-Back, Write-Allocate (TEX=1, C=1, B=1) – DSP-Puffer */
-    SDS110_MPU_ConfigRegion(MPU_REGION_NUMBER1, 0xC0000000, MPU_REGION_SIZE_8MB,
-                            MPU_ACCESS_CACHEABLE, MPU_ACCESS_BUFFERABLE, MPU_TEX_LEVEL1);
-
-    /* 2: erste 2 MB SDRAM – LTDC-Framebuffer, bufferable Device (TEX=0, C=0, B=1).
-     *    Gemessen schneller als Normal non-cacheable (TEX=1) für pixelweises Zeichnen.
-     *    Achtung: Device-Speicher erlaubt nur ausgerichtete Zugriffe – kein memcpy/memset
-     *    mit unausgerichteten Adressen/Längen in den Framebuffer (HardFault). */
-    /* 2: erste 2 MB SDRAM uncached – LTDC-Framebuffer (LCDDriver: 2 x 480x272x4 ab 0xC0000000) */
-//    SDS110_MPU_ConfigRegion(MPU_REGION_NUMBER2, 0xC0000000, MPU_REGION_SIZE_2MB,
-//                            MPU_ACCESS_NOT_CACHEABLE, MPU_ACCESS_BUFFERABLE, MPU_TEX_LEVEL0);
-    //    /* 2: erste 2 MB SDRAM – LTDC-Framebuffer, Normal Memory non-cacheable (TEX=1, C=0, B=0) */
-        SDS110_MPU_ConfigRegion(MPU_REGION_NUMBER2, 0xC0000000, MPU_REGION_SIZE_2MB,
-                                MPU_ACCESS_NOT_CACHEABLE, MPU_ACCESS_NOT_BUFFERABLE, MPU_TEX_LEVEL1);
 
     HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 }

@@ -22,6 +22,7 @@
  */
 #pragma once
 #include "arm_math.h"
+#include "Infrastructure/Utils/DspScratch.hpp"
 #include "SDS_110_Config.hpp"
 #include "Data_Interface_140/Candidate_Report_140.hpp"
 #include "Sensor_Unit_112/Microphone_Array_114.hpp"
@@ -30,8 +31,8 @@
 namespace sds110 {
 
 struct ComponentSelection {
-    bool     selected[NUM_BINS] = {};
-    float    weight  [NUM_BINS] = {};
+    bool     selected[SPECTRUM_BINS] = {};   // nur Band-Bins (< SPECTRUM_BINS) können selektiert sein
+    float    weight  [SPECTRUM_BINS] = {};
     uint32_t num_bands = 0;      // selektierte Bänder
     uint32_t num_bins  = 0;      // selektierte Bins
 };
@@ -154,9 +155,9 @@ private:
     float c_ = SPEED_OF_SOUND;       // Schallgeschwindigkeit (m/s)
     arm_rfft_fast_instance_f32 ifft_;
     // Arbeitspuffer der 28 Paar-Korrelationen je Frame (je 16 kB, bei jedem Paar komplett
-    // geschrieben/gelesen): statisch im internen RAM statt in der 120-Instanz im SDRAM
-    static float spec_[N_FFT];       // gepacktes Spektrum für die IFFT
-    static float corr_[N_FFT];       // Kreuzkorrelation (zeitlich)
+    // geschrieben/gelesen): im gemeinsamen DSP-Arbeitsspeicher (DspScratch.hpp)
+    float* const spec_ = dspScratch();           // gepacktes Spektrum für die IFFT
+    float* const corr_ = dspScratch() + N_FFT;   // Kreuzkorrelation (zeitlich)
     TdoaMeasurement pairTdoa_[NUM_MIC_PAIRS];
     // Fenster ±SRP_MAX_LAG jeder Paarkorrelation für srpScan()
     float pairCorr_[NUM_MIC_PAIRS][2 * SRP_MAX_LAG + 1];

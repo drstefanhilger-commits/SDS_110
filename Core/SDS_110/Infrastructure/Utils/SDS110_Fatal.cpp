@@ -1,12 +1,13 @@
 /*
  * SDS110_Fatal.cpp  (Infrastructure/Utils) – siehe SDS110_Fatal.h
  * Keine RTOS-Aufrufe, kein snprintf (Stack, Reentranz): Text mit eigenen Hilfsfunktionen.
+ * STM32F746ZGT6-Board: kein LCD -> Meldung über ITM/SWO (Port 0), LED_ERROR (PG4) an.
  */
 #include "SDS110_Fatal.h"
 #include "stm32f7xx_hal.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include "Infrastructure/Driver/LCDDriver.hpp"
+#include "Infrastructure/Driver/StatusLed.hpp"   // LED je Zielboard
 
 namespace {
 
@@ -26,13 +27,20 @@ struct Line {
     Line& hex(uint32_t v) { for (int i = 7; i >= 0 && n < 55; --i) s[n++] = "0123456789ABCDEF"[(v >> (4 * i)) & 0xF]; return *this; }
 };
 
+// ITM Port 0 (PrintfDriver): nur wenn ein Debugger/SWO-Viewer den Port freigegeben hat
+void itmPrint(const char* t)
+{
+    if ((ITM->TCR & ITM_TCR_ITMENA_Msk) == 0 || (ITM->TER & 1UL) == 0) return;
+    while (t && *t) ITM_SendChar(static_cast<uint32_t>(*t++));
+}
+
 [[noreturn]] void haltWith(const char* title, const Line& detail)
 {
     taskDISABLE_INTERRUPTS();
     if (!g_inFatal) {                        // Fehler während der Anzeige: nur anhalten
         g_inFatal = true;
-        LCDDriver& lcd = LCDDriver::instance();
-        if (lcd.ready()) lcd.fatalScreen(title, detail.s);
+        sds110::led::setError(true);
+        itmPrint(title); itmPrint(": "); itmPrint(detail.s); itmPrint("\r\n");
     }
     if (CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk) __BKPT(0);   // Debugger: hier anhalten
     for (;;) {}

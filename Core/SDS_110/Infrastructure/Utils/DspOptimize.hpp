@@ -13,9 +13,11 @@
 #pragma GCC optimize ("O2")
 #endif
 
-// FFT-Twiddle-Tabellen beim Start ins interne RAM kopieren (FftTables.hpp); 0 = Flash (Vergleich)
+// FFT-Twiddle-Tabellen beim Start ins interne RAM kopieren (FftTables.hpp); 0 = Flash.
+// STM32F746ZGT6 (kein SDRAM, 320 kB SRAM): Standard 0 – die 32 kB fehlen sonst für die Hop-Puffer;
+// die FFT liest die Twiddles dann über AXIM/ART aus dem Flash (etwas langsamer, Ergebnisse bitgleich).
 #ifndef SDS110_FFT_TABLES_IN_RAM
-#define SDS110_FFT_TABLES_IN_RAM 1
+#define SDS110_FFT_TABLES_IN_RAM 0
 #endif
 
 // Das Pragma schaltet im Debug-Build (-O0) das Inlining NICHT ein: kleine Hilfsfunktionen und

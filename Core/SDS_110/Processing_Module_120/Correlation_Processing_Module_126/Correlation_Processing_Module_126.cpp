@@ -11,8 +11,6 @@
 namespace sds110 {
 
 // ---------------------------------------------------------------- init
-float Correlation_Processing_Module_126::spec_[N_FFT];
-float Correlation_Processing_Module_126::corr_[N_FFT];
 float Correlation_Processing_Module_126::win_[2 * WIN_MAX + 1];
 
 void Correlation_Processing_Module_126::init(const Microphone_Array_114& array)
@@ -80,7 +78,7 @@ void Correlation_Processing_Module_126::deriveSelection(const AcousticState& s, 
         const float w = std::pow(s.p[b], WEIGHT_GAMMA) * weightBoost_[b];
         uint32_t k0, k1;
         Feature_Extraction_Module_122::bandBins(b, k0, k1);
-        for (uint32_t k = k0; k < k1 && k < NUM_BINS; ++k) {
+        for (uint32_t k = k0; k < k1 && k < SPECTRUM_BINS; ++k) {
             sel.selected[k] = true; sel.weight[k] = w; ++sel.num_bins;
         }
     }
@@ -124,7 +122,7 @@ bool Correlation_Processing_Module_126::prepareBins(const ComponentSelection& se
         return false;
     winHalf_ = need;
     nBins_ = 0;
-    for (uint32_t k = 1; k < NUM_BINS - 1 && nBins_ < directMaxBins_; ++k) {
+    for (uint32_t k = 1; k < SPECTRUM_BINS && nBins_ < directMaxBins_; ++k) {
         if (!sel.selected[k]) continue;
         const float th = 2.0f * PI * static_cast<float>(k) / static_cast<float>(N_FFT);
         binK_[nBins_] = static_cast<uint16_t>(k);
@@ -181,8 +179,8 @@ bool Correlation_Processing_Module_126::correlatePair(const Spectrum& X, const S
         }
     } else {
         // R(k) = w(k) · X Y* / |X Y*| auf S(t), sonst 0  -> CMSIS-Packing [Re0, ReN/2, Re1, Im1, ...]
-        std::memset(spec_, 0, sizeof(spec_));
-        for (uint32_t k = 1; k < NUM_BINS - 1; ++k) {
+        std::memset(spec_, 0, sizeof(float) * N_FFT);
+        for (uint32_t k = 1; k < SPECTRUM_BINS; ++k) {   // darüber nie selektiert
             if (!sel.selected[k]) continue;
             const float cr = X.re[k] * Y.re[k] + X.im[k] * Y.im[k];
             const float ci = X.im[k] * Y.re[k] - X.re[k] * Y.im[k];

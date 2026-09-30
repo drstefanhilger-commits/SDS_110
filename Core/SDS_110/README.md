@@ -2,6 +2,9 @@
 
 Modulnummern entsprechen den Bezugszeichen des Patents.
 
+> **Branch ohne LCD (Discovery):** gleicher Code wie im Repo SDS_110_STM32F746ZGT6 – kein LCDTask,
+> alle SDS-Puffer im internen RAM, nur Simulation. Beschreibung: `doc/Variante_ohne_LCD.md`.
+
 ## Zuordnung Patent -> Hardware
 | Patent | Gerät | Inhalt |
 |---|---|---|

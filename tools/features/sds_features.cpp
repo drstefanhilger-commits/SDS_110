@@ -61,7 +61,8 @@ static Spectrum refSpec;
 static Pre_Processor_118 preD, preN;
 static Frame_Assembler faD, faN;
 static Feature_Extraction_Module_122 featD, featN;
-static MicFrame hopD, hopN;
+static MicFrame hopD[2], hopN[2];   // abwechselnd: das Analysefenster hält den vorigen Hop (Zeiger)
+static float mixF[HOP_SAMPLES], dF[HOP_SAMPLES], nF[HOP_SAMPLES];
 static Spectrum specD, specN;
 
 static std::string jsonStr(const std::string& s)
@@ -123,7 +124,7 @@ int main(int argc, char** argv)
         preD.init(); preN.init();
         for (Pre_Processor_118* p : { &preD, &preN }) { p->enableNoiseSuppression(false); p->enableAgc(false); }   // nur Bandpass
         faD.reset(); faN.reset(); featD.init(); featN.init();
-        std::memset(&hopD, 0, sizeof(hopD)); std::memset(&hopN, 0, sizeof(hopN));
+        std::memset(hopD, 0, sizeof(hopD)); std::memset(hopN, 0, sizeof(hopN));
     }
 
     const size_t nFeat = NUM_BANDS + MEL_BANDS + 1 + NUM_BANDS;
@@ -156,24 +157,27 @@ int main(int argc, char** argv)
                 const float g0 = pre.frameCenterGain(REF_MIC), g1 = pre.appliedGain(REF_MIC);
                 const float step = (g1 - g0) / static_cast<float>(HOP_SAMPLES);
                 constexpr float scale = 1.0f / 8388608.0f;              // wie 114: pcm24 · 2^-23
-                for (auto* c : { &hopD, &hopN }) { c->frame_id = h->frame_id; c->time_utc_us = h->time_utc_us; c->writeIndex = HOP_SAMPLES; }
+                MicFrame& hd = hopD[hopIdx & 1]; MicFrame& hn = hopN[hopIdx & 1];
+                for (auto* c : { &hd, &hn }) { c->frame_id = h->frame_id; c->time_utc_us = h->time_utc_us; c->writeIndex = HOP_SAMPLES; }
                 for (uint32_t i = 0; i < HOP_SAMPLES; ++i) {
-                    hopD.data[REF_MIC][i] = static_cast<float>(wD.pcm24[0][hopIdx * HOP_SAMPLES + i]) * scale;
-                    hopN.data[REF_MIC][i] = static_cast<float>(wN.pcm24[0][hopIdx * HOP_SAMPLES + i]) * scale;
+                    dF[i] = static_cast<float>(wD.pcm24[0][hopIdx * HOP_SAMPLES + i]) * scale;
+                    nF[i] = static_cast<float>(wN.pcm24[0][hopIdx * HOP_SAMPLES + i]) * scale;
                 }
-                preD.process(hopD); preN.process(hopN);
+                hd.encode(REF_MIC, dF); hn.encode(REF_MIC, nF);           // Blockgleitkomma wie 114
+                preD.process(hd); preN.process(hn);
+                hd.decode(REF_MIC, dF); hn.decode(REF_MIC, nF); h->decode(REF_MIC, mixF);
                 for (uint32_t i = 0; i < HOP_SAMPLES; ++i) {
                     const float g = g0 + step * static_cast<float>(i + 1);   // identisch zu Pre_Processor_118::process
-                    hopD.data[REF_MIC][i] *= g; hopN.data[REF_MIC][i] *= g;
-                    const double e = std::fabs(double(h->data[REF_MIC][i]) - (double(hopD.data[REF_MIC][i]) + hopN.data[REF_MIC][i]));
+                    dF[i] *= g; nF[i] *= g;
+                    const double e = std::fabs(double(mixF[i]) - (double(dF[i]) + nF[i]));
                     if (e > maxRecErr) maxRecErr = e;
-                    maxAbsMix = std::fmax(maxAbsMix, std::fabs(double(h->data[REF_MIC][i])));
+                    maxAbsMix = std::fmax(maxAbsMix, std::fabs(double(mixF[i])));
                 }
-                fullD = faD.push(hopD); faN.push(hopN);
+                hd.encode(REF_MIC, dF); hn.encode(REF_MIC, nF);
+                fullD = faD.push(&hd); faN.push(&hn);
             }
             ++hopIdx;
-            const bool full = fa.push(*h);
-            arr.release(h);
+            const bool full = fa.push(h);                                // Besitz an den Frame_Assembler
             if (!full) continue;
             if (label && !fullD) { std::fprintf(stderr, "interner Fehler: Anteile nicht synchron\n"); return 3; }
             const AnalysisFrame& f = fa.frame();
@@ -199,6 +203,8 @@ int main(int argc, char** argv)
                 }
             }
             ++frames;
+            fa.releaseOldest();                                          // wie 120: älteren Hop an 114 zurück
+            if (label) { faD.releaseOldest(); faN.releaseOldest(); }
         }
     }
     if (arr.droppedFrames() != 0) { std::fprintf(stderr, "interner Fehler: %u Hops verworfen\n", arr.droppedFrames()); return 3; }

@@ -3,6 +3,7 @@
  */
 #include "Infrastructure/Utils/DspOptimize.hpp"   // zuerst: -O2 auf dem Board
 #include "Pre_Processor_118.hpp"
+#include "Infrastructure/Utils/DspScratch.hpp"
 #include <cstring>
 #include <cmath>
 
@@ -102,22 +103,13 @@ float Pre_Processor_118::agcGain(uint32_t ch, float r)
 // NS und AGC ergeben eine Gesamtverstärkung je Hop. Sie wird als lineare Rampe vom Wert
 // des vorigen Hops aus angewendet: Die Analyse-Frames (122) überdecken zwei Hops, ein
 // Verstärkungssprung an der Hop-Grenze läge mitten im Frame und verschmierte das Spektrum.
-// Zwischenpuffer eines Kanals im internen RAM (.bss), 6 KB: Bandpass, RMS und Rampe laufen
-// dort statt je einmal über den Hop im SDRAM
-static float s_work[HOP_SAMPLES];
-
+// Zwischenpuffer eines Kanals im gemeinsamen DSP-Arbeitsspeicher (DspScratch.hpp): Rohdaten
+// dekodieren, Bandpass, RMS und Rampe laufen dort, das Ergebnis geht als Blockgleitkomma zurück.
 void Pre_Processor_118::process(MicFrame& frame)
 {
-    float* out[NUM_MICS];
-    for (uint32_t ch = 0; ch < NUM_MICS; ++ch) out[ch] = frame.data[ch];
-    process(frame, out);
-}
-
-void Pre_Processor_118::process(const MicFrame& frame, float* const out[NUM_MICS])
-{
     for (uint32_t ch = 0; ch < NUM_MICS; ++ch) {
-        float* x = s_work;
-        std::memcpy(x, frame.data[ch], sizeof(float) * HOP_SAMPLES);
+        float* x = dspScratch();
+        frame.decode(ch, x);
         if (bandpassOn_) bandpass(ch, x, HOP_SAMPLES);
 
         const float r = rms(x, HOP_SAMPLES);
@@ -130,8 +122,9 @@ void Pre_Processor_118::process(const MicFrame& frame, float* const out[NUM_MICS
         }
         prevApplied_[ch] = g0;
         applied_[ch] = g1;
-        std::memcpy(out[ch], x, sizeof(float) * HOP_SAMPLES);
+        frame.encode(ch, x);
     }
+    frame.processed = true;
 }
 
 } // namespace sds110
