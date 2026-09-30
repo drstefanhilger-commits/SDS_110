@@ -7,15 +7,12 @@ namespace sds110 {
 static Frame_Assembler g_fa;
 inline const AnalysisFrame& nextAnalysisFrame(Signal_Simulator& sim, Microphone_Array_114& arr, Pre_Processor_118& pre)
 {
+    g_fa.releaseOldest();                          // wie 120 nach den Spektren des letzten Frames
     for (;;) {
         sim.generateHop(0);
         MicFrame* h = arr.acquireReadable();
-        float* dst[NUM_MICS];                      // wie am Board: 118 schreibt direkt in den Slot
-        g_fa.beginHop(*h, dst);
-        pre.process(*h, dst);
-        const bool full = g_fa.commitHop(*h);
-        arr.release(h);
-        if (full) return g_fa.frame();
+        pre.process(*h);                           // wie am Board: 118 in place (Blockgleitkomma)
+        if (g_fa.push(h)) return g_fa.frame();     // Besitz an den Frame_Assembler
     }
 }
 }

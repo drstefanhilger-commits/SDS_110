@@ -1,21 +1,17 @@
 /*
- * SDS_110_Wrapper.cpp – C-Einstiegspunkte für main.c.
+ * SDS_110_Wrapper.cpp – C-Einstiegspunkte für main.c (STM32F746G-Discovery, ohne LCD).
  */
 #include "SDS_110_Wrapper.hpp"
 #include "Infrastructure/Tasks/USBTask.hpp"
-#include "Infrastructure/Tasks/LCDTask.hpp"
 #include "Infrastructure/Tasks/LoggerTask.hpp"
 #include "Infrastructure/Tasks/ProcessingTask.hpp"
 #include "Infrastructure/Model/SDS_Data.hpp"
-#include "Infrastructure/Driver/SDRAMSelfTest.hpp"
 
+#include "main.h"                      // LCD_DISP / LCD_BL_CTRL (CubeMX)
 
-extern SAI_HandleTypeDef hsai_BlockA2;     // CubeMX, main.c
+// CubeMX, main.c (Discovery): ADAU7118 über SAI2 Block A und I2C1
+extern SAI_HandleTypeDef hsai_BlockA2;
 extern I2C_HandleTypeDef hi2c1;
-extern SDRAM_HandleTypeDef hsdram1;       // CubeMX, main.c (MX_FMC_Init)
-extern "C" uint32_t _ssdram_data[], _esdram_data[];   // Linker: Sektion .sdram_data
-
-static bool g_sdramOk = false;             // Voraussetzung für 112/120 (Puffer im SDRAM)
 
 extern "C" {
 
@@ -26,15 +22,14 @@ void SDS110_Init(void)
     const uint32_t uid = HAL_GetUIDw0() ^ HAL_GetUIDw1() ^ HAL_GetUIDw2();
     dm.setId(static_cast<uint16_t>((uid ^ (uid >> 16)) & 0xFFFF));
 
-    // SDRAM prüfen, BEVOR ein Objekt in .sdram_data konstruiert wird
-    // (Processing_Module_120::instance(), Microphone_Array_114::instance())
-    g_sdramOk = sds110::sdramSelfTest(hsdram1, _ssdram_data, _esdram_data);
-    if (!g_sdramOk) { dm.pushErrorMessage("SDRAM self-test failed"); return; }
+    // Kein LCDTask: Display und Hintergrundbeleuchtung aus (LTDC läuft weiter, zeigt nichts)
+    HAL_GPIO_WritePin(LCD_DISP_GPIO_Port, LCD_DISP_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(LCD_BL_CTRL_GPIO_Port, LCD_BL_CTRL_Pin, GPIO_PIN_RESET);
+
     sds110::Processing_Module_120::instance().init(&hsai_BlockA2, &hi2c1);
 }
 
-void SDS110_StartProcessingTask(void) { if (g_sdramOk) sds110::ProcessingTask::instance().start(); }
-void SDS110_StartDisplayTask(void)    { sds110::LCDTask::instance().start(); }
+void SDS110_StartProcessingTask(void) { sds110::ProcessingTask::instance().start(); }
 void SDS110_StartUSBTask(void)        { sds110::USBTask::instance().start(); }
 void SDS110_StartLoggerTask(void)     { sds110::LoggerTask::instance().start(); }
 

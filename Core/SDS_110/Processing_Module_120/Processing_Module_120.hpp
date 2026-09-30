@@ -43,9 +43,7 @@ private:
     Processing_Module_120() : unit_(0) {}
 
     Sensor_Unit_112                   unit_;
-    // 122 und 124 im internen RAM (statisch) statt in dieser Instanz im SDRAM: die FFT in 122
-    // arbeitet in-place auf 16-kB-Puffern und verfehlte im SDRAM fast immer den 4-kB-D-Cache
-    // (Board: 122 ~36 ms je Frame). 122/124 selbst bleiben unverändert (Merkmalsversion).
+    // 122 und 124 statisch (Aufbau wie im Discovery-Projekt; dort lag die Instanz im SDRAM)
     static Feature_Extraction_Module_122 featInst_;
     static Machine_Learning_Module_124   mlInst_;
     Feature_Extraction_Module_122&    feat_ = featInst_;
@@ -67,7 +65,7 @@ private:
     float tDiag118_ = 0, tDiagAsm_ = 0, tDiagRef_ = 0, tDiagSpec_ = 0; // Aufteilung von P und F (LCD)
     float tSel_ = 0, tGcc_ = 0, tSrp_ = 0;                          // 126 aufgeteilt
 
-    static Spectrum spectra_[NUM_MICS];   // SDRAM: 8 x 16 kB
+    static Spectrum spectra_[NUM_MICS];   // 8 x 2,8 kB (Bins < SPECTRUM_BINS)
 };
 
 } // namespace sds110

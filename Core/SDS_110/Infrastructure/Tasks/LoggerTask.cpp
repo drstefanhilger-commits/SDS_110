@@ -5,6 +5,8 @@
 #include "Infrastructure/Timer/HardwareTimer.hpp"
 #include "Infrastructure/Driver/USBDriver.hpp"
 #include "Infrastructure/Model/SDS_Data.hpp"
+#include "Infrastructure/Tasks/USBTask.hpp"   // usb_debug_counter
+#include "Infrastructure/Driver/StatusLed.hpp"  // LEDs je Zielboard
 #include "cmsis_os2.h"
 #include <cstring>
 
@@ -23,6 +25,7 @@ namespace sds110 {
 LoggerTask::LoggerTask()
     : TaskTimerBase("LoggerTask", 1024 /*Bytes*/, static_cast<UBaseType_t>(osPriorityLow))
 {
+    led::init();                                  // Discovery: LED1 (PI1); eigenes Board: MX_GPIO_Init
     const bool ok = loggerTimer.init(kRateHz);   // Timer-Takt aus RCC
     configASSERT(ok);
     attachTimer(&loggerTimer);
@@ -55,10 +58,33 @@ void LoggerTask::onTask()
         if (dm.tryGetPosition(p)) USBDriver::sendPosition(p, dm.getId());
     }
 
+    updateLeds();
+
     if (isOverrun()) {
         ++droppedTicks_;
         clearOverrun();
     }
+}
+
+void LoggerTask::updateLeds()
+{
+    // Herzschlag: 0,5 s an, 0,5 s aus
+    if (++ledTicks_ >= static_cast<uint32_t>(kRateHz / 2.0f)) {
+        ledTicks_ = 0;
+        led::toggleRun();
+    }
+    const uint32_t rx = usb_debug_counter;
+    if (rx != lastUsbRx_) {
+        lastUsbRx_ = rx;
+        led::toggleComm();
+    }
+    const SDS_Data& dm = SDS_Data::instance();
+    const bool err = dm.getMlInitError() || dm.getMlRunError();
+#if !SDS110_BOARD_DISCO
+    led::setError(err);                           // Discovery: nur eine LED (Herzschlag)
+#else
+    (void)err;
+#endif
 }
 
 } // namespace sds110

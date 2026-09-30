@@ -2,6 +2,10 @@
  * LoggerTask.hpp  (Infrastructure/Tasks)
  * Ersetzt LoggerTask: leert den Logger-Ringpuffer und sendet ihn als
  * Message id 99 über USB. Getaktet durch TIM7 über TaskTimerBase.
+ * STM32F746ZGT6-Board (kein LCD): bedient zusätzlich die Status-LEDs
+ *   LED_RUN   (PG2) Herzschlag 1 Hz, solange die Tasks laufen
+ *   LED_COMM  (PG3) wechselt bei USB-Empfang (usb_debug_counter) im 10-Hz-Takt
+ *   LED_ERROR (PG4) an bei ML-Fehler (Init/Lauf); fatale Fehler: SDS110_Fatal
  */
 #pragma once
 #include <cstdint>
@@ -37,6 +41,9 @@ private:
     int      pending_ = 0;       // Bytes in buf_, die noch nicht gesendet wurden
     uint32_t droppedTicks_ = 0;  // Takte mit Overrun (für Diagnose)
     uint32_t positionTicks_ = 0;
+    uint32_t ledTicks_ = 0;
+    uint32_t lastUsbRx_ = 0;
+    void updateLeds();
 };
 
 } // namespace sds110

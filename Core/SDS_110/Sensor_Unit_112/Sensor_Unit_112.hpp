@@ -19,32 +19,36 @@ public:
     bool init(SAI_HandleTypeDef* hsai, I2C_HandleTypeDef* hi2c)
     {
         pre_.init();
+#if SDS110_SAI_ENABLED
         return sampling_.init(hsai, hi2c);
+#else
+        (void)hsai; (void)hi2c;                        // SAI-Hardwarefehler: 116 bleibt aus, nur Simulator
+        return true;
+#endif
     }
     bool start() { return sampling_.start(); }
 
-    /// Nächsten Hop aus 114 holen, mit 118 in den nächsten Slot des Analysefensters verarbeiten.
+    /// Nächsten Hop aus 114 holen, mit 118 in place verarbeiten und ans Analysefenster anhängen.
     /// Rückgabe false: kein Hop bereit. Sonst true; frame zeigt auf einen vollständigen
     /// Analyse-Frame (64 ms, 50 % Überlappung) oder ist nullptr, solange das Fenster füllt.
+    /// Nach den Spektren des Frames releaseOldest() aufrufen (gibt den älteren Hop an 114 zurück).
     bool nextFrame(const AnalysisFrame*& frame)
     {
         frame = nullptr;
+        asm_.releaseOldest();                          // falls 120 es nicht schon getan hat
         MicFrame* h = array_.acquireReadable();
         if (!h) return false;
-        // 118 schreibt direkt in den nächsten Slot des Frame_Assemblers (keine Kopie, kein memmove)
         const uint32_t c0 = DWTTimer::instance().cycles();
-        float* dst[NUM_MICS];
-        asm_.beginHop(*h, dst);
+        pre_.process(*h);                              // 118 in place (Blockgleitkomma)
         const uint32_t c1 = DWTTimer::instance().cycles();
-        pre_.process(*h, dst);
-        const uint32_t c2 = DWTTimer::instance().cycles();
-        const bool full = asm_.commitHop(*h);
-        lastPreCycles_ = c2 - c1;                      // Diagnose Rechenlast: 118 und Fenster getrennt
-        lastAsmCycles_ = (c1 - c0) + (DWTTimer::instance().cycles() - c2);
-        array_.release(h);
+        const bool full = asm_.push(h);                // Besitz geht an den Frame_Assembler
+        lastPreCycles_ = c1 - c0;                      // Diagnose Rechenlast: 118 und Fenster getrennt
+        lastAsmCycles_ = DWTTimer::instance().cycles() - c1;
         if (full) frame = &asm_.frame();
         return true;
     }
+    /// Älteren Hop des aktuellen Frames freigeben (Spektren berechnet; frame danach ungültig)
+    void releaseOldest() { asm_.releaseOldest(); }
 
     /// READ-Modus: nächster Hop als Rohdaten, also ohne 118 (Bandpass, NS, AGC), ohne Überlappung
     /// (nullptr = keiner bereit). Befund 35: Aufnahmen für Training und Endabnahme (AP 8) brauchen
@@ -53,9 +57,8 @@ public:
     /// zurück nach DETECT mit dem alten Zustand weiter (einige Frames Einschwingen).
     MicFrame* nextHop()
     {
-        MicFrame* h = array_.acquireReadable();
-        if (h) asm_.reset();
-        return h;
+        asm_.reset();                                  // gehaltene Hops an 114 zurück
+        return array_.acquireReadable();
     }
     void releaseHop(MicFrame* h) { array_.release(h); }
 
@@ -72,7 +75,7 @@ private:
     Microphone_Array_114&   array_    = Microphone_Array_114::instance();
     Sampling_Circuitry_116& sampling_ = Sampling_Circuitry_116::instance();
     Pre_Processor_118       pre_;
-    Frame_Assembler         asm_;   // liegt mit 120 im SDRAM (~98 kB)
+    Frame_Assembler         asm_;   // hält nur Zeiger auf Hops im 114-Pool
     uint32_t lastPreCycles_ = 0, lastAsmCycles_ = 0;
 };
 

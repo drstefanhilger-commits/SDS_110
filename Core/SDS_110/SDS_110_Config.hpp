@@ -5,6 +5,7 @@
  */
 #pragma once
 #include <cstdint>
+#include "SDS_110_Board.h"   // SDS110_SAI_ENABLED
 
 namespace sds110 {
 
@@ -25,6 +26,14 @@ constexpr float    BAND_WIDTH_HZ    = 62.5f;  // Δf
 constexpr float    BAND_LO_HZ       = 80.0f;
 constexpr float    BAND_HI_HZ       = 4000.0f;
 constexpr uint32_t REF_MIC          = 0;      // Referenzkanal (Patent: Mikrofon [1])
+/// Gespeicherte Spektrum-Bins je Mikrofon (Spectrum, 122 -> 126). 126 korreliert nur Bins der
+/// Bänder (BAND_LO_HZ … BAND_LO_HZ + NUM_BANDS·BAND_WIDTH_HZ = 4080 Hz -> Bin < 349); darüber
+/// liegende Bins werden nie selektiert. STM32F746ZGT6 (kein SDRAM): 8 × 2,8 kB statt 8 × 16 kB,
+/// Ergebnisse der Korrelation unverändert. 122 berechnet |X| (124, Merkmale) weiter über alle Bins.
+constexpr uint32_t SPECTRUM_BINS    = 352;
+static_assert((BAND_LO_HZ + NUM_BANDS * BAND_WIDTH_HZ) / (static_cast<float>(SAMPLE_RATE_HZ) / N_FFT) + 0.5f
+              <= static_cast<float>(SPECTRUM_BINS), "SPECTRUM_BINS muss alle Band-Bins enthalten");
+static_assert(SPECTRUM_BINS < NUM_BINS - 1, "Nyquist-Bin wird nicht gespeichert");
 constexpr uint32_t FRAME_SAMPLES    = SAMPLE_RATE_HZ * FRAME_MS / 1000;   // 3072
 constexpr uint32_t HOP_SAMPLES      = FRAME_SAMPLES * (100 - FRAME_OVERLAP_PC) / 100; // 1536
 static_assert(FRAME_SAMPLES % HOP_SAMPLES == 0, "Frame muss ein Vielfaches des Hops sein");
@@ -38,23 +47,24 @@ constexpr uint32_t framesFor(float seconds) { return static_cast<uint32_t>(secon
 constexpr float    MIC_RADIUS_M     = 0.10f;  // Oktagon-Radius 100 mm, Durchmesser 200 mm (FSL9 §1)
 constexpr uint32_t DMA_BLOCK_SAMPLES = 128;   // Samples pro Mic je DMA-Halbpuffer
 static_assert(HOP_SAMPLES % DMA_BLOCK_SAMPLES == 0, "114: DMA-Block darf nicht über eine Hop-Grenze reichen");
-constexpr uint32_t NUM_MIC_FRAMES   = 3;      // Triple-Buffering
+/// Hop-Pool (114, Blockgleitkomma, je ~25 kB): 1 DMA-Schreibpuffer + bis zu 2 im Analysefenster.
+/// Der ältere Hop wird frei, sobald 122 die Spektren eines Frames berechnet hat (120) – das muss
+/// innerhalb eines Hops (32 ms) nach dessen Ende geschehen, sonst verwirft 114 Blöcke (gezählt).
+constexpr uint32_t NUM_MIC_FRAMES   = 3;
 /// Rohformat im DMA-Puffer: ADAU7118 sendet 24-bit PCM MSB-first im 32-bit-TDM-Slot, der SAI
 /// liest den ganzen Slot (DataSize 32) -> int32 = pcm24 << 8 (linksbündig, Bits 7..0 = 0).
 /// Normierung auf [-1, 1): raw / 2^31  (entspricht (raw >> 8) / 2^23).
 constexpr float    PCM_RAW_FULL_SCALE = 2147483648.0f;
-constexpr uint8_t  ADAU7118_I2C_ADDR_7B = 0x4B; // alt: 0x3A in adau7118.c – prüfen!
+constexpr uint8_t  ADAU7118_I2C_ADDR_7B = 0x4B; // alt: 0x3A in adau7118.c – prüfen! (ZGT6-Board: I2C2, ADDR/CONFIG an 3V3)
 constexpr uint32_t ADAU7118_I2C_TIMEOUT_MS = 100;
 /// SAI-Kerneltakt aus PLLI2S (1 MHz Eingang, PLLM = 25 fest wegen 216 MHz SYSCLK):
 /// 344 MHz / 7 / 1 = 49,142857 MHz -> HAL: MCKDIV 2 -> Fs = 49,142857 MHz / 1024 = 47 991 Hz (-186 ppm).
 /// Optimum aller zulässigen Einstellungen; exakt 48 kHz ist mit 1 MHz PLL-Eingang nicht möglich.
-/// PLLSAI (bisher 192 MHz -> 53,57 kHz) scheidet aus, solange sie USB exakt 48 MHz liefern muss.
+/// PLLSAI (CubeMX: 192 MHz -> 46,875 kHz) wird für SAI1 nicht verwendet; 116 schaltet SAI1 auf PLLI2S.
 constexpr uint32_t SAI_PLLI2S_N      = 344;
 constexpr uint32_t SAI_PLLI2S_Q      = 7;
 constexpr uint32_t SAI_PLLI2S_DIVQ   = 1;
 constexpr float    SAI_FS_TOLERANCE  = 1e-3f;   // max. relative Abweichung der Ist-Abtastrate
-/// Große Puffer im externen SDRAM ablegen (SDRAMDriver muss vorher initialisiert sein)
-#define SDS110_SDRAM_SECTION __attribute__((section(".sdram_data")))
 /// DMA-Puffer in SRAM2, per MPU nicht cachebar (Linker: .dma_nocache in RAM_NC, 16 kB)
 #define SDS110_DMA_SECTION   __attribute__((section(".dma_nocache")))
 

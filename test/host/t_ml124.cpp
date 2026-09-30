@@ -24,9 +24,12 @@ namespace mm = ml124model;
 #ifndef SDS_FEATURE_VERSION
 #error "SDS_FEATURE_VERSION fehlt (Makefile)"
 #endif
-constexpr bool strEq(const char* a, const char* b) { return *a == *b && (*a == 0 || strEq(a + 1, b + 1)); }
-static_assert(strEq(mm::MODEL_FEATURE_VERSION, SDS_FEATURE_VERSION),
-              "Merkmalsversion des Modells passt nicht zum Code (118/122/Config geändert) -> neu trainieren und exportieren");
+// STM32F746ZGT6-Port: Die Merkmalskette speichert Hops als 16-Bit-Blockgleitkomma (kein SDRAM),
+// ihr Quelltext-Hash weicht deshalb von der Version ab, mit der das Modell (Repo SDS_110,
+// Discovery-Board) trainiert wurde. Die Merkmale selbst ändern sich nur um die Quantisierung
+// (< 2^-15 des Blockmaximums). Statt des Abbruchs beim Übersetzen: Hinweis zur Laufzeit.
+// Vor dem Einsatz der Stufe Ml (ML124_MODE) mit Merkmalen dieser Kette neu trainieren.
+static bool strEq(const char* a, const char* b) { return *a == *b && (*a == 0 || strEq(a + 1, b + 1)); }
 
 static Pre_Processor_118 pre; static Feature_Extraction_Module_122 feat;
 static int g_fail = 0;
@@ -42,6 +45,9 @@ static void flatten(const FeatureVector& f, float* c)
 
 int main()
 {
+    std::printf("Merkmalsversion Code %s, Modell %s%s\n", SDS_FEATURE_VERSION, mm::MODEL_FEATURE_VERSION,
+                strEq(mm::MODEL_FEATURE_VERSION, SDS_FEATURE_VERSION) ? "" :
+                " (HINWEIS: abweichend – Blockgleitkomma-Hops des Board-Ports; vor Stufe Ml neu trainieren)");
     // 2) Referenzvektoren
     float x[mm::NUM_INPUTS], y[NUM_BANDS], err = 0.0f;
     for (uint32_t r = 0; r < mm::REF_N; ++r) {

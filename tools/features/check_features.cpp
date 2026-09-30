@@ -86,11 +86,12 @@ int main(int argc, char** argv)
     std::vector<int32_t> ref; std::vector<float> expect; FeatureVector fv{};
     const int hops = 200;                                            // 6,4 s
     for (int k = 0; k < hops; ++k) {
+        fa.releaseOldest();                                          // wie 120 nach den Spektren
         sim.generateHop(static_cast<uint64_t>(k) * HOP_SAMPLES * 1000000ULL / SAMPLE_RATE_HZ);
         MicFrame* h = arr.acquireReadable();
         for (uint32_t i = 0; i < HOP_SAMPLES; ++i)                   // Rohwert des Referenzkanals (exakt 24 Bit)
-            ref.push_back(static_cast<int32_t>(std::lround(h->data[REF_MIC][i] * 8388608.0)));
-        pre.process(*h); const bool full = fa.push(*h); arr.release(h);
+            ref.push_back(static_cast<int32_t>(std::lround(h->sample(REF_MIC, i) * 8388608.0)));
+        pre.process(*h); const bool full = fa.push(h);                // Besitz an den Frame_Assembler
         if (!full) continue;
         feat.process(fa.frame(), sp, fv);
         expect.push_back(static_cast<float>(static_cast<double>(fa.frame().time_utc_us) * 1e-6));

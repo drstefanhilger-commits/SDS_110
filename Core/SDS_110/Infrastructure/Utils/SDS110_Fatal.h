@@ -1,12 +1,12 @@
 /*
  * SDS110_Fatal.h  (Infrastructure/Utils) – C-Schnittstelle
  *
- * Fatale Fehler anzeigen und anhalten: roter Balken mit Ursache auf dem LCD, danach
- * Breakpoint (Debugger angeschlossen) bzw. Endlosschleife mit gesperrten Interrupts.
+ * Fatale Fehler anzeigen und anhalten: LED_ERROR an, Ursache als Text über ITM/SWO
+ * (das STM32F746ZGT6-Board hat kein LCD), danach Breakpoint (Debugger angeschlossen)
+ * bzw. Endlosschleife mit gesperrten Interrupts.
  * Aufrufer: configASSERT (FreeRTOSConfig.h), vApplicationStackOverflowHook,
  * vApplicationMallocFailedHook (freertos.c), HardFault_Handler (stm32f7xx_it.c).
- * Ohne initialisiertes LCD (vor SDS110_Init) und bei einem Fehler während der Anzeige
- * wird nur angehalten.
+ * Bei einem Fehler während der Meldung wird nur angehalten.
  */
 #ifndef SDS110_FATAL_H
 #define SDS110_FATAL_H

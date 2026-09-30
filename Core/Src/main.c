@@ -266,7 +266,6 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  SDS110_StartDisplayTask();
   SDS110_StartProcessingTask();   // Simulation (Standard); Hardware-Pfad: Blocker 2–4 offen
   SDS110_StartUSBTask();
   SDS110_StartLoggerTask();

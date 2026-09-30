@@ -27,7 +27,7 @@ void Output_Interface_130::buildReport(const CandidateLocation& loc, const Acous
     r.num_selected     = 0;
     for (uint32_t b = 0; b < NUM_BANDS; ++b) {
         uint32_t k0, k1; Feature_Extraction_Module_122::bandBins(b, k0, k1);
-        if (k0 < NUM_BINS && sel.selected[k0]) {
+        if (k0 < SPECTRUM_BINS && sel.selected[k0]) {
             r.band_index[r.num_selected] = static_cast<uint8_t>(b);
             r.band_prob [r.num_selected] = s.p[b];
             ++r.num_selected;

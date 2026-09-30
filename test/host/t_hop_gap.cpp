@@ -34,8 +34,8 @@ static std::vector<uint32_t> drain(Microphone_Array_114& arr, Frame_Assembler& f
     std::vector<uint32_t> ids;
     while (MicFrame* h = arr.acquireReadable()) {
         ids.push_back(h->frame_id);
-        frames += fa.push(*h);
-        arr.release(h);
+        frames += fa.push(h);                  // Besitz an den Frame_Assembler
+        fa.releaseOldest();                    // wie 120 nach den Spektren
     }
     return ids;
 }
@@ -52,12 +52,12 @@ int main()
     for (size_t i = 1; i < ids.size(); ++i) seq = seq && ids[i] == ids[i - 1] + 1;
     check(seq && frames == 3 && arr.droppedFrames() == 0, "ohne Verwerfen: frame_id fortlaufend, Frames ab dem 2. Hop");
 
-    // 1) Leser hängt: 3 Puffer voll, der 4. Hop wird verworfen, danach wieder abgeholt
+    // 1) Leser hängt: freie Puffer voll (einer hält der Frame_Assembler), weitere Hops werden verworfen
     const uint32_t lastBefore = ids.back();
-    for (int k = 0; k < 4; ++k) pushHop(arr);                 // 3 Hops fertig, 4. verworfen
+    for (int k = 0; k < 4; ++k) pushHop(arr);                 // NUM_MIC_FRAMES − 1 Hops fertig, Rest verworfen
     const uint32_t dropped = arr.droppedFrames();
     frames = 0;
-    auto held = drain(arr, fa, frames);                        // die 3 fertigen Hops
+    auto held = drain(arr, fa, frames);                        // die fertigen Hops
     pushHop(arr); pushHop(arr); pushHop(arr);                  // nach der Lücke (1. Block noch verworfen)
     auto after = drain(arr, fa, frames);
     std::printf("vorher bis %u, gehalten", lastBefore);
@@ -65,18 +65,19 @@ int main()
     std::printf(", nach der Lücke");
     for (auto i : after) std::printf(" %u", i);
     std::printf(" (verworfene Blöcke %u)\n", dropped);
-    const bool heldSeq = held.size() == 3 && held[0] == lastBefore + 1 && held[2] == held[0] + 2;
+    const size_t nHeld = NUM_MIC_FRAMES - 1;                  // ein Puffer liegt im Analysefenster
+    const bool heldSeq = held.size() == nHeld && held[0] == lastBefore + 1 && held[nHeld - 1] == held[0] + nHeld - 1;
     check(dropped > 0 && heldSeq, "volle Puffer: Blöcke verworfen, gehaltene Hops fortlaufend");
     check(after.size() >= 2 && after[0] > held.back() + 1 && after[1] == after[0] + 1,
           "nach verworfenen Blöcken: frame_id übersprungen (Lücke erkennbar), danach fortlaufend");
 
     // 2) Frame_Assembler: nach der Lücke kein Frame aus [letzter gehaltener | erster neuer]
-    // held: 3 Frames (Fenster lief durch), after: erster Hop füllt neu, zweiter liefert den Frame
-    check(frames == 3 + static_cast<int>(after.size()) - 1, "Frame_Assembler beginnt nach der Lücke neu (kein Frame über die Lücke)");
+    // held: je Hop ein Frame (Fenster lief durch), after: erster Hop füllt neu, zweiter liefert den Frame
+    check(frames == static_cast<int>(nHeld) + static_cast<int>(after.size()) - 1, "Frame_Assembler beginnt nach der Lücke neu (kein Frame über die Lücke)");
 
     // 4) Befund 42
-    const size_t stride = sizeof(MicFrame::data[0]);
+    const size_t stride = sizeof(MicFrame::q[0]);
     std::printf("MicFrame-Kanalabstand %zu Byte (mod 1024 = %zu)\n", stride, stride % 1024);
-    check(stride % 1024 != 0 && stride >= sizeof(float) * HOP_SAMPLES, "Kanalabstand kein Vielfaches von 1 KB");
+    check(stride % 1024 != 0 && stride >= sizeof(int16_t) * HOP_SAMPLES, "Kanalabstand kein Vielfaches von 1 KB");
     return g_fail;
 }
